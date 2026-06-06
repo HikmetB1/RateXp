@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 // In the built image the dashboard is served from the same origin as the API,
 // so VITE_API_BASE is "" and requests are relative. For local dev it defaults to
@@ -385,19 +387,34 @@ function Conversation({ transcript }) {
         {steps.map((s, i) => (
           <div key={i} style={{ marginBottom: 8 }}>
             <span style={sourceStyle(s.source)}>{s.source}</span>
-            {s.message && <div style={{ whiteSpace: 'pre-wrap' }}>{s.message}</div>}
+            {s.message && <Md className="md">{s.message}</Md>}
             {Array.isArray(s.tool_calls) && s.tool_calls.length > 0 && (
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
                 🔧 {s.tool_calls.map((t) => t.name).join(', ')}
               </div>
             )}
             {s.observation && (
-              <div style={{ color: 'var(--faint)', fontSize: 12, whiteSpace: 'pre-wrap' }}>↳ {s.observation}</div>
+              <div style={{ color: 'var(--faint)', fontSize: 12 }}>
+                ↳ <Md className="md md-muted">{s.observation}</Md>
+              </div>
             )}
           </div>
         ))}
       </div>
     </details>
+  )
+}
+
+// Render an ATIF step's text (agent/user messages, tool observations) as
+// Markdown — agents write Markdown (headings, lists, code blocks, tables), so
+// rendering it formatted is what makes the transcript readable. GFM adds tables,
+// task lists and strikethrough. Styling lives under the .md class in index.css.
+// (react-markdown v9 has no className prop, so we wrap it in a div.)
+function Md({ className, children }) {
+  return (
+    <div className={className}>
+      <Markdown remarkPlugins={[remarkGfm]}>{String(children ?? '')}</Markdown>
+    </div>
   )
 }
 

@@ -39,8 +39,9 @@ The survey asks a second question: *may we store this whole conversation to help
 improve the skill?* Only if the user picks **Yes** does a small helper script
 upload the local session transcript. It's converted to **ATIF** (Agent
 Trajectory Interchange Format — a standard JSON shape for an agent conversation)
-and shown inline next to its rating on the dashboard. Saying No records just the
-rating, exactly as before.
+and shown inline next to its rating on the dashboard, with each message rendered
+as formatted Markdown (headings, lists, code blocks, tables) so it's easy to
+read. Saying No records just the rating, exactly as before.
 
 > Transcript capture currently supports Claude Code; on other runtimes the upload
 > step is skipped and the rating still works.
