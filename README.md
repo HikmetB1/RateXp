@@ -47,22 +47,9 @@ rating, exactly as before.
 
 ## Try it locally
 
-```bash
-cp .env.example .env          # optional — defaults work out of the box
-docker compose up --build -d
-```
-
-| Service | URL                     | What it is                          |
-|---------|-------------------------|-------------------------------------|
-| core    | <http://localhost:8000> | snippet + feedback ingestion        |
-| app     | <http://localhost:8001> | the dashboard                       |
-
-```bash
-curl -sS "http://localhost:8000/snippet"   # what a skill fetches
-docker compose down -v                      # stop and wipe data
-```
-
-API docs (OpenAPI/Swagger) are at `<core-url>/docs`.
+Spin up the whole stack (PostgreSQL + core + dashboard) with Docker Compose in
+one command — see [Run it locally](./CONTRIBUTING.md#run-it-locally) in the
+contributing guide.
 
 ## Deploy to Azure
 

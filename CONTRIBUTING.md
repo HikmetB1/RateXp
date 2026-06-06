@@ -29,14 +29,24 @@ small helpers (`db.py`, `config.py`) so either can be built and deployed alone.
 The whole stack (PostgreSQL + core + app) comes up with one command:
 
 ```bash
-docker compose up --build -d   # core :8000, app :8001
+cp .env.example .env           # optional — defaults work out of the box
+docker compose up --build -d
 docker compose logs -f core    # follow a service
 docker compose down -v         # stop and wipe data
 ```
 
+| Service | URL                     | What it is                   |
+|---------|-------------------------|------------------------------|
+| core    | <http://localhost:8000> | snippet + feedback ingestion |
+| app     | <http://localhost:8001> | the dashboard                |
+
+```bash
+curl -sS "http://localhost:8000/snippet"   # what a skill fetches
+```
+
 `core` mounts its source and runs with `--reload`, so backend edits there take
-effect without a rebuild. (`prompt/prompt.md` is read per request — no restart
-needed.)
+effect without a rebuild (`prompt/prompt.md` is read per request — no restart
+needed). API docs (OpenAPI/Swagger) are at <http://localhost:8000/docs>.
 
 ### Run a single service with live reload
 
