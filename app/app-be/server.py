@@ -213,9 +213,14 @@ def list_feedback(
 @app.get("/transcript")
 def list_transcript(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
+    full: bool = False,
 ) -> list[Transcript]:
+    # Default returns the small dashboard view (list_view_limit). full=true — used
+    # by the dashboard's "Download CSV" — returns every transcript up to the hard
+    # ceiling so the export can attach each row's conversation.
+    effective = LIST_MAX_LIMIT if full else limit
     try:
-        rows = _select_transcript(limit)
+        rows = _select_transcript(effective)
     except Exception as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
     return [_row_to_transcript(r) for r in rows]

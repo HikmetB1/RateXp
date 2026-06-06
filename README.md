@@ -42,7 +42,9 @@ Trajectory Interchange Format — a standard JSON shape for an agent conversatio
 On the dashboard each rating links to its conversation, which opens in a
 slide‑over drawer as a step‑by‑step timeline, with every message rendered as
 formatted Markdown (headings, lists, code blocks, tables) so it's easy to read.
-Saying No records just the rating, exactly as before.
+Saying No records just the rating, exactly as before. The dashboard's **Download
+CSV** also carries each row's conversation alongside its rating, so an export
+holds everything the table shows (whole result set, filtered or not).
 
 > Transcript capture currently supports Claude Code; on other runtimes the upload
 > step is skipped and the rating still works.

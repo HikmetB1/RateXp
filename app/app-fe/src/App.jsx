@@ -38,11 +38,7 @@ export default function App() {
   // (prefer request_id 1:1, fall back to session_id). A live push refreshes the
   // visible rows only when no filter is active, so it never clobbers a filter.
   const applyData = useCallback((feedback, transcripts, topSkills) => {
-    const index = {}
-    for (const t of transcripts) {
-      if (t.request_id) index[`r:${t.request_id}`] = t
-      if (t.session_id) index[`s:${t.session_id}`] = t
-    }
+    const index = indexTranscripts(transcripts)
     setAllRows(feedback)
     setByKey(index)
     setStats(topSkills ?? [])
@@ -177,6 +173,17 @@ function okJson(r) {
   return r.json()
 }
 
+// Index transcripts by request_id (1:1) and session_id (fallback) so a feedback
+// row can find its conversation. Used both for the live table and CSV export.
+function indexTranscripts(transcripts) {
+  const index = {}
+  for (const t of transcripts) {
+    if (t.request_id) index[`r:${t.request_id}`] = t
+    if (t.session_id) index[`s:${t.session_id}`] = t
+  }
+  return index
+}
+
 // Small dot showing whether the live WebSocket is connected. Green + glowing
 // when updates are streaming in; grey when offline (the table still works from
 // the initial load and reconnects on its own).
@@ -305,6 +312,8 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   // The table only shows the backend's capped "view"; Download CSV asks the
   // backend for the FULL set (full=true) so the user can "see all". For a filter
   // it re-runs the same SELECT unbounded; otherwise it exports all feedback.
+  // Either way it also pulls the full transcript set and attaches each row's
+  // conversation, so the CSV mirrors every column the table shows.
   const download = async () => {
     setErr(null)
     try {
@@ -321,7 +330,14 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
       } else {
         exportRows = await fetch(`${apiBase}/feedback?full=true`).then(okJson)
       }
-      const csv = mainRowsToCsv(exportRows)
+      // Match each exported row to its stored conversation (request_id, then
+      // session_id) and flatten it into a single "conversation" cell.
+      const index = indexTranscripts(await fetch(`${apiBase}/transcript?full=true`).then(okJson))
+      const exportWithConversation = exportRows.map((r) => ({
+        ...r,
+        conversation: transcriptToText(index[`r:${r.request_id}`] || index[`s:${r.session_id}`]),
+      }))
+      const csv = mainRowsToCsv(exportWithConversation)
       const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
       const a = document.createElement('a')
       a.href = url
@@ -367,8 +383,33 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   )
 }
 
-// Columns exported to CSV — the feedback table's data fields, in display order.
-const CSV_COLUMNS = ['created_at', 'skill_name', 'agent', 'score', 'comment', 'session_id', 'request_id']
+// Columns exported to CSV — the feedback table's data fields, in display order,
+// with the row's flattened conversation alongside it (see transcriptToText).
+const CSV_COLUMNS = ['created_at', 'skill_name', 'agent', 'score', 'comment', 'conversation', 'session_id', 'request_id']
+
+// Flatten a transcript's ATIF steps into one readable block for the CSV's
+// "conversation" cell — mirrors the drawer timeline (role, reasoning, message,
+// tool calls with arguments, observation), one step per blank-line-separated
+// chunk. Newlines live inside the quoted cell, which is valid CSV.
+function transcriptToText(transcript) {
+  const steps = transcript?.atif?.steps ?? []
+  if (steps.length === 0) return ''
+  return steps
+    .map((s) => {
+      const lines = [`[${s.source}]`]
+      if (s.reasoning_content) lines.push(`reasoning: ${s.reasoning_content}`)
+      if (s.message) lines.push(s.message)
+      if (Array.isArray(s.tool_calls)) {
+        for (const t of s.tool_calls) {
+          const args = t.arguments && Object.keys(t.arguments).length > 0 ? ` ${JSON.stringify(t.arguments)}` : ''
+          lines.push(`⌗ ${t.name}${args}`)
+        }
+      }
+      if (s.observation) lines.push(`↳ ${s.observation}`)
+      return lines.join('\n')
+    })
+    .join('\n\n')
+}
 
 // Build RFC-4180-ish CSV from the table's rows: quote every field, escape quotes.
 function mainRowsToCsv(rows) {
