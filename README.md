@@ -45,11 +45,10 @@ rating, exactly as before.
 > Transcript capture currently supports Claude Code; on other runtimes the upload
 > step is skipped and the rating still works.
 
-## Try it locally
+## Contributing & running locally
 
-Spin up the whole stack (PostgreSQL + core + dashboard) with Docker Compose in
-one command — see [Run it locally](./CONTRIBUTING.md#run-it-locally) in the
-contributing guide.
+For anything about contributing or running the whole stack (PostgreSQL + core +
+dashboard) locally, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Deploy to Azure
 
@@ -65,8 +64,6 @@ app/       Dashboard: read-only API (app-be) + React UI (app-fe), one web app
 infra/     Terraform: two web apps + PostgreSQL (Entra ID auth)
 examples/  Example SKILL.md files
 ```
-
-Building, configuring, and contributing: [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
