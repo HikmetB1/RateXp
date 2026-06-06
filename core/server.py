@@ -53,6 +53,13 @@ def get_store() -> FeedbackStore:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Open the store eagerly so the schema (migrations) exists before the
+    # dashboard reads it. If the database isn't ready yet, fall back to opening
+    # lazily on the first write rather than crash-looping at boot.
+    try:
+        get_store()
+    except Exception:  # noqa: BLE001 - tolerate a not-yet-ready database at boot
+        pass
     yield
     if _store is not None:
         _store.close()
