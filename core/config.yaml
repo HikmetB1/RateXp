@@ -1,0 +1,15 @@
+# core runtime config. Edit values here without touching code. Every key is
+# required — a missing key fails loudly at startup, so this file is the single
+# source of truth for these tunables.
+
+# ATIF (Agent Trajectory Interchange Format) schema version stamped on every
+# stored transcript. Bump when the shape produced by atif.py changes.
+schema_version: ATIF-v1.7
+
+# Largest request body core will accept, in bytes. Guards the public endpoints
+# (especially /transcript) against oversized uploads. 5 MiB by default.
+max_body_bytes: 5242880
+
+# Per-client request budget per minute (token bucket, keyed by caller IP).
+# Throttles abusive callers on the public surface. 0 disables the limiter.
+rate_limit_per_minute: 120
