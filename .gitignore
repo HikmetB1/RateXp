@@ -23,3 +23,6 @@ dist/
 
 # OS / editor
 .DS_Store
+
+# Local-only RateXp testing skill (points at a core on your own machine)
+examples/goodbye-local/
