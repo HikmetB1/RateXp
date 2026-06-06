@@ -103,6 +103,15 @@ def test_get_transcript_returns_rows(app_with_fake_pool):
     assert rows[0]["atif"] == {"schema_version": "ATIF-v1.7", "steps": []}
 
 
+def test_get_transcript_full_returns_max(app_with_fake_pool):
+    from config import LIST_MAX_LIMIT
+
+    client, pool = app_with_fake_pool
+    pool.set_select_rows([])
+    client.get("/transcript?full=true")
+    assert pool.store["params"] == (LIST_MAX_LIMIT,)
+
+
 def test_get_transcript_limit_too_high(app_with_fake_pool):
     client, _ = app_with_fake_pool
     assert client.get("/transcript?limit=1001").status_code == 422
