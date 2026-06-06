@@ -1,0 +1,28 @@
+# app-be (dashboard) runtime config. Edit values here without touching code.
+# Every key is required — a missing key fails loudly at startup.
+
+# ATIF schema version expected on stored transcripts (matches core's value).
+schema_version: ATIF-v1.7
+
+# Dashboard "view" size: how many rows GET /feedback and GET /transcript return
+# by default, and the default cap for a POST /query result — i.e. what the table
+# shows at once. The full set stays reachable with full=true (used by Download
+# CSV). list_max_limit is the hard ceiling on any single response.
+list_view_limit: 10
+list_max_limit: 1000
+
+# GET /stats/top-skills: how many top-rated skills the dashboard panel shows when
+# the caller omits ?limit. The endpoint's max is list_max_limit.
+top_skills_limit: 10
+
+# POST /query: the dashboard's SELECT-only SQL box. Guardrails live in code
+# (SELECT-only, single statement, read-only transaction); these tune the limits.
+query_enabled: true       # set false to turn the /query endpoint off entirely
+query_timeout_ms: 5000    # per-query statement timeout (milliseconds)
+query_max_rows: 1000      # hard cap on rows returned (also caps the CSV export)
+
+# WebSocket /ws live updates: the dashboard connects and receives a fresh
+# snapshot whenever the data changes. One shared broadcaster checks on this
+# interval and pushes to all connected dashboards at once.
+ws_enabled: true                # set false to turn the /ws endpoint off entirely
+ws_broadcast_interval_ms: 2000  # how often to check for changes and push (ms)

@@ -1,0 +1,161 @@
+/* RateXp dashboard theme — modern dark "glassmorphism".
+   Colors live here as CSS variables so App.jsx can reference them inline
+   (var(--token)) and there's a single source of truth for the palette. */
+
+/* Dark is the default theme (no data-theme attribute, or data-theme="dark"). */
+:root {
+  /* Base + text */
+  --bg: #070b14;
+  --text: #e7eef7;
+  --muted: #93a1b5;
+  --faint: #5d6b80;
+
+  /* Accents (aqua/teal + soft blue) */
+  --accent: #4fe3c1;
+  --accent-2: #6aa6ff;
+  --good: #46e0a8;
+  --bad: #ff7a93;
+  --danger: #ff7a93;
+
+  /* Glass surfaces */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-strong: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --row-border: rgba(255, 255, 255, 0.06);
+  --blur: blur(16px) saturate(140%);
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+
+  /* Background glows (overridden per theme). */
+  --glow:
+    radial-gradient(60rem 60rem at 12% -10%, rgba(79, 227, 193, 0.14), transparent 60%),
+    radial-gradient(50rem 50rem at 100% 0%, rgba(106, 166, 255, 0.12), transparent 55%),
+    radial-gradient(70rem 70rem at 50% 120%, rgba(106, 166, 255, 0.08), transparent 60%);
+}
+
+/* Light theme — same glassy layout, bright surfaces. */
+:root[data-theme='light'] {
+  --bg: #eef2f8;
+  --text: #182233;
+  --muted: #5a6678;
+  --faint: #94a1b4;
+
+  --accent: #0ea88c;
+  --accent-2: #2f6df0;
+  --good: #109a6b;
+  --bad: #e23a5e;
+  --danger: #e23a5e;
+
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(20, 40, 70, 0.12);
+  --row-border: rgba(20, 40, 70, 0.08);
+  --shadow: 0 12px 40px rgba(30, 55, 100, 0.12);
+
+  --glow:
+    radial-gradient(60rem 60rem at 12% -10%, rgba(14, 168, 140, 0.12), transparent 60%),
+    radial-gradient(50rem 50rem at 100% 0%, rgba(47, 109, 240, 0.10), transparent 55%),
+    radial-gradient(70rem 70rem at 50% 120%, rgba(47, 109, 240, 0.07), transparent 60%);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  /* Layered radial glows give the background depth/atmosphere
+     instead of a flat fill — the "modern" part of the look. */
+  background-image: var(--glow);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Manrope', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Smooth the swap when toggling themes. */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  /* One orchestrated reveal on load. */
+  animation: rise 0.5s ease both;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+h1 {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  /* Aqua → blue gradient text for the title. */
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+h2 { font-family: 'Sora', system-ui, sans-serif; }
+
+code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.9em;
+  color: var(--accent);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+/* Inputs */
+textarea {
+  background: var(--glass-bg-strong);
+  color: var(--text);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+textarea::placeholder { color: var(--faint); }
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 227, 193, 0.15);
+}
+
+/* Buttons — glass pills with an accent hover */
+button {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--glass-bg-strong);
+  border: 1px solid var(--glass-border);
+  border-radius: 9px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Table rows light up on hover */
+tbody tr { transition: background 0.12s ease; }
+tbody tr:hover { background: var(--glass-bg); }
+
+summary { transition: opacity 0.15s ease; }
+summary:hover { opacity: 0.8; }
+
+/* Custom scrollbar to match the dark glass theme */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
