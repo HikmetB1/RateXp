@@ -1,0 +1,63 @@
+# Local RateXp stack. Mirrors the cloud topology (core + app + PostgreSQL) on
+# your machine, using password auth instead of Entra ID.
+#
+#   docker compose up --build -d
+#   open http://localhost:8001          # dashboard
+#   curl http://localhost:8000/snippet  # what a skill fetches
+#
+# Values default to a working local setup; override via a .env file (see
+# .env.example), which compose reads automatically.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ratexp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ratexp}
+      POSTGRES_DB: ${POSTGRES_DB:-ratexp}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ratexp} -d ${POSTGRES_DB:-ratexp}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  core:
+    build: ./core
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
+      RATEXP_DB_AUTH: password
+      # Baked into /snippet so skills POST feedback back to core on the host.
+      RATEXP_SUBMIT_URL: ${RATEXP_SUBMIT_URL:-http://localhost:${CORE_HOST_PORT:-8000}/feedback}
+    # Live-reload the API on source edits; prompt.md is read per request.
+    command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./core:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${CORE_HOST_PORT:-8000}:8000"
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
+      RATEXP_DB_AUTH: password
+      RATEXP_ENV: local
+    depends_on:
+      db:
+        condition: service_healthy
+      core:
+        condition: service_started
+    ports:
+      - "${APP_HOST_PORT:-8001}:8000"
+
+volumes:
+  pgdata:

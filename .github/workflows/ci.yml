@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - run: uvx ruff check core/ app/app-be/
+      - run: uvx ruff format --check core/ app/app-be/
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Test core
+        working-directory: core
+        run: |
+          uv sync --frozen --extra test
+          uv run pytest -q
+      - name: Test app-be
+        working-directory: app/app-be
+        run: |
+          uv sync --frozen --extra test
+          uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - working-directory: app/app-fe
+        run: |
+          npm ci
+          npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ratexp-core ./core
+      - run: docker build -t ratexp-app -f app/Dockerfile ./app
