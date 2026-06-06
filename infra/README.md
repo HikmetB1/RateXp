@@ -47,19 +47,29 @@ docker push "$(terraform output -raw app_image)"
 
 ## 4. Grant each identity its database role
 
-Open `grant-db-access.sql`, replace the four placeholders with the matching
-`terraform output` values, then run it as the Entra admin (you):
+`grant-db-access.sql` has two parts: **Part A** creates the roles (run against the
+`postgres` database, where the `pgaadauth_*` functions live — roles are
+cluster-wide) and **Part B** grants privileges (run against the `ratexp`
+database). Replace the four placeholders with the matching `terraform output`
+values, split the file at the two markers, and run each part as the Entra admin
+(you) — authenticating with an Entra token as the password:
 
 ```bash
-PGPASSWORD="$(az account get-access-token \
-  --resource https://ossrdbms-aad.database.windows.net \
-  --query accessToken -o tsv)" \
-psql "host=$(terraform output -raw postgres_fqdn) port=5432 dbname=ratexp \
-  user=<your-entra-admin-name> sslmode=require" -f grant-db-access.sql
+TOKEN="$(az account get-access-token \
+  --resource https://ossrdbms-aad.database.windows.net --query accessToken -o tsv)"
+HOST="$(terraform output -raw postgres_fqdn)"
+ADMIN="<your-entra-admin-name>"   # the principal_name from terraform.tfvars
+
+# Part A → postgres database (create the roles)
+PGPASSWORD="$TOKEN" psql "host=$HOST port=5432 dbname=postgres user=$ADMIN sslmode=require" -f partA.sql
+# Part B → ratexp database (grant privileges)
+PGPASSWORD="$TOKEN" psql "host=$HOST port=5432 dbname=ratexp user=$ADMIN sslmode=require" -f partB.sql
 ```
 
 > Add your client IP as a firewall rule (Azure Portal → the PostgreSQL server →
 > Networking) so `psql` can connect, or run the command from Azure Cloud Shell.
+> No local `psql`? Run it in a container: `docker run --rm -e PGPASSWORD="$TOKEN"
+> -v "$PWD":/sql postgres:16-alpine psql "host=$HOST …" -f /sql/partA.sql`.
 
 `core` gets read/write and owns the schema; `app` gets **read-only**.
 
