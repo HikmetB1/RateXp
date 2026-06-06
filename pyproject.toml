@@ -1,0 +1,10 @@
+# Repo-root ruff config only. core/ and app/app-be/ have their own project
+# files. Ruff walks up from each file until it finds a config.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
