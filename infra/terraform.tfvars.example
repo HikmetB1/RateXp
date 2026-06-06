@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+# Required: the subscription to deploy into.
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Optional overrides (defaults shown).
+# project  = "ratexp"
+# location = "westeurope"
+
+# PostgreSQL Entra admin = the identity running `terraform apply`. By default
+# Terraform uses the deployer's object id; set these only to use a different
+# admin (e.g. a group). principal_name must match the Entra display name.
+# entra_admin_object_id      = ""
+# entra_admin_principal_name = "you@example.com"
+# entra_admin_principal_type = "User"
