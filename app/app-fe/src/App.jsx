@@ -25,6 +25,8 @@ export default function App() {
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
+  // Which row's transcript is shown in the slide-over conversation drawer.
+  const [openTx, setOpenTx] = useState(null)
 
   // Mirror `filter` into a ref so the WebSocket handler can read the latest
   // value without re-subscribing each time a filter is applied or cleared.
@@ -158,13 +160,14 @@ export default function App() {
                 <Td><code>{r.agent}</code></Td>
                 <Td>{scoreLabel(r.score)}</Td>
                 <Td>{r.comment ?? <Dash />}</Td>
-                <Td><Conversation transcript={transcriptFor(r)} /></Td>
+                <Td><Conversation transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
                 <Td><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
               </tr>
             ))}
           </tbody>
         </table>
       )}
+      <ConversationDrawer data={openTx} onClose={() => setOpenTx(null)} />
     </div>
   )
 }
@@ -375,33 +378,103 @@ function mainRowsToCsv(rows) {
   return lines.join('\r\n')
 }
 
-// Each feedback row reveals its own stored conversation as a tab-like
-// expander, right on the same row — no separate top-level Transcripts view.
-function Conversation({ transcript }) {
+// Each feedback row links to its stored conversation; opening it reveals the
+// full trajectory in a slide-over drawer (see ConversationDrawer) rather than
+// cramming it into the table cell.
+function Conversation({ transcript, onOpen }) {
   const steps = transcript?.atif?.steps ?? []
   if (steps.length === 0) return <Dash />
   return (
-    <details>
-      <summary style={{ cursor: 'pointer', color: 'var(--accent)' }}>View ({steps.length} steps)</summary>
-      <div style={{ marginTop: 8, maxWidth: 520 }}>
-        {steps.map((s, i) => (
-          <div key={i} style={{ marginBottom: 8 }}>
-            <span style={sourceStyle(s.source)}>{s.source}</span>
-            {s.message && <Md className="md">{s.message}</Md>}
-            {Array.isArray(s.tool_calls) && s.tool_calls.length > 0 && (
-              <div style={{ color: 'var(--muted)', fontSize: 12 }}>
-                🔧 {s.tool_calls.map((t) => t.name).join(', ')}
-              </div>
-            )}
-            {s.observation && (
-              <div style={{ color: 'var(--faint)', fontSize: 12 }}>
-                ↳ <Md className="md md-muted">{s.observation}</Md>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+    <button className="link-btn" onClick={() => onOpen(transcript)}>
+      View ({steps.length} steps) ▸
+    </button>
+  )
+}
+
+// A single agent tool call: a monospace chip showing the tool name, expandable
+// to its JSON arguments when there are any.
+function ToolCall({ call }) {
+  const args =
+    call.arguments && Object.keys(call.arguments).length > 0
+      ? JSON.stringify(call.arguments, null, 2)
+      : null
+  if (!args) return <div className="tl-tool">⌗ {call.name}</div>
+  return (
+    <details className="tl-tool">
+      <summary>⌗ {call.name}</summary>
+      <pre className="tl-tool-args">{args}</pre>
     </details>
+  )
+}
+
+// Slide-over panel showing one stored conversation as a vertical timeline:
+// role-coloured dots on a connector rail, Markdown messages, collapsible tool
+// calls / reasoning / observations, and a token-metrics footer. Closes on the
+// backdrop, the ✕, or Escape. Rendered once at the app root; `data` carries the
+// chosen transcript (and its feedback row, for the header) or null when hidden.
+function ConversationDrawer({ data, onClose }) {
+  useEffect(() => {
+    if (!data) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [data, onClose])
+
+  if (!data) return null
+  const { transcript, row } = data
+  const atif = transcript?.atif ?? {}
+  const steps = atif.steps ?? []
+  const fm = atif.final_metrics ?? {}
+  const model = atif.agent?.model_name
+
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <aside className="drawer" role="dialog" aria-label="Conversation">
+        <header className="drawer-head">
+          <div>
+            <div className="drawer-title">Conversation</div>
+            <div className="drawer-sub">
+              <code>{row?.skill_name}</code>{model ? ` · ${model}` : ''}
+            </div>
+          </div>
+          <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+
+        <div className="drawer-body">
+          <ol className="timeline">
+            {steps.map((s, i) => (
+              <li key={i} className="tl-step" style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}>
+                <span className={`tl-dot tl-${s.source}`} />
+                <div className={`tl-card tl-card-${s.source}`}>
+                  <div className="tl-role" style={sourceStyle(s.source)}>{s.source}</div>
+                  {s.reasoning_content && (
+                    <details className="tl-reason">
+                      <summary>reasoning</summary>
+                      <Md className="md md-muted">{s.reasoning_content}</Md>
+                    </details>
+                  )}
+                  {s.message && <Md className="md">{s.message}</Md>}
+                  {Array.isArray(s.tool_calls) &&
+                    s.tool_calls.map((t, j) => <ToolCall key={j} call={t} />)}
+                  {s.observation && (
+                    <details className="tl-obs">
+                      <summary>↳ output</summary>
+                      <Md className="md md-muted">{s.observation}</Md>
+                    </details>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        <footer className="drawer-foot">
+          <span>{fm.total_steps ?? steps.length} steps</span>
+          <span>↑ {fm.total_prompt_tokens ?? 0} · ↓ {fm.total_completion_tokens ?? 0} tok</span>
+        </footer>
+      </aside>
+    </>
   )
 }
 
