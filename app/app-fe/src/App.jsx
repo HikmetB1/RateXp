@@ -239,9 +239,8 @@ function ViewDisclaimer() {
       fontSize: 13,
       textAlign: 'center',
     }}>
-      This is a preview — the table shows only the latest entries and the “Top skills”
-      panel only the most-rated skills. Use <strong>Download JSON</strong> or the SQL
-      filter above to get the full data.
+      This is a preview — the table shows only the latest entries. Use{' '}
+      <strong>Download JSON</strong> or the SQL filter above to get the full data.
     </p>
   )
 }
