@@ -423,16 +423,6 @@ summary:hover { opacity: 0.8; }
     0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .tx-chip-ico { color: var(--accent); flex: none; }
-.tx-chip-count {
-  font-weight: 700;
-  font-size: 13px;
-  /* Same aqua→blue gradient text as the page title, so the number pops. */
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.tx-chip-label { letter-spacing: 0.02em; }
 .tx-chip-arrow {
   margin-left: 1px;
   color: var(--accent);
@@ -508,7 +498,33 @@ summary:hover { opacity: 0.8; }
   background-clip: text;
   color: transparent;
 }
-.drawer-sub { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.drawer-head-main { min-width: 0; }
+/* Meta strip under the drawer title: skill · agent · model · score · steps ·
+   tokens. Items wrap on narrow widths; a faint middot separates each. */
+.drawer-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.dm-item { display: inline-flex; align-items: center; }
+.dm-item::before { content: '·'; color: var(--faint); margin-right: 8px; }
+.dm-item:first-child::before { content: none; }
+/* Small uppercase KEY label in front of each value (Skill, Agent, …). */
+.dm-key {
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+  color: var(--faint);
+  margin-right: 6px;
+}
+.dm-val { display: inline-flex; align-items: center; gap: 4px; }
 .drawer-close {
   background: none;
   border: none;
@@ -594,15 +610,6 @@ summary:hover { opacity: 0.8; }
   overflow-wrap: anywhere;
 }
 
-.drawer-foot {
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-top: 1px solid var(--glass-border);
-  color: var(--muted);
-  font-size: 12px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-}
 
 /* ── Phones (≤640px) ───────────────────────────────────────────────────────
    Tighten the page padding and shrink the title, then turn the seven-column
