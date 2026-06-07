@@ -463,7 +463,9 @@ summary:hover { opacity: 0.8; }
 }
 .drawer-close:hover:not(:disabled) { color: var(--text); border: none; transform: none; }
 
-.drawer-body { flex: 1; overflow-y: auto; padding: 20px; }
+/* overflow-x:hidden keeps every step's content inside the panel on narrow
+   (phone) widths — nothing can spill past the drawer's edge. */
+.drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; }
 
 /* Timeline: a connector rail with a coloured dot per step. */
 .timeline { list-style: none; margin: 0; padding: 0; position: relative; }
@@ -502,6 +504,10 @@ summary:hover { opacity: 0.8; }
   border: 1px solid var(--card-border);
   border-radius: 12px;
   background: var(--glass-bg);
+  /* min-width:0 lets the card shrink inside the timeline; overflow-wrap breaks a
+     long unbroken token (path, URL) so it can't stretch past the card edge. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .tl-card-user { border-color: color-mix(in srgb, var(--accent-2) 35%, transparent); }
 .tl-card-agent { border-color: color-mix(in srgb, var(--good) 28%, transparent); }
@@ -510,7 +516,7 @@ summary:hover { opacity: 0.8; }
 /* Collapsible extras: tool calls, reasoning, observations. */
 .tl-tool,
 .tl-obs,
-.tl-reason { margin-top: 8px; font-size: 12px; color: var(--muted); }
+.tl-reason { margin-top: 8px; font-size: 12px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 .tl-tool { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 .tl-tool > summary,
 .tl-obs > summary,
@@ -518,6 +524,7 @@ summary:hover { opacity: 0.8; }
   cursor: pointer;
   color: var(--muted);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
+  overflow-wrap: anywhere;
 }
 .tl-tool-args {
   margin: 6px 0 0;
