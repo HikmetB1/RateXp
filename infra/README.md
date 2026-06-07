@@ -90,9 +90,11 @@ Point your skills at `terraform output -raw core_url`; open the dashboard at
 ## Optional: transcript PII redaction
 
 Set `enable_redaction = true` in `terraform.tfvars` to provision an **Azure AI
-Language** account and inject its secret `AZURE_LANGUAGE_KEY` into the core web
-app. The toggle and endpoint live in `core/config.yaml` (`redaction.enabled`
-must be `true` and `redaction.endpoint` must point at this account), so consented
+Language** account (custom subdomain, key auth disabled) and grant core's Managed
+Identity the **Cognitive Services User** role on it — so redaction is
+**passwordless**, exactly like the database. No key is stored anywhere. The
+toggle and endpoint live in `core/config.yaml` (`redaction.enabled` must be
+`true` and `redaction.endpoint` must point at this account), so consented
 transcripts are PII‑masked before they reach PostgreSQL (see `core/redact.py`).
 Build the core image with the redaction extra (step 3 note above). The default
 `language_sku_name` is the free `F0` tier (one per subscription); switch to `S`

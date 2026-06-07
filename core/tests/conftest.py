@@ -17,7 +17,7 @@ if str(_CORE_DIR) not in sys.path:
 @pytest.fixture(autouse=True)
 def _isolate_env(monkeypatch):
     """Each test starts with a clean, predictable environment."""
-    for var in ("RATEXP_SUBMIT_URL", "RATEXP_DB_AUTH", "DATABASE_URL", "AZURE_LANGUAGE_KEY"):
+    for var in ("RATEXP_SUBMIT_URL", "RATEXP_DB_AUTH", "DATABASE_URL"):
         monkeypatch.delenv(var, raising=False)
 
 

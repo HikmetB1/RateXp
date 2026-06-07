@@ -32,9 +32,6 @@ services:
       RATEXP_DB_AUTH: password
       # Baked into /snippet so skills POST feedback back to core on the host.
       RATEXP_SUBMIT_URL: ${RATEXP_SUBMIT_URL:-http://localhost:${CORE_HOST_PORT:-8000}/feedback}
-      # Secret key for transcript PII redaction (Azure AI Language). The toggle
-      # and endpoint live in core/config.yaml; only the key comes from the env.
-      AZURE_LANGUAGE_KEY: ${AZURE_LANGUAGE_KEY:-}
     # Live-reload the API on source edits; prompt.md is read per request.
     command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload
     volumes:

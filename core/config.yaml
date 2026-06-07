@@ -26,13 +26,14 @@ default_survey_every: 2
 # raw text never reaches the database. If Azure errors, the upload is dropped so
 # unredacted text is never persisted (fail-closed).
 #
-# Configured here only. The single exception is the API key — a secret read from
-# the AZURE_LANGUAGE_KEY environment variable, never this file. To run locally
-# without redaction (no Azure key), set enabled: false.
+# Configured here only — there is no secret. Core authenticates to Azure with its
+# Managed Identity (Entra ID), exactly like the database. To run locally without
+# redaction (no Azure identity), set enabled: false.
 redaction:
   enabled: true
-  # Azure AI Language resource endpoint (the Terraform-provisioned account).
-  endpoint: "https://ratexp-lang-4y6yju-64136.cognitiveservices.azure.com/"
+  # Azure AI Language resource endpoint (the Terraform-provisioned account, which
+  # has a custom subdomain so Entra ID token auth works).
+  endpoint: "https://ratexp-lang-4y6yju.cognitiveservices.azure.com/"
   # PII model languages. Each message's language is auto-detected; if it is one
   # of these it is used, otherwise the first entry is the fallback. Listed are
   # the world's 10 most-spoken languages (BCP-47 codes Azure understands).
