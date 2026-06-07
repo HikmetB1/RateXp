@@ -16,8 +16,9 @@ dependencies = [
 # Microsoft Entra ID database auth (cloud). Not needed for local password auth.
 entra = ["azure-identity>=1.16"]
 # Azure AI Language PII redaction for stored transcripts (see redact.py). Only
-# needed when redaction.enabled is true in config.yaml.
-redaction = ["azure-ai-textanalytics>=5.3"]
+# needed when redaction.enabled is true in config.yaml. Authenticates via the
+# Managed Identity (azure-identity), so no key is needed.
+redaction = ["azure-ai-textanalytics>=5.3", "azure-identity>=1.16"]
 test = ["pytest>=8.0", "httpx>=0.27"]
 
 [build-system]

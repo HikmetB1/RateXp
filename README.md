@@ -81,12 +81,13 @@ version is written to the database. Redaction is **fail‑closed** — if Azure
 errors, the upload is dropped rather than stored unredacted.
 
 It's configured in `core/config.yaml` (`redaction.enabled`, `endpoint`,
-`language`). The only secret — the Azure API key — comes from the
-`AZURE_LANGUAGE_KEY` environment variable, never config. Install the extra with
-`pip install .[redaction]` (or build the image with `EXTRAS="redaction"`). On
-Azure, set `enable_redaction = true` in Terraform to provision the Language
-resource and inject the key into core — see [`infra/README.md`](./infra/README.md).
-To run locally without an Azure key, set `redaction.enabled: false`.
+`languages`). There's **no secret** — core authenticates to Azure with its
+Managed Identity (Entra ID), the same passwordless way it reaches the database.
+Install the extra with `pip install .[redaction]` (or build the image with
+`EXTRAS="redaction"`). On Azure, set `enable_redaction = true` in Terraform to
+provision the Language resource and grant core's identity access — see
+[`infra/README.md`](./infra/README.md). To run locally without an Azure identity,
+set `redaction.enabled: false`.
 
 ## Contributing & running locally
 

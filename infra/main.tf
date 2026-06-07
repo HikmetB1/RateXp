@@ -103,23 +103,27 @@ resource "azurerm_service_plan" "this" {
 # --- Azure AI Language: transcript PII redaction (optional) ---
 # Created only when var.enable_redaction is true. core masks personal data in
 # consented transcripts via this resource before writing them to PostgreSQL
-# (see core/redact.py). Its endpoint and key are injected into core below.
+# (see core/redact.py). Access is passwordless: core's Managed Identity is granted
+# the "Cognitive Services User" role below and authenticates with an Entra ID
+# token, so no key is stored anywhere. A custom subdomain is required for Entra ID
+# auth, and local (key) auth is disabled.
 resource "azurerm_cognitive_account" "language" {
-  count               = var.enable_redaction ? 1 : 0
-  name                = "${var.project}-lang-${local.suffix}"
-  resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
-  kind                = "TextAnalytics"
-  sku_name            = var.language_sku_name
+  count                 = var.enable_redaction ? 1 : 0
+  name                  = "${var.project}-lang-${local.suffix}"
+  resource_group_name   = azurerm_resource_group.this.name
+  location              = azurerm_resource_group.this.location
+  kind                  = "TextAnalytics"
+  sku_name              = var.language_sku_name
+  custom_subdomain_name = "${var.project}-lang-${local.suffix}"
+  local_auth_enabled    = false # Entra ID only — no access keys
 }
 
-locals {
-  # The redaction toggle and endpoint live in core/config.yaml. Terraform only
-  # supplies the secret key, as an app setting (kept out of git, lives in state),
-  # when the Language account exists.
-  redaction_settings = var.enable_redaction ? {
-    AZURE_LANGUAGE_KEY = azurerm_cognitive_account.language[0].primary_access_key
-  } : {}
+# core's identity may call the Language data plane (PII detection) via Entra ID.
+resource "azurerm_role_assignment" "core_language" {
+  count                = var.enable_redaction ? 1 : 0
+  scope                = azurerm_cognitive_account.language[0].id
+  role_definition_name = "Cognitive Services User"
+  principal_id         = azurerm_linux_web_app.core.identity[0].principal_id
 }
 
 # --- core: public ingestion service ---
@@ -141,12 +145,12 @@ resource "azurerm_linux_web_app" "core" {
     container_registry_use_managed_identity = true
   }
 
-  app_settings = merge({
+  app_settings = {
     WEBSITES_PORT     = "8000"
     RATEXP_DB_AUTH    = "entra"
     DATABASE_URL      = local.core_dsn
     RATEXP_SUBMIT_URL = "${local.core_url}/feedback"
-  }, local.redaction_settings)
+  }
 }
 
 # --- app: dashboard (read-only API + UI), the only place app-be is reachable ---

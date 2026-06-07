@@ -172,9 +172,9 @@ def test_redact_doc_error_is_fail_closed(monkeypatch):
         redact.redact_atif({"steps": [{"message": "hi"}]})
 
 
-def test_make_client_requires_key(monkeypatch):
+def test_make_client_requires_endpoint(monkeypatch):
     import redact
 
-    monkeypatch.delenv("AZURE_LANGUAGE_KEY", raising=False)
+    monkeypatch.setattr(redact, "REDACTION_ENDPOINT", "")
     with pytest.raises(RuntimeError):
         redact._make_client()

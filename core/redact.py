@@ -11,10 +11,11 @@ misconfigured), :func:`redact_atif` raises so the caller drops the upload rather
 than store unredacted text.
 
 Configuration is config.yaml only (``redaction.enabled``, ``redaction.endpoint``,
-``redaction.languages``). The single exception is the API key, which is a secret
-and so is read from the ``AZURE_LANGUAGE_KEY`` environment variable, never
-config.yaml. The Azure SDK is an optional extra (``pip install .[redaction]``)
-imported lazily, so core runs without it whenever redaction is off.
+``redaction.languages``). There is no secret: like the database (see db.py),
+core authenticates to Azure with its Managed Identity via Entra ID
+(``DefaultAzureCredential``), so no key is stored or passed anywhere. The Azure
+SDK is an optional extra (``pip install .[redaction]``) imported lazily, so core
+runs without it whenever redaction is off.
 
 Multi-language: each message's language is auto-detected. The detected language
 is used for PII when it's one of the configured ``languages``; otherwise the
@@ -24,8 +25,6 @@ language never drops the whole upload — only a genuine Azure failure does.
 """
 
 from __future__ import annotations
-
-import os
 
 from config import (
     REDACTION_ENABLED,
@@ -38,7 +37,6 @@ from config import (
 _TEXT_FIELDS = ("message", "reasoning_content", "observation")
 # Azure AI Language accepts at most 5 documents per PII request.
 _BATCH = 5
-_KEY_ENV = "AZURE_LANGUAGE_KEY"
 # Detected ISO 639-1 code (e.g. "zh") → the configured PII code (e.g. "zh-hans").
 _LANG_BY_ISO = {code.split("-", 1)[0].lower(): code for code in REDACTION_LANGUAGES}
 
@@ -48,16 +46,13 @@ def is_enabled() -> bool:
 
 
 def _make_client():
-    """Build an Azure Text Analytics client; raise if the endpoint/secret is missing."""
-    key = os.environ.get(_KEY_ENV)
-    if not key:
-        raise RuntimeError(f"redaction enabled but {_KEY_ENV} is not set")
+    """Build an Azure Text Analytics client authenticated with the Managed Identity."""
     if not REDACTION_ENDPOINT:
         raise RuntimeError("redaction enabled but redaction.endpoint is empty in config.yaml")
     from azure.ai.textanalytics import TextAnalyticsClient
-    from azure.core.credentials import AzureKeyCredential
+    from azure.identity import DefaultAzureCredential
 
-    return TextAnalyticsClient(REDACTION_ENDPOINT, AzureKeyCredential(key))
+    return TextAnalyticsClient(REDACTION_ENDPOINT, DefaultAzureCredential())
 
 
 def _detect_languages(client, texts: list[str]) -> list[str]:
