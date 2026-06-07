@@ -133,9 +133,13 @@ export default function App() {
   return (
     <div className="app" style={{ color: 'var(--text)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Brand mark: the logo shape is used as a CSS mask and filled with the
+              same accent→accent-2 gradient as the "RateXp" wordmark, so the two
+              read as one unit and recolour together with the theme. */}
+          <span className="brand-logo" role="img" aria-label="RateXp logo" />
           <h1 style={{ margin: 0 }}>RateXp</h1>
-          <LiveDot live={live} />
+          <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <button
           className="btn-edge"
