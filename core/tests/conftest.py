@@ -17,8 +17,20 @@ if str(_CORE_DIR) not in sys.path:
 @pytest.fixture(autouse=True)
 def _isolate_env(monkeypatch):
     """Each test starts with a clean, predictable environment."""
-    for var in ("RATEXP_SUBMIT_URL", "RATEXP_DB_AUTH", "DATABASE_URL"):
+    for var in ("RATEXP_SUBMIT_URL", "RATEXP_DB_AUTH", "DATABASE_URL", "AZURE_LANGUAGE_KEY"):
         monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _disable_redaction(monkeypatch):
+    """Keep redaction out of the way by default (config ships enabled: true).
+
+    Tests that exercise redaction opt back in by patching `redact.REDACTION_ENABLED`
+    or `server.redact_atif` themselves.
+    """
+    import redact
+
+    monkeypatch.setattr(redact, "REDACTION_ENABLED", False)
 
 
 @pytest.fixture

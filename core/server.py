@@ -22,6 +22,7 @@ from fastapi.responses import PlainTextResponse
 from models import Feedback, Transcript
 from pydantic import ValidationError
 from ratelimit import RateLimiter
+from redact import redact_atif
 from starlette.middleware.base import BaseHTTPMiddleware
 from store import FeedbackStore
 
@@ -246,6 +247,12 @@ async def post_transcript(request: Request) -> dict[str, str]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, e.errors()) from e
 
     _fill_defaults(record)
+    # Mask PII before anything is stored. Fail-closed: if redaction is enabled
+    # and Azure errors, drop the upload rather than persist unredacted text.
+    try:
+        record.atif = redact_atif(record.atif)
+    except Exception as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"redaction failed: {e!r}") from e
     try:
         get_store().append_transcript(record)
     except Exception as e:

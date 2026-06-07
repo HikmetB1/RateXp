@@ -100,6 +100,28 @@ resource "azurerm_service_plan" "this" {
   sku_name            = var.plan_sku
 }
 
+# --- Azure AI Language: transcript PII redaction (optional) ---
+# Created only when var.enable_redaction is true. core masks personal data in
+# consented transcripts via this resource before writing them to PostgreSQL
+# (see core/redact.py). Its endpoint and key are injected into core below.
+resource "azurerm_cognitive_account" "language" {
+  count               = var.enable_redaction ? 1 : 0
+  name                = "${var.project}-lang-${local.suffix}"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  kind                = "TextAnalytics"
+  sku_name            = var.language_sku_name
+}
+
+locals {
+  # The redaction toggle and endpoint live in core/config.yaml. Terraform only
+  # supplies the secret key, as an app setting (kept out of git, lives in state),
+  # when the Language account exists.
+  redaction_settings = var.enable_redaction ? {
+    AZURE_LANGUAGE_KEY = azurerm_cognitive_account.language[0].primary_access_key
+  } : {}
+}
+
 # --- core: public ingestion service ---
 resource "azurerm_linux_web_app" "core" {
   name                = local.core_name
@@ -119,12 +141,12 @@ resource "azurerm_linux_web_app" "core" {
     container_registry_use_managed_identity = true
   }
 
-  app_settings = {
+  app_settings = merge({
     WEBSITES_PORT     = "8000"
     RATEXP_DB_AUTH    = "entra"
     DATABASE_URL      = local.core_dsn
     RATEXP_SUBMIT_URL = "${local.core_url}/feedback"
-  }
+  }, local.redaction_settings)
 }
 
 # --- app: dashboard (read-only API + UI), the only place app-be is reachable ---

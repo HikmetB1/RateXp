@@ -41,6 +41,9 @@ az acr login --name "$(terraform output -raw acr_name)"
 docker build -t "$(terraform output -raw core_image)" --build-arg EXTRAS=entra ../core
 docker push "$(terraform output -raw core_image)"
 
+# If you set enable_redaction = true, build core with the redaction extra too:
+#   --build-arg EXTRAS="entra redaction"
+
 docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app
 docker push "$(terraform output -raw app_image)"
 ```
@@ -84,6 +87,17 @@ az webapp restart --name "$(terraform output -raw app_name)"  --resource-group "
 Point your skills at `terraform output -raw core_url`; open the dashboard at
 `terraform output -raw app_url`.
 
+## Optional: transcript PII redaction
+
+Set `enable_redaction = true` in `terraform.tfvars` to provision an **Azure AI
+Language** account and inject its secret `AZURE_LANGUAGE_KEY` into the core web
+app. The toggle and endpoint live in `core/config.yaml` (`redaction.enabled`
+must be `true` and `redaction.endpoint` must point at this account), so consented
+transcripts are PII‑masked before they reach PostgreSQL (see `core/redact.py`).
+Build the core image with the redaction extra (step 3 note above). The default
+`language_sku_name` is the free `F0` tier (one per subscription); switch to `S`
+for pay‑as‑you‑go.
+
 ## What gets created
 
 | Resource           | SKU              | Purpose                                  |
@@ -93,3 +107,6 @@ Point your skills at `terraform output -raw core_url`; open the dashboard at
 | Web App `app`      | —                | Dashboard: read-only API + UI             |
 | PostgreSQL Flexible| Burstable B1ms   | Feedback + transcript storage             |
 | Container Registry | Basic            | Holds the `core` and `app` images         |
+| AI Language*       | F0               | PII redaction for transcripts (`enable_redaction`) |
+
+\* Only when `enable_redaction = true`.

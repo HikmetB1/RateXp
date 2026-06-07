@@ -72,3 +72,26 @@ def test_transcript_store_failure_returns_503(failing_client):
     r = failing_client.post("/transcript", data=_form())
     assert r.status_code == 503
     assert "store failed" in r.json()["detail"]
+
+
+def test_transcript_redaction_applied_before_store(client, monkeypatch):
+    import server
+
+    monkeypatch.setattr(server, "redact_atif", lambda atif: {**atif, "redacted": True})
+    c, captured = client
+    r = c.post("/transcript", data=_form())
+    assert r.status_code == 201
+    assert captured[-1].atif.get("redacted") is True
+
+
+def test_transcript_redaction_failure_returns_502(client, monkeypatch):
+    import server
+
+    def boom(_atif):
+        raise RuntimeError("azure down")
+
+    monkeypatch.setattr(server, "redact_atif", boom)
+    c, _ = client
+    r = c.post("/transcript", data=_form())
+    assert r.status_code == 502
+    assert "redaction failed" in r.json()["detail"]
