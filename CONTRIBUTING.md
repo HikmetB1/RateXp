@@ -129,7 +129,7 @@ Settings come from two places:
 | `top_skills_limit`         | `10`        | Skills shown in the "Top skills" panel               |
 | `query_enabled`            | `true`      | Turn the read‑only SQL filter box on/off             |
 | `query_timeout_ms`         | `5000`      | Per‑query statement timeout                          |
-| `query_max_rows`           | `1000`      | Hard cap on rows a filter/CSV export returns         |
+| `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns        |
 | `ws_enabled`               | `true`      | Turn the live‑updates WebSocket on/off               |
 | `ws_broadcast_interval_ms` | `2000`      | How often the live feed checks for changes           |
 

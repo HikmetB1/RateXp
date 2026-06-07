@@ -223,7 +223,7 @@ export default function App() {
 // Always-on note under the default table: the dashboard is a preview that shows
 // only the latest rows and the most-rated skills (both capped by app-be's
 // config.yaml — list_view_limit / top_skills_limit, default 10 each). The data
-// behind it is larger; Download CSV or the SQL box pull the full set (up to
+// behind it is larger; Download JSON or the SQL box pull the full set (up to
 // query_max_rows). Hidden while a filter is active, since ViewLimitNotice then
 // explains the cap for the filtered result instead.
 function ViewDisclaimer() {
@@ -236,7 +236,7 @@ function ViewDisclaimer() {
       textAlign: 'center',
     }}>
       This is a preview — the table shows only the latest entries and the “Top skills”
-      panel only the most-rated skills. Use <strong>Download CSV</strong> or the SQL
+      panel only the most-rated skills. Use <strong>Download JSON</strong> or the SQL
       filter above to get the full data.
     </p>
   )
@@ -330,7 +330,7 @@ function TopSkills({ skills }) {
 }
 
 // Shown when a filter has more matches than the backend's view size returned.
-// Tells the user the view is capped and to use Download CSV (which re-runs the
+// Tells the user the view is capped and to use Download JSON (which re-runs the
 // filter with full=true) to get the complete result set.
 function ViewLimitNotice({ shown }) {
   return (
@@ -344,7 +344,7 @@ function ViewLimitNotice({ shown }) {
       fontSize: 13,
     }}>
       Showing the first <strong>{shown}</strong> rows — you have more than the view limit.
-      To see all, use <strong>Download CSV</strong> above.
+      To see all, use <strong>Download JSON</strong> above.
     </p>
   )
 }
@@ -383,11 +383,12 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
     onClear()
   }
 
-  // The table only shows the backend's capped "view"; Download CSV asks the
+  // The table only shows the backend's capped "view"; Download JSON asks the
   // backend for the FULL set (full=true) so the user can "see all". For a filter
   // it re-runs the same SELECT unbounded; otherwise it exports all feedback.
-  // Either way it also pulls the full transcript set and attaches each row's
-  // conversation, so the CSV mirrors every column the table shows.
+  // Each row carries its full ATIF trajectory (the native JSON shape) under
+  // `conversation`, so the export keeps the whole transcript — steps, tool calls
+  // and metrics — instead of flattening it the way a CSV cell would.
   const download = async () => {
     setErr(null)
     try {
@@ -405,17 +406,17 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
         exportRows = await fetch(`${apiBase}/feedback?full=true`).then(okJson)
       }
       // Match each exported row to its stored conversation (request_id, then
-      // session_id) and flatten it into a single "conversation" cell.
+      // session_id) and attach the full ATIF transcript.
       const index = indexTranscripts(await fetch(`${apiBase}/transcript?full=true`).then(okJson))
-      const exportWithConversation = exportRows.map((r) => ({
-        ...r,
-        conversation: transcriptToText(index[`r:${r.request_id}`] || index[`s:${r.session_id}`]),
-      }))
-      const csv = mainRowsToCsv(exportWithConversation)
-      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+      const exportWithConversation = exportRows.map((r) => {
+        const transcript = index[`r:${r.request_id}`] || index[`s:${r.session_id}`]
+        return { ...r, conversation: transcript?.atif ?? null }
+      })
+      const json = JSON.stringify(exportWithConversation, null, 2)
+      const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
       const a = document.createElement('a')
       a.href = url
-      a.download = 'ratexp-feedback.csv'
+      a.download = 'ratexp-feedback.json'
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
@@ -450,47 +451,11 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
       <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="btn-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
         <button className="btn-edge" onClick={clear} disabled={!active && !sql}>Clear</button>
-        <button className="btn-edge" onClick={download} disabled={rows.length === 0}>Download CSV</button>
+        <button className="btn-edge" onClick={download} disabled={rows.length === 0}>Download JSON</button>
         {err && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{err}</span>}
       </div>
     </section>
   )
-}
-
-// Columns exported to CSV — the feedback table's data fields, in display order,
-// with the row's flattened conversation alongside it (see transcriptToText).
-const CSV_COLUMNS = ['created_at', 'skill_name', 'agent', 'score', 'comment', 'conversation', 'session_id', 'request_id']
-
-// Flatten a transcript's ATIF steps into one readable block for the CSV's
-// "conversation" cell — mirrors the drawer timeline (role, reasoning, message,
-// tool calls with arguments, observation), one step per blank-line-separated
-// chunk. Newlines live inside the quoted cell, which is valid CSV.
-function transcriptToText(transcript) {
-  const steps = transcript?.atif?.steps ?? []
-  if (steps.length === 0) return ''
-  return steps
-    .map((s) => {
-      const lines = [`[${s.source}]`]
-      if (s.reasoning_content) lines.push(`reasoning: ${s.reasoning_content}`)
-      if (s.message) lines.push(s.message)
-      if (Array.isArray(s.tool_calls)) {
-        for (const t of s.tool_calls) {
-          const args = t.arguments && Object.keys(t.arguments).length > 0 ? ` ${JSON.stringify(t.arguments)}` : ''
-          lines.push(`⌗ ${t.name}${args}`)
-        }
-      }
-      if (s.observation) lines.push(`↳ ${s.observation}`)
-      return lines.join('\n')
-    })
-    .join('\n\n')
-}
-
-// Build RFC-4180-ish CSV from the table's rows: quote every field, escape quotes.
-function mainRowsToCsv(rows) {
-  const cell = (v) => `"${(v === null || v === undefined ? '' : String(v)).replace(/"/g, '""')}"`
-  const lines = [CSV_COLUMNS.map(cell).join(',')]
-  for (const r of rows) lines.push(CSV_COLUMNS.map((c) => cell(r[c])).join(','))
-  return lines.join('\r\n')
 }
 
 // Each feedback row links to its stored conversation; opening it reveals the

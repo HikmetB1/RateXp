@@ -23,7 +23,7 @@ a vendor SDK.
   reflows into a stack of labelled cards. The dashboard is a **preview**: it
   shows only the latest entries and the most‑rated skills (both capped by
   `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10
-  each). Use **Download CSV** or the SQL filter to pull the full data.
+  each). Use **Download JSON** or the SQL filter to pull the full data.
 
 ## Add it to a skill
 
@@ -47,8 +47,9 @@ On the dashboard each rating links to its conversation, which opens in a
 slide‑over drawer as a step‑by‑step timeline, with every message rendered as
 formatted Markdown (headings, lists, code blocks, tables) so it's easy to read.
 Saying No records just the rating, exactly as before. The dashboard's **Download
-CSV** also carries each row's conversation alongside its rating, so an export
-holds everything the table shows (whole result set, filtered or not).
+JSON** carries each row's full ATIF transcript alongside its rating, so an export
+holds the complete trajectory — steps, tool calls and metrics — for the whole
+result set (filtered or not).
 
 > Transcript capture currently supports Claude Code; on other runtimes the upload
 > step is skipped and the rating still works.
