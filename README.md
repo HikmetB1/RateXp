@@ -19,7 +19,8 @@ a vendor SDK.
 - **core** is the only public service. It serves the survey *snippet* and
   ingests the feedback a skill posts back.
 - **app** is the dashboard: a read‑only view of the collected feedback, served
-  with its own UI.
+  with its own UI. The layout is responsive — on phones the feedback table
+  reflows into a stack of labelled cards.
 
 ## Add it to a skill
 

@@ -145,6 +145,28 @@ button:hover:not(:disabled) {
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* Page shell — centred column with comfortable padding (tightened on phones,
+   see the responsive block at the bottom of this file). */
+.app { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+/* Feedback table cells. Kept as classes (not inline styles) so the mobile
+   breakpoint can override them — inline styles win over media queries. */
+.th {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg-strong);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--row-border);
+  vertical-align: top;
+}
+
 /* Table rows light up on hover */
 tbody tr { transition: background 0.12s ease; }
 tbody tr:hover { background: var(--glass-bg); }
@@ -366,4 +388,51 @@ summary:hover { opacity: 0.8; }
   color: var(--muted);
   font-size: 12px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ── Phones (≤640px) ───────────────────────────────────────────────────────
+   Tighten the page padding and shrink the title, then turn the seven-column
+   feedback table into a stack of cards: the header row is hidden and each row
+   becomes a bordered block whose cells read as "Label / value" pairs. The
+   label comes from each cell's data-label (set in App.jsx). The drawer is
+   already fluid (width: min(560px, 92vw)), so it needs no extra rules. */
+@media (max-width: 640px) {
+  .app { padding: 16px 14px; }
+  h1 { font-size: 26px; }
+
+  /* Hide the column headers — each card labels its own fields instead. */
+  .data-table thead { display: none; }
+  .data-table,
+  .data-table tbody,
+  .data-table tr,
+  .data-table td { display: block; width: 100%; }
+
+  .data-table tr {
+    margin-bottom: 12px;
+    padding: 4px 6px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    background: var(--glass-bg);
+  }
+  .data-table tr:hover { background: var(--glass-bg); }
+
+  /* Each cell: small uppercase label above its value, left-aligned so long
+     comments and session ids wrap cleanly. */
+  .data-table .td {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--row-border);
+    word-break: break-word;
+  }
+  .data-table tr .td:last-child { border-bottom: none; }
+  .data-table .td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+  }
 }

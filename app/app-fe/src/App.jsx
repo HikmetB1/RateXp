@@ -117,13 +117,13 @@ export default function App() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto', color: 'var(--text)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+    <div className="app" style={{ color: 'var(--text)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <LiveDot live={live} />
         </div>
-        <button onClick={toggleTheme} title="Toggle light/dark">
+        <button onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap' }}>
           {theme === 'dark' ? '☀ Light' : '🌙 Dark'}
         </button>
       </div>
@@ -136,7 +136,7 @@ export default function App() {
       <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} onFilter={applyFilter} onClear={clearFilter} />
       {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
       {!loading && !error && (
-        <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
+        <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
           <thead>
             <tr>
               <Th>When</Th>
@@ -151,13 +151,13 @@ export default function App() {
           <tbody>
             {rows.map((r, i) => (
               <tr key={i}>
-                <Td>{r.created_at}</Td>
-                <Td><code>{r.skill_name}</code></Td>
-                <Td><code>{r.agent}</code></Td>
-                <Td>{scoreLabel(r.score)}</Td>
-                <Td>{r.comment ?? <Dash />}</Td>
-                <Td><Conversation transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
-                <Td><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
+                <Td label="When">{r.created_at}</Td>
+                <Td label="Skill"><code>{r.skill_name}</code></Td>
+                <Td label="Agent"><code>{r.agent}</code></Td>
+                <Td label="Score">{scoreLabel(r.score)}</Td>
+                <Td label="Comment">{r.comment ?? <Dash />}</Td>
+                <Td label="Conversation"><Conversation transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
+                <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
               </tr>
             ))}
           </tbody>
@@ -373,7 +373,7 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
         spellCheck={false}
         style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 10, boxSizing: 'border-box' }}
       />
-      <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
         <button onClick={clear} disabled={!active && !sql}>Clear</button>
         <button onClick={download} disabled={rows.length === 0}>Download CSV</button>
@@ -532,20 +532,12 @@ function Md({ className, children }) {
   )
 }
 
-const thStyle = {
-  textAlign: 'left',
-  padding: '10px 12px',
-  borderBottom: '1px solid var(--glass-border)',
-  background: 'var(--glass-bg-strong)',
-  fontSize: 12,
-  textTransform: 'uppercase',
-  letterSpacing: '.04em',
-  color: 'var(--muted)',
-}
-const tdStyle = { padding: '10px 12px', borderBottom: '1px solid var(--row-border)', verticalAlign: 'top' }
-
-function Th({ children }) { return <th style={thStyle}>{children}</th> }
-function Td({ children }) { return <td style={tdStyle}>{children}</td> }
+// Cell styling lives in index.css (.th/.td) so the mobile breakpoint can
+// restyle the table into stacked cards — inline styles would block those rules.
+// Each Td carries a `label` echoed into data-label, used as the card row's
+// heading on phones (see the @media block in index.css).
+function Th({ children }) { return <th className="th">{children}</th> }
+function Td({ children, label }) { return <td className="td" data-label={label}>{children}</td> }
 function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
 
 function sourceStyle(source) {
