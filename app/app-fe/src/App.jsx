@@ -208,7 +208,7 @@ export default function App() {
           >
             <span className="ico ico-moon" aria-hidden="true">🌙</span>
             <span className="ico ico-sun" aria-hidden="true">☀</span>
-            <span className="knob" aria-hidden="true" />
+            <span className="knob" aria-hidden="true">{theme === 'dark' ? '🌙' : '☀'}</span>
           </button>
         </div>
       </div>
