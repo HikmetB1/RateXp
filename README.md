@@ -20,7 +20,10 @@ a vendor SDK.
   ingests the feedback a skill posts back.
 - **app** is the dashboard: a read‑only view of the collected feedback, served
   with its own UI. The layout is responsive — on phones the feedback table
-  reflows into a stack of labelled cards.
+  reflows into a stack of labelled cards. The dashboard is a **preview**: it
+  shows only the latest entries and the most‑rated skills (both capped by
+  `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10
+  each). Use **Download CSV** or the SQL filter to pull the full data.
 
 ## Add it to a skill
 
