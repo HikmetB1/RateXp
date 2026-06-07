@@ -35,7 +35,7 @@ curl -sS "https://<your-core-url>/snippet"
 
 The snippet returns step‑by‑step instructions the agent follows to ask the user
 for a rating and post it back. See [`examples/`](./examples/) for complete,
-working `SKILL.md` files (`cheerful`, `goodbye`).
+working `SKILL.md` files (`cheerful`).
 
 ### How often it asks
 
