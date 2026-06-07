@@ -22,7 +22,7 @@ const groupBox = {
   display: 'flex',
   flexDirection: 'column',
   gap: 14,
-  border: '1px solid var(--glass-border)',
+  border: '1px solid var(--card-border)',
   borderRadius: 18,
   padding: 14,
   marginBottom: 20,
@@ -137,7 +137,7 @@ export default function App() {
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <LiveDot live={live} />
         </div>
-        <button onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap', minWidth: '5.5rem', textAlign: 'center' }}>
+        <button className="glow-edge" onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap', minWidth: '5.5rem', textAlign: 'center' }}>
           {theme === 'dark' ? '🌗 Light' : '🌗 Dark'}
         </button>
       </div>
@@ -146,13 +146,13 @@ export default function App() {
           <StatusLine loading={loading} error={error} filtered={!!filter} />
         </p>
       )}
-      <div style={groupBox}>
+      <div className="glow-edge" style={groupBox}>
         <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} onFilter={applyFilter} onClear={clearFilter} />
         {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
         {!loading && !error && (
-          <section style={{
+          <section className="glow-edge" style={{
             margin: 0,
-            border: '1px solid var(--glass-border)',
+            border: '1px solid var(--card-border)',
             borderRadius: 14,
             padding: '14px 16px',
             background: 'var(--glass-bg)',
@@ -192,7 +192,7 @@ export default function App() {
         )}
       </div>
       {!loading && !error && (
-        <div style={groupBox}>
+        <div className="glow-edge" style={groupBox}>
           <TopSkills skills={stats} />
         </div>
       )}
@@ -266,9 +266,9 @@ function LiveDot({ live }) {
 function TopSkills({ skills }) {
   if (!skills || skills.length === 0) return null
   return (
-    <section style={{
+    <section className="glow-edge" style={{
       margin: 0,
-      border: '1px solid var(--glass-border)',
+      border: '1px solid var(--card-border)',
       borderRadius: 14,
       padding: '14px 16px',
       background: 'var(--glass-bg)',
@@ -318,7 +318,7 @@ function ViewLimitNotice({ shown }) {
     <p style={{
       margin: '0 0 12px',
       padding: '10px 14px',
-      border: '1px solid var(--glass-border)',
+      border: '1px solid var(--card-border)',
       borderRadius: 10,
       background: 'var(--glass-bg)',
       color: 'var(--muted)',
@@ -405,9 +405,9 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   }
 
   return (
-    <section style={{
+    <section className="glow-edge" style={{
       margin: 0,
-      border: '1px solid var(--glass-border)',
+      border: '1px solid var(--card-border)',
       borderRadius: 14,
       padding: '14px 16px',
       background: 'var(--glass-bg)',
@@ -429,9 +429,9 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
         style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 10, boxSizing: 'border-box' }}
       />
       <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
-        <button onClick={clear} disabled={!active && !sql}>Clear</button>
-        <button onClick={download} disabled={rows.length === 0}>Download CSV</button>
+        <button className="glow-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
+        <button className="glow-edge" onClick={clear} disabled={!active && !sql}>Clear</button>
+        <button className="glow-edge" onClick={download} disabled={rows.length === 0}>Download CSV</button>
         {err && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{err}</span>}
       </div>
     </section>
