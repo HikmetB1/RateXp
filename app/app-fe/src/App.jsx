@@ -600,19 +600,16 @@ function sourceStyle(source) {
   return { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color, fontWeight: 600 }
 }
 
-// Small colored pill so good/bad reads at a glance against the dark theme.
+// Colored label so good/bad reads at a glance — plain text, no bounding box.
 function ScoreBadge({ kind }) {
   const color = kind === 'good' ? 'var(--good)' : 'var(--bad)'
   return (
     <span style={{
       color,
-      fontWeight: 600,
+      fontWeight: 700,
       fontSize: 12,
       textTransform: 'uppercase',
       letterSpacing: '.04em',
-      border: '1px solid currentColor',
-      borderRadius: 999,
-      padding: '2px 10px',
     }}>{kind}</span>
   )
 }
