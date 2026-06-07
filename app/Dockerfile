@@ -12,6 +12,8 @@ COPY app-fe/package.json app-fe/package-lock.json ./
 RUN npm ci
 COPY app-fe/index.html app-fe/vite.config.js ./
 COPY app-fe/src ./src
+# Static assets (logo, favicons) — Vite copies public/ into dist/ at build.
+COPY app-fe/public ./public
 
 # Empty base => the bundle calls the API on its own origin (same host as app-be).
 ENV VITE_API_BASE=""
