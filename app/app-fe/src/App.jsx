@@ -191,7 +191,7 @@ export default function App() {
                   <Th>Agent</Th>
                   <Th>Score</Th>
                   <Th>Comment</Th>
-                  <Th>Conversation</Th>
+                  <Th>Trajectory</Th>
                   <Th>Session</Th>
                 </tr>
               </thead>
@@ -203,7 +203,7 @@ export default function App() {
                     <Td label="Agent"><code>{r.agent}</code></Td>
                     <Td label="Score">{scoreLabel(r.score)}</Td>
                     <Td label="Comment">{r.comment ?? <Dash />}</Td>
-                    <Td label="Conversation"><Conversation transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
+                    <Td label="Trajectory"><Trajectory transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
                     <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
                   </tr>
                 ))}
@@ -219,7 +219,7 @@ export default function App() {
           <TopSkills skills={stats} />
         </div>
       )}
-      <ConversationDrawer data={openTx} onClose={() => setOpenTx(null)} />
+      <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
     </div>
   )
 }
@@ -462,17 +462,17 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   )
 }
 
-// Each feedback row links to its stored conversation; opening it reveals the
-// full trajectory in a slide-over drawer (see ConversationDrawer) rather than
+// Each feedback row links to its stored trajectory; opening it reveals the
+// full trajectory in a slide-over drawer (see TrajectoryDrawer) rather than
 // cramming it into the table cell.
-function Conversation({ transcript, onOpen }) {
+function Trajectory({ transcript, onOpen }) {
   const steps = transcript?.atif?.steps ?? []
   if (steps.length === 0) return <Dash />
   return (
     <button
       className="tx-chip"
       onClick={() => onOpen(transcript)}
-      title={`Open conversation — ${steps.length} steps`}
+      title={`Open trajectory — ${steps.length} steps`}
     >
       {/* Just the chat glyph + a sliding arrow — the step count lives in the
           drawer's meta header now, not in the table cell. */}
@@ -506,12 +506,12 @@ function ToolCall({ call }) {
   )
 }
 
-// Slide-over panel showing one stored conversation as a vertical timeline:
+// Slide-over panel showing one stored trajectory as a vertical timeline:
 // role-coloured dots on a connector rail, Markdown messages, collapsible tool
-// calls / reasoning / observations, and a token-metrics footer. Closes on the
-// backdrop, the ✕, or Escape. Rendered once at the app root; `data` carries the
-// chosen transcript (and its feedback row, for the header) or null when hidden.
-function ConversationDrawer({ data, onClose }) {
+// calls / reasoning / observations, and a meta header. Closes on the backdrop,
+// the ✕, or Escape. Rendered once at the app root; `data` carries the chosen
+// transcript (and its feedback row, for the header) or null when hidden.
+function TrajectoryDrawer({ data, onClose }) {
   useEffect(() => {
     if (!data) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -529,10 +529,10 @@ function ConversationDrawer({ data, onClose }) {
   return (
     <>
       <div className="drawer-backdrop" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-label="Conversation">
+      <aside className="drawer" role="dialog" aria-label="Trajectory">
         <header className="drawer-head">
           <div className="drawer-head-main">
-            <div className="drawer-title">Conversation</div>
+            <div className="drawer-title">Trajectory</div>
             {/* Meta strip: each fact gets a small KEY label so it's clear what
                 the value means (Skill, Agent, Model, Score, Steps, Tokens). The
                 step and token totals moved up here from the old footer. */}
