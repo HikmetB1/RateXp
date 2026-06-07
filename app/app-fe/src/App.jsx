@@ -137,8 +137,8 @@ export default function App() {
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <LiveDot live={live} />
         </div>
-        <button onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap' }}>
-          {theme === 'dark' ? '☀ Light' : '🌙 Dark'}
+        <button onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap', minWidth: '5.5rem', textAlign: 'center' }}>
+          {theme === 'dark' ? '🌗 Light' : '🌗 Dark'}
         </button>
       </div>
       {(loading || error || filter) && (
