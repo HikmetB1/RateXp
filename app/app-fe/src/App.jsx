@@ -196,23 +196,20 @@ export default function App() {
             <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>✨</span>
             Add RateXp to your skill
           </button>
+          {/* Modern sliding pill switch: a glass knob slides under the active
+              icon. Theme state drives [data-theme] on <html>, which the CSS keys
+              off, so position/highlight stay in sync without inline styles. */}
           <button
-            className="btn-edge"
+            className="theme-toggle"
             onClick={toggleTheme}
+            role="switch"
+            aria-checked={theme === 'light'}
+            aria-label="Toggle light and dark theme"
             title="Toggle light/dark"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              whiteSpace: 'nowrap',
-              minWidth: '6rem',
-              padding: '9px 16px',
-              lineHeight: 1.2,
-            }}
           >
-            <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>🌗</span>
-            {theme === 'dark' ? 'Light' : 'Dark'}
+            <span className="ico ico-moon" aria-hidden="true">🌙</span>
+            <span className="ico ico-sun" aria-hidden="true">☀</span>
+            <span className="knob" aria-hidden="true" />
           </button>
         </div>
       </div>
