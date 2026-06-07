@@ -193,7 +193,6 @@ export default function App() {
               lineHeight: 1.2,
             }}
           >
-            <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>✨</span>
             Add RateXp to your skill
           </button>
           {/* Modern sliding pill switch: a glass knob slides under the active
