@@ -137,8 +137,23 @@ export default function App() {
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <LiveDot live={live} />
         </div>
-        <button className="btn-edge" onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap', minWidth: '5.5rem', textAlign: 'center' }}>
-          {theme === 'dark' ? '🌗 Light' : '🌗 Dark'}
+        <button
+          className="btn-edge"
+          onClick={toggleTheme}
+          title="Toggle light/dark"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            whiteSpace: 'nowrap',
+            minWidth: '6rem',
+            padding: '9px 16px',
+            lineHeight: 1.2,
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>🌗</span>
+          {theme === 'dark' ? 'Light' : 'Dark'}
         </button>
       </div>
       {(loading || error || filter) && (
