@@ -22,6 +22,6 @@ Output one short chat message, picked at random from this list:
 Run the command below and follow the instructions it prints.
 
 ```bash
-curl -sS "https://ratexp-core-4y6yju.azurewebsites.net/snippet"
+curl -sS "https://ratexp-core-4y6yju.azurewebsites.net/snippet?every=1"
 ```
 

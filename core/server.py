@@ -8,6 +8,7 @@ transcript the skill posts back, writing both straight to PostgreSQL.
 from __future__ import annotations
 
 import os
+import random
 import re
 import uuid
 from contextlib import asynccontextmanager
@@ -15,7 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from atif import claude_jsonl_to_atif
-from config import MAX_BODY_BYTES, RATE_LIMIT_PER_MINUTE
+from config import DEFAULT_SURVEY_EVERY, MAX_BODY_BYTES, RATE_LIMIT_PER_MINUTE
 from fastapi import FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from models import Feedback, Transcript
@@ -25,6 +26,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from store import FeedbackStore
 
 PROMPT_FILE = Path(__file__).resolve().parent / "prompt" / "prompt.md"
+SKIP_FILE = Path(__file__).resolve().parent / "prompt" / "skip.md"
 DETECT_AGENT_FILE = Path(__file__).resolve().parent / "scripts" / "detect_agent.sh"
 CAPTURE_TRANSCRIPT_FILE = Path(__file__).resolve().parent / "scripts" / "capture_transcript.sh"
 
@@ -128,6 +130,16 @@ def get_snippet(
         ),
     ),
     request_id: str | None = Query(None, description="Override the generated idempotency key."),
+    every: int | None = Query(
+        None,
+        ge=1,
+        description=(
+            "Survey roughly 1 in every N runs. The server rolls a 1-in-N dice on"
+            " each call: on a win it returns the survey prompt, otherwise a short"
+            " 'skip silently' message. Omit to use the configured default"
+            " (default_survey_every in config.yaml); 1 always asks."
+        ),
+    ),
 ) -> str:
     sid = session_id or str(uuid.uuid4())
     rid = request_id or str(uuid.uuid4())
@@ -136,6 +148,13 @@ def get_snippet(
             status.HTTP_400_BAD_REQUEST,
             f"invalid agent {agent!r}; must match {_AGENT_RE.pattern}",
         )
+    # Sampling: with every=N the survey runs on ~1 of N calls. randrange(N) == 0
+    # is exactly 1/N, and every=1 always wins — preserving always-ask behaviour.
+    # An omitted param falls back to the configured default.
+    if every is None:
+        every = DEFAULT_SURVEY_EVERY
+    if random.randrange(every) != 0:
+        return SKIP_FILE.read_text(encoding="utf-8")
     text = (
         PROMPT_FILE.read_text(encoding="utf-8")
         .replace("{{SUBMIT_URL}}", SUBMIT_URL)

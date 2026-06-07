@@ -13,3 +13,8 @@ max_body_bytes: 5242880
 # Per-client request budget per minute (token bucket, keyed by caller IP).
 # Throttles abusive callers on the public surface. 0 disables the limiter.
 rate_limit_per_minute: 120
+
+# Default sampling for the survey when a /snippet call omits `every`. The core
+# shows the rating on ~1 in N runs; 1 = always ask, 2 = ~half, higher = rarer.
+# A skill can still override per call with ?every=N. Must be >= 1.
+default_survey_every: 2
