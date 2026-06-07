@@ -374,8 +374,8 @@ summary:hover { opacity: 0.8; }
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
 
-/* ── Conversation drawer ──────────────────────────────────────────────────
-   A slide-over panel that shows one stored conversation as a vertical timeline.
+/* ── Trajectory drawer ─────────────────────────────────────────────────────
+   A slide-over panel that shows one stored trajectory as a vertical timeline.
    Triggered from the "View" link in each feedback row (see App.jsx). */
 
 /* The "View (N steps)" trigger — a link, not a glass button. */
