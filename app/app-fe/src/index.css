@@ -295,31 +295,34 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle:hover { filter: brightness(1.1); }
 .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* End icons sit above the knob (z-index) so the knob looks to "hold" the active
-   one. Both are dimmed by default; the current theme's icon goes full opacity. */
+/* Faint end icons sit behind the knob (z-index) as a hint of the other mode; the
+   knob slides over the current side, covering its icon. The active icon lives
+   inside the knob (below), so it stays centred in the circle. */
 .theme-toggle .ico {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 2;
+  z-index: 1;
   font-size: 13px;
   line-height: 1;
   opacity: 0.5;
   pointer-events: none;
-  transition: opacity 0.2s ease;
 }
 .theme-toggle .ico-moon { left: 8px; }
 .theme-toggle .ico-sun { right: 8px; }
-:root:not([data-theme='light']) .theme-toggle .ico-moon { opacity: 1; }
-:root[data-theme='light'] .theme-toggle .ico-sun { opacity: 1; }
 
 .theme-toggle .knob {
   position: absolute;
   top: 3px;
   left: 3px;
-  z-index: 1;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 24px;
   height: 24px;
+  font-size: 13px;
+  line-height: 1;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
   box-shadow:
