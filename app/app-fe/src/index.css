@@ -195,12 +195,43 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .glow-edge::after { animation: none; }
 }
 
-/* ── Static two-tone button outline ────────────────────────────────────────
-   Buttons skip the moving light: instead their ring is "half shiny, half
-   normal" — bright accent at the top-right corner, fading to the regular border
-   colour toward the bottom-left. Same masked-ring trick as .glow-edge, but a
-   fixed linear gradient (no animation). */
-.btn-edge { position: relative; }
+/* ── Liquid-glass action buttons ───────────────────────────────────────────
+   These buttons (theme toggle, Apply/Clear/Download) read as solid, tinted
+   "liquid glass": a translucent accent-coloured body with a glossy top sheen,
+   a bright inner top edge, a soft drop shadow and a backdrop blur. A small
+   shiny accent "kiss" sits at the top-right corner of the outline (the rest of
+   the ring stays the normal border colour). */
+.btn-edge {
+  position: relative;
+  color: var(--text);
+  border: 1px solid var(--card-border);
+  /* gloss sheen on top, accent→accent-2 colour tint underneath */
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.04) 40%,
+      rgba(255, 255, 255, 0) 62%),
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent) 15%, transparent),
+      color-mix(in srgb, var(--accent-2) 11%, transparent));
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.06);
+}
+.btn-edge:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--card-border);
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+  box-shadow:
+    0 9px 22px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.06);
+}
+/* The shiny corner kiss — short accent arc at the top-right, normal elsewhere. */
 .btn-edge::after {
   content: '';
   position: absolute;
@@ -209,8 +240,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding: 1.5px; /* ring thickness */
   background: linear-gradient(225deg,
     var(--accent) 0%,
-    var(--accent) 40%,
-    var(--card-border) 60%,
+    var(--accent) 6%,
+    var(--card-border) 18%,
     var(--card-border) 100%);
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -229,6 +260,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Feedback table cells. Kept as classes (not inline styles) so the mobile
    breakpoint can override them — inline styles win over media queries. */
+/* Holds the feedback table; scrolls sideways within the card on tight widths
+   so the table can never spill past the card's edge. */
+.table-scroll { overflow-x: auto; }
+
 .th {
   text-align: left;
   padding: 10px 12px;
@@ -243,6 +278,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding: 10px 12px;
   border-bottom: 1px solid var(--row-border);
   vertical-align: top;
+  /* Let long single tokens (session ids, ISO timestamps) wrap so a cell can't
+     push the table wider than its card. anywhere only breaks when needed. */
+  overflow-wrap: anywhere;
 }
 /* Skill/Agent/Session values are shown via <code>, but a pill box around every
    row entry is visually noisy — render them as plain monospace text instead. */
@@ -264,7 +302,10 @@ summary:hover { opacity: 0.8; }
    theme tokens so it works in both light and dark. */
 /* min-width:0 lets this flex/table child actually shrink; overflow-wrap stops a
    single long word/URL from forcing the column wider than its cap. */
-.md { font-size: 14px; line-height: 1.5; min-width: 0; overflow-wrap: break-word; }
+/* overflow-wrap:anywhere (not just break-word) also lets long tokens count as
+   wrap points when the browser sizes the element, so a long word can't push the
+   content wider than its box on narrow (phone) widths. */
+.md { font-size: 14px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
 .md p { margin: 0 0 8px; }
@@ -307,7 +348,9 @@ summary:hover { opacity: 0.8; }
 .md th, .md td { border: 1px solid var(--glass-border); padding: 4px 8px; text-align: left; }
 .md th { background: var(--glass-bg-strong); }
 /* Muted variant for tool observations — same layout, dimmer text. */
-.md-muted { display: inline-block; color: var(--faint); }
+/* Block (not inline-block) so it fills the card and wraps to that width — an
+   inline-block shrink-to-fits and can spill past the card on narrow screens. */
+.md-muted { display: block; color: var(--faint); }
 
 /* Custom scrollbar to match the dark glass theme */
 ::-webkit-scrollbar { width: 10px; height: 10px; }

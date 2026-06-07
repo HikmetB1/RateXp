@@ -132,7 +132,7 @@ export default function App() {
 
   return (
     <div className="app" style={{ color: 'var(--text)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <LiveDot live={live} />
@@ -176,6 +176,9 @@ export default function App() {
             boxShadow: 'var(--shadow)',
           }}>
             <h2 style={{ margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }}>Feedback</h2>
+            {/* Scroll wrapper: if cells can't shrink enough on a tight width, the
+                table scrolls sideways inside the card instead of overflowing it. */}
+            <div className="table-scroll">
             <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
               <thead>
                 <tr>
@@ -202,6 +205,7 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+            </div>
             {!filter && <ViewDisclaimer />}
           </section>
         )}
