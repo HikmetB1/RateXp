@@ -14,6 +14,35 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
+// The core service that hands a skill the rating-survey snippet. Skill authors
+// curl this from their SKILL.md; shown in the "Add your skill" popup. (Same
+// host as the deployed core — change here if the core URL changes.)
+const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
+
+// Short, friendly how-to shown in the "Add your skill" popup. Rendered as
+// Markdown (see Md). Two edits to a SKILL.md is all it takes to start reporting.
+const SKILL_GUIDE_MD = `### Add RateXp to your skill
+
+Two small edits to your **\`SKILL.md\`** — that's the whole setup.
+
+**1 · Header (frontmatter)** — allow the tools the rating survey uses:
+
+\`\`\`yaml
+allowed-tools: Bash(curl:*), Bash(sh:*), AskUserQuestion
+\`\`\`
+
+**2 · Body** — add one last step that fetches the survey and follows it:
+
+\`\`\`bash
+curl -sS "${CORE_SNIPPET_URL}"
+\`\`\`
+
+---
+
+🎉 **Congratulations!** Your skill is now exposed to RateXp. Under the user
+consent, every N run can collect a good / bad rating and its full trajectory
+— all visible right here on this dashboard.`
+
 // Outer "group" frame: visually bundles the inner glass cards into two sections
 // — (Filter + Feedback) and (Top skills) — so the two areas read as distinct
 // groups. Children lay out in a column with even spacing (their own margins are
@@ -39,8 +68,10 @@ export default function App() {
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
-  // Which row's transcript is shown in the slide-over conversation drawer.
+  // Which row's transcript is shown in the slide-over trajectory drawer.
   const [openTx, setOpenTx] = useState(null)
+  // Whether the "Add your skill" how-to popup is open.
+  const [guideOpen, setGuideOpen] = useState(false)
 
   // Mirror `filter` into a ref so the WebSocket handler can read the latest
   // value without re-subscribing each time a filter is applied or cleared.
@@ -141,24 +172,45 @@ export default function App() {
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
-        <button
-          className="btn-edge"
-          onClick={toggleTheme}
-          title="Toggle light/dark"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            whiteSpace: 'nowrap',
-            minWidth: '6rem',
-            padding: '9px 16px',
-            lineHeight: 1.2,
-          }}
-        >
-          <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>🌗</span>
-          {theme === 'dark' ? 'Light' : 'Dark'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* Opens a short how-to popup for skill authors: the two edits that
+              wire their SKILL.md into RateXp. */}
+          <button
+            className="btn-edge"
+            onClick={() => setGuideOpen(true)}
+            title="How to send your skill's feedback to RateXp"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 7,
+              whiteSpace: 'nowrap',
+              padding: '9px 16px',
+              lineHeight: 1.2,
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>✨</span>
+            Add RateXp to your skill
+          </button>
+          <button
+            className="btn-edge"
+            onClick={toggleTheme}
+            title="Toggle light/dark"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              whiteSpace: 'nowrap',
+              minWidth: '6rem',
+              padding: '9px 16px',
+              lineHeight: 1.2,
+            }}
+          >
+            <span aria-hidden="true" style={{ fontSize: 14, lineHeight: 1 }}>🌗</span>
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
       </div>
       {(loading || error || filter) && (
         <p style={{ color: 'var(--muted)', marginTop: 4 }}>
@@ -220,6 +272,7 @@ export default function App() {
         </div>
       )}
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
+      <SkillGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
     </div>
   )
 }
@@ -584,6 +637,31 @@ function TrajectoryDrawer({ data, onClose }) {
           </ol>
         </div>
       </aside>
+    </>
+  )
+}
+
+// Centered popup with a short, Markdown-rendered how-to for skill authors: the
+// two edits that wire a SKILL.md into RateXp (see SKILL_GUIDE_MD). Closes on the
+// backdrop, the ✕, or Escape. Rendered once at the app root; `open` toggles it.
+function SkillGuideModal({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <div className="modal-wrap" onClick={onClose}>
+        <div className="modal glow-edge" role="dialog" aria-label="Add RateXp to your skill" onClick={(e) => e.stopPropagation()}>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <Md className="md modal-md">{SKILL_GUIDE_MD}</Md>
+        </div>
+      </div>
     </>
   )
 }

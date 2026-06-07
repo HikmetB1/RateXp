@@ -460,6 +460,59 @@ summary:hover { opacity: 0.8; }
   animation: fadeIn 0.2s ease both;
 }
 
+/* ── "Add your skill" popup ────────────────────────────────────────────────
+   A centered glass card over the shared backdrop. Holds the short Markdown
+   how-to (SKILL_GUIDE_MD). The wrap centres it and catches outside clicks. */
+.modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 41;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: 86vh;
+  overflow-y: auto;
+  padding: 24px 26px;
+  border-radius: 18px;
+  border: 1px solid var(--card-border);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: var(--shadow);
+  animation: popIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.modal-close:hover:not(:disabled) { color: var(--text); border: none; transform: none; }
+/* The popup's first heading uses the brand gradient like the page title. */
+.modal-md h3 {
+  margin-top: 0;
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 19px;
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.modal-md { font-size: 14px; }
+.modal-md hr { border: none; border-top: 1px solid var(--glass-border); margin: 16px 0; }
+
 /* The panel itself — glass surface anchored to the right, sliding in. */
 .drawer {
   position: fixed;
