@@ -6,7 +6,8 @@ embed it in a skill, see the [README](./README.md).
 
 ## Prerequisites
 
-- [Docker](https://www.docker.com/) + Docker Compose
+- [Docker](https://www.docker.com/) + Docker Compose **v2** (the `docker compose`
+  command, with a space — the older hyphenated `docker-compose` v1 is not supported)
 - [uv](https://docs.astral.sh/uv/) (Python tooling) — for running a service or
   the tests directly
 - [Node.js](https://nodejs.org/) 22+ — only for frontend work
@@ -26,7 +27,14 @@ small helpers (`db.py`, `config.py`) so either can be built and deployed alone.
 
 ## Run it locally
 
-The whole stack (PostgreSQL + core + app) comes up with one command:
+First, clone the repo and enter it (run all commands below from this root):
+
+```bash
+git clone <repo-url> ratexp
+cd ratexp
+```
+
+The whole stack (PostgreSQL + core + app) then comes up with one command:
 
 ```bash
 cp .env.example .env           # optional — defaults work out of the box
