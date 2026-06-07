@@ -23,9 +23,3 @@ dist/
 
 # OS / editor
 .DS_Store
-
-# Local-only RateXp testing skill (points at a core on your own machine)
-examples/goodbye-local/
-
-# Locally-copied goodbye skill (lives in the parent repo)
-.claude/skills/goodbye/
