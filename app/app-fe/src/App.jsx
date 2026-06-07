@@ -137,7 +137,7 @@ export default function App() {
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <LiveDot live={live} />
         </div>
-        <button className="glow-edge" onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap', minWidth: '5.5rem', textAlign: 'center' }}>
+        <button className="btn-edge" onClick={toggleTheme} title="Toggle light/dark" style={{ whiteSpace: 'nowrap', minWidth: '5.5rem', textAlign: 'center' }}>
           {theme === 'dark' ? '🌗 Light' : '🌗 Dark'}
         </button>
       </div>
@@ -429,9 +429,9 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
         style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 10, boxSizing: 'border-box' }}
       />
       <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button className="glow-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
-        <button className="glow-edge" onClick={clear} disabled={!active && !sql}>Clear</button>
-        <button className="glow-edge" onClick={download} disabled={rows.length === 0}>Download CSV</button>
+        <button className="btn-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
+        <button className="btn-edge" onClick={clear} disabled={!active && !sql}>Clear</button>
+        <button className="btn-edge" onClick={download} disabled={rows.length === 0}>Download CSV</button>
         {err && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{err}</span>}
       </div>
     </section>
