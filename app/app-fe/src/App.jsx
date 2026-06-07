@@ -163,8 +163,31 @@ export default function App() {
           </tbody>
         </table>
       )}
+      {!loading && !error && !filter && <ViewDisclaimer />}
       <ConversationDrawer data={openTx} onClose={() => setOpenTx(null)} />
     </div>
+  )
+}
+
+// Always-on note under the default table: the dashboard is a preview that shows
+// only the latest rows and the most-rated skills (both capped by app-be's
+// config.yaml — list_view_limit / top_skills_limit, default 10 each). The data
+// behind it is larger; Download CSV or the SQL box pull the full set (up to
+// query_max_rows). Hidden while a filter is active, since ViewLimitNotice then
+// explains the cap for the filtered result instead.
+function ViewDisclaimer() {
+  return (
+    <p style={{
+      margin: '12px 0 0',
+      color: 'var(--danger)',
+      fontWeight: 700,
+      fontSize: 13,
+      textAlign: 'center',
+    }}>
+      This is a preview — the table shows only the latest entries and the “Top skills”
+      panel only the most-rated skills. Use <strong>Download CSV</strong> or the SQL
+      filter above to get the full data.
+    </p>
   )
 }
 
