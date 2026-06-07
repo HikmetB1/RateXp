@@ -163,3 +163,8 @@ once, in order, and recorded in the `schema_version` table.
 - Match the style of the surrounding code; keep changes small and focused.
 - Update tests and docs in the same change as the code.
 - Nothing here is tied to a specific coding agent — see [AGENTS.md](./AGENTS.md).
+
+## TODO
+
+- [ ] Flip storage into an adapter
+- [ ] Flip query into adapter‑based
