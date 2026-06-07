@@ -21,6 +21,9 @@
   --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-bg-strong: rgba(255, 255, 255, 0.07);
   --glass-border: rgba(255, 255, 255, 0.10);
+  /* Stronger outline used only on the card/group boxes so they read as clearly
+     framed against the dark background (high contrast for easy visibility). */
+  --card-border: rgba(255, 255, 255, 0.30);
   --row-border: rgba(255, 255, 255, 0.06);
   --blur: blur(16px) saturate(140%);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
@@ -48,6 +51,8 @@
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-bg-strong: rgba(255, 255, 255, 0.78);
   --glass-border: rgba(20, 40, 70, 0.12);
+  /* Stronger outline used only on the card/group boxes (light theme). */
+  --card-border: rgba(20, 40, 70, 0.38);
   --row-border: rgba(20, 40, 70, 0.08);
   --shadow: 0 12px 40px rgba(30, 55, 100, 0.12);
 
@@ -105,7 +110,7 @@ code {
   font-size: 0.9em;
   color: var(--accent);
   background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--card-border);
   border-radius: 6px;
   padding: 1px 6px;
 }
@@ -114,7 +119,7 @@ code {
 textarea {
   background: var(--glass-bg-strong);
   color: var(--text);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -132,7 +137,7 @@ button {
   font-weight: 600;
   color: var(--text);
   background: var(--glass-bg-strong);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--card-border);
   border-radius: 9px;
   padding: 7px 14px;
   cursor: pointer;
@@ -145,6 +150,51 @@ button:hover:not(:disabled) {
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* ── Moving-light border ───────────────────────────────────────────────────
+   A bright accent arc that travels slowly around an element's outline. It's a
+   conic-gradient masked down to a thin ring at the very edge, rotated by the
+   animatable custom property --glow-angle. The element keeps its own
+   high-contrast border as the steady base; this light rides on top.
+   Add the class `glow-edge` to any box/button you want it on. The element needs
+   position (set here) and must not clip its corners with overflow:hidden. */
+@property --glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes glow-spin { to { --glow-angle: 360deg; } }
+
+.glow-edge { position: relative; }
+.glow-edge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px; /* ring thickness */
+  background: conic-gradient(from var(--glow-angle),
+    transparent 0deg,
+    var(--accent) 25deg,
+    var(--accent-2) 60deg,
+    transparent 120deg,
+    transparent 360deg);
+  /* Keep only the 1.5px ring: full box minus inner (content-box) area. */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: glow-spin 20s linear infinite;
+}
+
+/* Respect users who ask for less motion — show a steady accent ring instead. */
+@media (prefers-reduced-motion: reduce) {
+  .glow-edge::after { animation: none; }
+}
+
 /* Page shell — centred column with comfortable padding (tightened on phones,
    see the responsive block at the bottom of this file). */
 .app { padding: 24px; max-width: 1100px; margin: 0 auto; }
@@ -154,7 +204,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .th {
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--card-border);
   background: var(--glass-bg-strong);
   font-size: 12px;
   text-transform: uppercase;
@@ -349,7 +399,7 @@ summary:hover { opacity: 0.8; }
 
 .tl-card {
   padding: 10px 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
   background: var(--glass-bg);
 }
@@ -410,7 +460,7 @@ summary:hover { opacity: 0.8; }
   .data-table tr {
     margin-bottom: 12px;
     padding: 4px 6px;
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--card-border);
     border-radius: 12px;
     background: var(--glass-bg);
   }
