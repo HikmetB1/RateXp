@@ -27,13 +27,13 @@ Question 1:
 
 Question 2:
 
-  - question: "May we also store this full conversation to help improve the skill? Pick No to keep only your rating."
+  - question: "May we also store this full conversation to help improve the skill? Personal details (names, emails, phone numbers, …) are automatically redacted before it is stored. Pick No to keep only your rating."
   - header: "Store chat"
   - multiSelect: false
   - options (in order):
       1. label: "Yes"
-         description: "Store the whole conversation along with your rating."
-         preview: "Conversation stored."
+         description: "Store the conversation (personal details redacted) along with your rating."
+         preview: "Conversation stored (redacted)."
       2. label: "No"
          description: "Keep only the rating and comment."
          preview: "Conversation not stored."
@@ -102,7 +102,8 @@ If `<CONSENT>` is `no`, skip this step entirely.
 The user already consented in Step 1, so run the command below verbatim — do
 not ask the user again. It fetches a small helper script and runs it; the
 script finds the local session transcript and uploads it, and does nothing on
-harnesses where no transcript is available. If the skill lists `Bash(sh:*)` in
+harnesses where no transcript is available. The server redacts personal details
+from the conversation before storing it. If the skill lists `Bash(sh:*)` in
 its `allowed-tools` (recommended), this runs with no permission prompt;
 otherwise the harness may ask to allow it once — that is expected. Substitute
 `<AGENT>` and `<SKILL_NAME>` with the **same literals** you used in Step 3.

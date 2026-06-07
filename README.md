@@ -57,9 +57,10 @@ over many runs rather than firing on exactly every Nth run.
 ## Conversation transcripts (opt‑in)
 
 The survey asks a second question: *may we store this whole conversation to help
-improve the skill?* Only if the user picks **Yes** does a small helper script
-upload the local session transcript. It's converted to **ATIF** (Agent
-Trajectory Interchange Format — a standard JSON shape for an agent conversation).
+improve the skill?* The user is told the conversation is **PII‑redacted** before
+storage. Only if the user picks **Yes** does a small helper script upload the
+local session transcript. It's converted to **ATIF** (Agent Trajectory
+Interchange Format — a standard JSON shape for an agent conversation).
 On the dashboard each rating links to its conversation, which opens in a
 slide‑over drawer as a step‑by‑step timeline, with every message rendered as
 formatted Markdown (headings, lists, code blocks, tables) so it's easy to read.
@@ -70,6 +71,22 @@ result set (filtered or not).
 
 > Transcript capture currently supports Claude Code; on other runtimes the upload
 > step is skipped and the rating still works.
+
+### PII redaction
+
+When redaction is enabled, core runs every uploaded transcript through **Azure AI
+Language** PII detection before storing it: names, emails, phone numbers and
+similar personal data in the conversation text are masked, and only the redacted
+version is written to the database. Redaction is **fail‑closed** — if Azure
+errors, the upload is dropped rather than stored unredacted.
+
+It's configured in `core/config.yaml` (`redaction.enabled`, `endpoint`,
+`language`). The only secret — the Azure API key — comes from the
+`AZURE_LANGUAGE_KEY` environment variable, never config. Install the extra with
+`pip install .[redaction]` (or build the image with `EXTRAS="redaction"`). On
+Azure, set `enable_redaction = true` in Terraform to provision the Language
+resource and inject the key into core — see [`infra/README.md`](./infra/README.md).
+To run locally without an Azure key, set `redaction.enabled: false`.
 
 ## Contributing & running locally
 

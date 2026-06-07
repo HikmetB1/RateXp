@@ -34,6 +34,30 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-ai-textanalytics"
+version = "5.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-common" },
+    { name = "azure-core" },
+    { name = "isodate" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0a/85/527ebdb0a64fcc9453aedb5e9217fdc362c9bb1b712f0f7de1b52f133c53/azure_ai_textanalytics-5.4.0.tar.gz", hash = "sha256:5cadfdcd187fabcd75777c9b1d0472ac82898e803712b6dd043c7ae4d017b4e0", size = 378091 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b6/4f/1b618418ebd04bd2896b5f92881343ef960ddcc01fc12f4bd2c87c35cae2/azure_ai_textanalytics-5.4.0-py3-none-any.whl", hash = "sha256:1e36b1a0c67f274d62b5e37d999d3414cc8dfc70f09c2e6e67905c05723787c9", size = 300247 },
+]
+
+[[package]]
+name = "azure-common"
+version = "1.1.28"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/71/f6f71a276e2e69264a97ad39ef850dca0a04fce67b12570730cb38d0ccac/azure-common-1.1.28.zip", hash = "sha256:4ac0cd3214e36b6a1b6a442686722a5d8cc449603aa833f3f0f40bda836704a3", size = 20914 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/62/55/7f118b9c1b23ec15ca05d15a578d8207aa1706bc6f7c87218efffbbf875d/azure_common-1.1.28-py2.py3-none-any.whl", hash = "sha256:5c12d3dcf4ec20599ca6b0d3e09e86e146353d443e7fcc050c9a19c1f9df20ad", size = 14462 },
+]
+
+[[package]]
 name = "azure-core"
 version = "1.41.0"
 source = { registry = "https://pypi.org/simple" }
@@ -383,6 +407,15 @@ wheels = [
 ]
 
 [[package]]
+name = "isodate"
+version = "0.7.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/54/4d/e940025e2ce31a8ce1202635910747e5a87cc3a6a6bb2d00973375014749/isodate-0.7.2.tar.gz", hash = "sha256:4cd1aa0f43ca76f4a6c6c0292a85f40b35ec2e43e315b59f06e6d32171a953e6", size = 29705 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/aa/0aca39a37d3c7eb941ba736ede56d689e7be91cab5d9ca846bde3999eba6/isodate-0.7.2-py3-none-any.whl", hash = "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15", size = 22320 },
+]
+
+[[package]]
 name = "msal"
 version = "1.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -715,6 +748,9 @@ dependencies = [
 entra = [
     { name = "azure-identity" },
 ]
+redaction = [
+    { name = "azure-ai-textanalytics" },
+]
 test = [
     { name = "httpx" },
     { name = "pytest" },
@@ -722,6 +758,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-ai-textanalytics", marker = "extra == 'redaction'", specifier = ">=5.3" },
     { name = "azure-identity", marker = "extra == 'entra'", specifier = ">=1.16" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "httpx", marker = "extra == 'test'", specifier = ">=0.27" },
@@ -732,7 +769,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27" },
 ]
-provides-extras = ["entra", "test"]
+provides-extras = ["entra", "redaction", "test"]
 
 [[package]]
 name = "requests"

@@ -18,3 +18,32 @@ rate_limit_per_minute: 120
 # shows the rating on ~1 in N runs; 1 = always ask, 2 = ~half, higher = rarer.
 # A skill can still override per call with ?every=N. Must be >= 1.
 default_survey_every: 2
+
+# PII redaction for consented transcripts (Azure AI Language). When enabled, the
+# conversation text in an uploaded transcript — user/agent messages, reasoning
+# and tool observations — is sent to Azure's PII detection, which masks personal
+# data (names, emails, phone numbers, …). Only the redacted text is stored; the
+# raw text never reaches the database. If Azure errors, the upload is dropped so
+# unredacted text is never persisted (fail-closed).
+#
+# Configured here only. The single exception is the API key — a secret read from
+# the AZURE_LANGUAGE_KEY environment variable, never this file. To run locally
+# without redaction (no Azure key), set enabled: false.
+redaction:
+  enabled: true
+  # Azure AI Language resource endpoint (the Terraform-provisioned account).
+  endpoint: "https://ratexp-lang-4y6yju-64136.cognitiveservices.azure.com/"
+  # PII model languages. Each message's language is auto-detected; if it is one
+  # of these it is used, otherwise the first entry is the fallback. Listed are
+  # the world's 10 most-spoken languages (BCP-47 codes Azure understands).
+  languages:
+    - en       # English
+    - zh-hans  # Mandarin Chinese
+    - hi       # Hindi
+    - es       # Spanish
+    - fr       # French
+    - ar       # Arabic
+    - bn       # Bengali
+    - pt       # Portuguese
+    - ru       # Russian
+    - ur       # Urdu

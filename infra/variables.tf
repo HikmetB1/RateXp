@@ -68,3 +68,15 @@ variable "entra_admin_principal_type" {
   type        = string
   default     = "User"
 }
+
+variable "enable_redaction" {
+  description = "Provision an Azure AI Language account and wire transcript PII redaction into core (see core/redact.py). Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "language_sku_name" {
+  description = "Azure AI Language (Cognitive Services) SKU. F0 is the free tier (one per subscription); S is pay-as-you-go."
+  type        = string
+  default     = "F0"
+}

@@ -3,6 +3,8 @@
 # Build with the Entra extra for cloud (Managed Identity DB auth):
 #   docker build --build-arg EXTRAS=entra -t ratexp-core .
 # Without it, core uses password auth from DATABASE_URL (local dev).
+# EXTRAS is space-separated; add the redaction extra to enable transcript PII
+# redaction: --build-arg EXTRAS="entra redaction".
 
 FROM ghcr.io/astral-sh/uv:0.5 AS uv
 
@@ -18,12 +20,13 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 WORKDIR /app
 
-# Lockfile-driven install — same deps every rebuild.
+# Lockfile-driven install — same deps every rebuild. EXTRAS may name several
+# extras separated by spaces; each becomes its own --extra flag.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev \
-      $( [ -n "$EXTRAS" ] && echo "--extra $EXTRAS" )
+      $(for e in $EXTRAS; do echo "--extra $e"; done)
 
-COPY server.py models.py migrate.py atif.py config.py config.yaml db.py store.py ratelimit.py ./
+COPY server.py models.py migrate.py atif.py config.py config.yaml db.py store.py ratelimit.py redact.py ./
 COPY prompt/ ./prompt/
 COPY scripts/ ./scripts/
 COPY migrations/ ./migrations/

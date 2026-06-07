@@ -7,6 +7,11 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # project  = "ratexp"
 # location = "westeurope"
 
+# Transcript PII redaction (Azure AI Language). Off by default; set true to
+# provision a Language account and wire it into core. F0 is the free tier.
+# enable_redaction  = true
+# language_sku_name = "F0"
+
 # PostgreSQL Entra admin = the identity running `terraform apply`. By default
 # Terraform uses the deployer's object id; set these only to use a different
 # admin (e.g. a group). principal_name must match the Entra display name.

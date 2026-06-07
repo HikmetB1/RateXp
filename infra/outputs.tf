@@ -62,3 +62,8 @@ output "grant_db_access_hint" {
   description = "Run infra/grant-db-access.sql against the DB (as the Entra admin) with these role names."
   value       = "core role: ${local.core_name} (read/write) · app role: ${local.app_name} (read-only)"
 }
+
+output "language_endpoint" {
+  description = "Azure AI Language endpoint wired into core for PII redaction (empty when enable_redaction is false)."
+  value       = var.enable_redaction ? azurerm_cognitive_account.language[0].endpoint : ""
+}
