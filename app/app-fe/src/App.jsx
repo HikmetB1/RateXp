@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -653,7 +654,10 @@ function SkillGuideModal({ open, onClose }) {
   }, [open, onClose])
 
   if (!open) return null
-  return (
+  // Portal to <body> so the fixed backdrop/popup anchor to the viewport rather
+  // than to #root — whose page-load transform animation otherwise becomes the
+  // containing block and pushes the centered popup down the page on mobile.
+  return createPortal(
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="modal-wrap" onClick={onClose}>
@@ -662,7 +666,8 @@ function SkillGuideModal({ open, onClose }) {
           <Md className="md modal-md">{SKILL_GUIDE_MD}</Md>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   )
 }
 
