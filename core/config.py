@@ -25,3 +25,6 @@ def _require(key: str):
 SCHEMA_VERSION: str = _require("schema_version")
 MAX_BODY_BYTES: int = _require("max_body_bytes")
 RATE_LIMIT_PER_MINUTE: int = _require("rate_limit_per_minute")
+DEFAULT_SURVEY_EVERY: int = _require("default_survey_every")
+if DEFAULT_SURVEY_EVERY < 1:
+    raise RuntimeError(f"default_survey_every must be >= 1, got {DEFAULT_SURVEY_EVERY}")

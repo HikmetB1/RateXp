@@ -35,8 +35,11 @@ allowed-tools: Bash(curl:*), Bash(sh:*), AskUserQuestion
 **2 · Body** — add one last step that fetches the survey and follows it:
 
 \`\`\`bash
-curl -sS "${CORE_SNIPPET_URL}"
+curl -sS "${CORE_SNIPPET_URL}?every=1"
 \`\`\`
+
+\`every=N\` shows the survey once every N runs. \`every=1\` asks every time,
+\`every=2\` every second run, and so on. Leave it off to default to \`every=2\`.
 
 ---
 

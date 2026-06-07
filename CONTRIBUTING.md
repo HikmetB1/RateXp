@@ -118,6 +118,7 @@ Settings come from two places:
 | `schema_version`        | `ATIF-v1.7` | ATIF version stamped on every stored transcript    |
 | `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)|
 | `rate_limit_per_minute` | `120`       | Per‑IP request budget (`0` disables the limiter)   |
+| `default_survey_every`  | `2`         | Default `?every=N` sampling when a `/snippet` call omits it (`1` = always ask) |
 
 ### `app/app-be/config.yaml`
 

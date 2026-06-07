@@ -37,6 +37,23 @@ The snippet returns step‑by‑step instructions the agent follows to ask the u
 for a rating and post it back. See [`examples/`](./examples/) for complete,
 working `SKILL.md` files (`cheerful`, `goodbye`).
 
+### How often it asks
+
+The `every=N` parameter controls how often the survey shows: the core rolls a
+1‑in‑N dice on each call and shows the rating on roughly **1 in N** runs,
+silently skipping the rest. Omitting it uses the core's configured default
+(ships as ~half the runs); `every=1` always asks.
+
+```bash
+curl -sS "https://<your-core-url>/snippet?every=1"   # always ask
+curl -sS "https://<your-core-url>/snippet?every=4"   # ask ~1 in 4 runs
+curl -sS "https://<your-core-url>/snippet"           # default: ~half the runs
+```
+
+The dice is rolled on the server each call, so nothing else in the skill
+changes. It's probabilistic, not a strict counter — it averages out to 1 in N
+over many runs rather than firing on exactly every Nth run.
+
 ## Conversation transcripts (opt‑in)
 
 The survey asks a second question: *may we store this whole conversation to help
