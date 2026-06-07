@@ -481,8 +481,24 @@ function Conversation({ transcript, onOpen }) {
   const steps = transcript?.atif?.steps ?? []
   if (steps.length === 0) return <Dash />
   return (
-    <button className="link-btn" onClick={() => onOpen(transcript)}>
-      View ({steps.length} steps) ▸
+    <button
+      className="tx-chip"
+      onClick={() => onOpen(transcript)}
+      title={`Open conversation — ${steps.length} steps`}
+    >
+      {/* Line-style chat glyph — echoes the timeline in the drawer this opens. */}
+      <svg className="tx-chip-ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+        <path
+          d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span className="tx-chip-count">{steps.length}</span>
+      <span className="tx-chip-label">steps</span>
+      <span className="tx-chip-arrow" aria-hidden="true">→</span>
     </button>
   )
 }
