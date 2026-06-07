@@ -474,8 +474,9 @@ function Conversation({ transcript, onOpen }) {
       onClick={() => onOpen(transcript)}
       title={`Open conversation — ${steps.length} steps`}
     >
-      {/* Line-style chat glyph — echoes the timeline in the drawer this opens. */}
-      <svg className="tx-chip-ico" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      {/* Just the chat glyph + a sliding arrow — the step count lives in the
+          drawer's meta header now, not in the table cell. */}
+      <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
         <path
           d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
           fill="none"
@@ -484,8 +485,6 @@ function Conversation({ transcript, onOpen }) {
           strokeLinejoin="round"
         />
       </svg>
-      <span className="tx-chip-count">{steps.length}</span>
-      <span className="tx-chip-label">steps</span>
       <span className="tx-chip-arrow" aria-hidden="true">→</span>
     </button>
   )
@@ -532,10 +531,27 @@ function ConversationDrawer({ data, onClose }) {
       <div className="drawer-backdrop" onClick={onClose} />
       <aside className="drawer" role="dialog" aria-label="Conversation">
         <header className="drawer-head">
-          <div>
+          <div className="drawer-head-main">
             <div className="drawer-title">Conversation</div>
-            <div className="drawer-sub">
-              <code>{row?.skill_name}</code>{model ? ` · ${model}` : ''}
+            {/* Meta strip: each fact gets a small KEY label so it's clear what
+                the value means (Skill, Agent, Model, Score, Steps, Tokens). The
+                step and token totals moved up here from the old footer. */}
+            <div className="drawer-meta">
+              {[
+                row?.skill_name && { k: 'Skill', v: <code>{row.skill_name}</code> },
+                row?.agent && { k: 'Agent', v: <code>{row.agent}</code> },
+                model && { k: 'Model', v: model },
+                row?.score && { k: 'Score', v: scoreLabel(row.score) },
+                { k: 'Steps', v: fm.total_steps ?? steps.length },
+                { k: 'Tokens', v: `↑ ${fm.total_prompt_tokens ?? 0} · ↓ ${fm.total_completion_tokens ?? 0}` },
+              ]
+                .filter(Boolean)
+                .map((m, i) => (
+                  <span className="dm-item" key={i}>
+                    <span className="dm-key">{m.k}</span>
+                    <span className="dm-val">{m.v}</span>
+                  </span>
+                ))}
             </div>
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
@@ -568,11 +584,6 @@ function ConversationDrawer({ data, onClose }) {
             ))}
           </ol>
         </div>
-
-        <footer className="drawer-foot">
-          <span>{fm.total_steps ?? steps.length} steps</span>
-          <span>↑ {fm.total_prompt_tokens ?? 0} · ↓ {fm.total_completion_tokens ?? 0} tok</span>
-        </footer>
       </aside>
     </>
   )
