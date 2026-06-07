@@ -216,6 +216,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   border-bottom: 1px solid var(--row-border);
   vertical-align: top;
 }
+/* Skill/Agent/Session values are shown via <code>, but a pill box around every
+   row entry is visually noisy — render them as plain monospace text instead. */
+.data-table .td code {
+  border: none;
+  background: none;
+  padding: 0;
+}
 
 /* Table rows light up on hover */
 tbody tr { transition: background 0.12s ease; }
