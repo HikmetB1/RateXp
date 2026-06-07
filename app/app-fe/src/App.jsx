@@ -14,6 +14,20 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
+// Outer "group" frame: visually bundles the inner glass cards into two sections
+// — (Filter + Feedback) and (Top skills) — so the two areas read as distinct
+// groups. Children lay out in a column with even spacing (their own margins are
+// zeroed, see the inner <section>s).
+const groupBox = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 14,
+  border: '1px solid var(--glass-border)',
+  borderRadius: 18,
+  padding: 14,
+  marginBottom: 20,
+}
+
 export default function App() {
   const [allRows, setAllRows] = useState([]) // full list from /feedback
   const [rows, setRows] = useState([]) // what the table shows (all, or filtered)
@@ -132,38 +146,56 @@ export default function App() {
           <StatusLine loading={loading} error={error} filtered={!!filter} />
         </p>
       )}
-      {!loading && !error && <TopSkills skills={stats} />}
-      <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} onFilter={applyFilter} onClear={clearFilter} />
-      {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
+      <div style={groupBox}>
+        <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} onFilter={applyFilter} onClear={clearFilter} />
+        {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
+        {!loading && !error && (
+          <section style={{
+            margin: 0,
+            border: '1px solid var(--glass-border)',
+            borderRadius: 14,
+            padding: '14px 16px',
+            background: 'var(--glass-bg)',
+            backdropFilter: 'var(--blur)',
+            WebkitBackdropFilter: 'var(--blur)',
+            boxShadow: 'var(--shadow)',
+          }}>
+            <h2 style={{ margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }}>Feedback</h2>
+            <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
+              <thead>
+                <tr>
+                  <Th>When</Th>
+                  <Th>Skill</Th>
+                  <Th>Agent</Th>
+                  <Th>Score</Th>
+                  <Th>Comment</Th>
+                  <Th>Conversation</Th>
+                  <Th>Session</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <Td label="When">{r.created_at}</Td>
+                    <Td label="Skill"><code>{r.skill_name}</code></Td>
+                    <Td label="Agent"><code>{r.agent}</code></Td>
+                    <Td label="Score">{scoreLabel(r.score)}</Td>
+                    <Td label="Comment">{r.comment ?? <Dash />}</Td>
+                    <Td label="Conversation"><Conversation transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
+                    <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!filter && <ViewDisclaimer />}
+          </section>
+        )}
+      </div>
       {!loading && !error && (
-        <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
-          <thead>
-            <tr>
-              <Th>When</Th>
-              <Th>Skill</Th>
-              <Th>Agent</Th>
-              <Th>Score</Th>
-              <Th>Comment</Th>
-              <Th>Conversation</Th>
-              <Th>Session</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i}>
-                <Td label="When">{r.created_at}</Td>
-                <Td label="Skill"><code>{r.skill_name}</code></Td>
-                <Td label="Agent"><code>{r.agent}</code></Td>
-                <Td label="Score">{scoreLabel(r.score)}</Td>
-                <Td label="Comment">{r.comment ?? <Dash />}</Td>
-                <Td label="Conversation"><Conversation transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
-                <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div style={groupBox}>
+          <TopSkills skills={stats} />
+        </div>
       )}
-      {!loading && !error && !filter && <ViewDisclaimer />}
       <ConversationDrawer data={openTx} onClose={() => setOpenTx(null)} />
     </div>
   )
@@ -235,7 +267,7 @@ function TopSkills({ skills }) {
   if (!skills || skills.length === 0) return null
   return (
     <section style={{
-      margin: '8px 0 20px',
+      margin: 0,
       border: '1px solid var(--glass-border)',
       borderRadius: 14,
       padding: '14px 16px',
@@ -374,7 +406,7 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
 
   return (
     <section style={{
-      margin: '8px 0 20px',
+      margin: 0,
       border: '1px solid var(--glass-border)',
       borderRadius: 14,
       padding: '14px 16px',
