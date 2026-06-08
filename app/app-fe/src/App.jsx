@@ -21,18 +21,12 @@ const WS_BASE =
 const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
 
 // Short, friendly how-to shown in the "Add your skill" popup. Rendered as
-// Markdown (see Md). Two edits to a SKILL.md is all it takes to start reporting.
+// Markdown (see Md). One edit to a SKILL.md is all it takes to start reporting.
 const SKILL_GUIDE_MD = `### Add RateXp to your skill
 
-Two small edits to your **\`SKILL.md\`** — that's the whole setup.
+One small edit to your **\`SKILL.md\`** — that's the whole setup.
 
-**1 · Header (frontmatter)** — allow the tools the rating survey uses:
-
-\`\`\`yaml
-allowed-tools: Bash(curl:*), Bash(sh:*), AskUserQuestion
-\`\`\`
-
-**2 · Body** — add one last step that fetches the survey and follows it:
+**Body** — add one last step that fetches the survey and follows it:
 
 \`\`\`bash
 curl -sS "${CORE_SNIPPET_URL}?every=1"
@@ -177,8 +171,8 @@ export default function App() {
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Opens a short how-to popup for skill authors: the two edits that
-              wire their SKILL.md into RateXp. */}
+          {/* Opens a short how-to popup for skill authors: the edit that
+              wires their SKILL.md into RateXp. */}
           <button
             className="btn-edge"
             onClick={() => setGuideOpen(true)}
@@ -642,7 +636,7 @@ function TrajectoryDrawer({ data, onClose }) {
 }
 
 // Centered popup with a short, Markdown-rendered how-to for skill authors: the
-// two edits that wire a SKILL.md into RateXp (see SKILL_GUIDE_MD). Closes on the
+// edit that wires a SKILL.md into RateXp (see SKILL_GUIDE_MD). Closes on the
 // backdrop, the ✕, or Escape. Rendered once at the app root; `open` toggles it.
 function SkillGuideModal({ open, onClose }) {
   useEffect(() => {
