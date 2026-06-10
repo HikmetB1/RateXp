@@ -100,6 +100,34 @@ Build the core image with the redaction extra (step 3 note above). The default
 `language_sku_name` is the free `F0` tier (one per subscription); switch to `S`
 for pay‑as‑you‑go.
 
+## Multiple environments (e.g. dev)
+
+The same stack can run a second, parallel environment alongside prod using a
+**Terraform workspace** and the `environment` variable. Prod stays in the `default`
+workspace untouched; the named environment gets its own state and clean,
+suffix-free names (e.g. `rg-ratexp-dev`, `ratexp-dev-core`,
+`https://ratexp-dev-app.azurewebsites.net`).
+
+`infra/dev.tfvars` defines the `dev` environment. It reuses prod's Azure AI
+**Language** account for redaction (the free F0 tier is one-per-subscription), so no
+new Language resource is created — dev-core's identity is just granted access to the
+existing one.
+
+```bash
+cd infra
+terraform workspace new dev          # one-time: isolated state for dev
+terraform apply -var-file=dev.tfvars # provisions everything in rg-ratexp-dev
+```
+
+Then run steps **3–5** above exactly as written — all the `terraform output`
+commands read from the active (`dev`) workspace, so images push to the dev registry,
+the database roles use the dev app names, and the restarts target the dev web apps.
+Build the core image with the redaction extra (`--build-arg EXTRAS="entra redaction"`).
+
+Switch back with `terraform workspace select default`. Running
+`terraform plan` there should report **no changes** — proof that prod's names are
+preserved.
+
 ## What gets created
 
 | Resource           | SKU              | Purpose                                  |

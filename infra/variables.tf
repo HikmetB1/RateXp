@@ -9,6 +9,12 @@ variable "project" {
   default     = "ratexp"
 }
 
+variable "environment" {
+  description = "Environment suffix. Empty = the default (prod) deployment, which keeps its random-suffixed names. A non-empty value (e.g. \"dev\") yields clean, suffix-free names like ratexp-dev-app."
+  type        = string
+  default     = ""
+}
+
 variable "location" {
   description = "Azure region for all resources."
   type        = string
@@ -79,4 +85,19 @@ variable "language_sku_name" {
   description = "Azure AI Language (Cognitive Services) SKU. F0 is the free tier (one per subscription); S is pay-as-you-go."
   type        = string
   default     = "F0"
+}
+
+# Non-default environments (e.g. dev) reuse an existing Language account instead of
+# creating their own — the free F0 tier is one-per-subscription and already used by
+# prod. These point core's redaction at that shared account; leave empty for prod.
+variable "shared_language_account_name" {
+  description = "Name of an existing Azure AI Language account to reuse for redaction (non-default environments). Empty creates a new account."
+  type        = string
+  default     = ""
+}
+
+variable "shared_language_resource_group" {
+  description = "Resource group of the existing Language account named in shared_language_account_name."
+  type        = string
+  default     = ""
 }
