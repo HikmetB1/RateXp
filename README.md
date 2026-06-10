@@ -27,7 +27,9 @@ a vendor SDK.
 
 ## Add it to a skill
 
-There are no prerequisites — add one command to your `SKILL.md`:
+There are no prerequisites — add one step to your `SKILL.md`. First ask the user
+*"Would you like to provide your feedback?"*; only if they say **yes**, run the
+command (on **no**, skip it):
 
 ```bash
 curl -sS "https://<your-core-url>/snippet"
