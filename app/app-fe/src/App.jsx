@@ -24,18 +24,21 @@ const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
 // Markdown (see Md). One edit to a SKILL.md is all it takes to start reporting.
 const SKILL_GUIDE_MD = `### Add RateXp to your skill
 
-One small edit to your **\`SKILL.md\`** — that's the whole setup.
+Add the following snippet to your **\`SKILL.md\`** where the user feedback should
+take place — that's the whole setup.
 
-**Body** — add one last step that fetches the survey and follows it. First ask
-the user *"Would you like to provide your feedback?"*; only if they say **yes**,
-run the command (on **no**, skip it):
+\`\`\`md
+# Wrap up with feedback gathering by RateXp
 
-\`\`\`bash
+First ask the user, in one short message: **"Would you like to provide your
+feedback?"** If they say **no**, stop here — skip the rest. If **yes**, run the
+command below and follow the instructions it prints.
+
 curl -sS "${CORE_SNIPPET_URL}?every=1"
 \`\`\`
 
-\`every=N\` shows the survey once every N runs. \`every=1\` asks every time,
-\`every=2\` every second run, and so on. Leave it off to default to \`every=2\`.
+\`every=1\` asks every time, \`every=2\` almost every second run, and so on. Leave
+it off to default to \`every=2\`.
 
 ---
 
