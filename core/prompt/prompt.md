@@ -5,57 +5,55 @@ current SKILL.md.
 
 ## Step 1 — ask
 
-Invoke the `AskUserQuestion` tool **once** with **two** questions (they show
-up as two tabs in the same prompt). Use **exactly** this specification — no
-rewording, no extra options, no extra wording:
+Invoke the `AskUserQuestion` tool **once** with a **single** question — a
+multi-select checklist (one tab, checkboxes). Use **exactly** this specification
+— no rewording, no extra options, no extra wording:
 
 Question 1:
 
-  - question: "Was this helpful? press n to add additional comments you might have, or click Skip if you chose not to send the feedback"
+  - question: "Your feedback — check all that apply (leave empty to skip):"
   - header: "Feedback"
-  - multiSelect: false
+  - multiSelect: true
   - options (in order):
       1. label: "Good"
-         description: "Helpful. Add an optional note before confirming."
+         description: "The result was helpful."
          preview: "Helpful."
       2. label: "Bad"
-         description: "Not helpful. Add an optional note before confirming."
+         description: "The result was not helpful."
          preview: "Not helpful."
-      3. label: "Skip"
-         description: "Exit without saving feedback."
-         preview: "No feedback recorded."
-
-Question 2:
-
-  - question: "May we also store this full conversation to help improve the skill? Personal details (names, emails, phone numbers, …) are automatically redacted before it is stored. Pick No to keep only your rating."
-  - header: "Store chat"
-  - multiSelect: false
-  - options (in order):
-      1. label: "Yes"
-         description: "Store the conversation (personal details redacted) along with your rating."
+      3. label: "Yes, store trajectory"
+         description: "Store this conversation (personal details redacted) along with the rating."
          preview: "Conversation stored (redacted)."
-      2. label: "No"
-         description: "Keep only the rating and comment."
+      4. label: "No, don't store trajectory"
+         description: "Keep only the rating; do not store the conversation."
          preview: "Conversation not stored."
+      5. label: "Comment"
+         description: "Press n to type a comment to send with the rating."
+         preview: "Comment added."
 
 ## Step 2 — interpret the reply
 
-From the tool result, read **both** answers:
+The answer is the set of checked boxes (plus any typed note). Read each value
+from that set:
 
-  - If Question 1 was "Skip" or otherwise dismissed (e.g. "Chat about this")
-    → **STOP immediately**. Do not run Step 3 or Step 4.
-  - `<SCORE>` (from Question 1):
-      • `1` if "Good"
-      • `2` if "Bad"
-      • `null` for any free-text answer
-  - `<COMMENT_OR_NULL>` (from Question 1):
-      • If `annotations` contains a `notes` field for Question 1, use that
+  - If **nothing** is checked, or the prompt was dismissed (e.g. "Chat about
+    this") → **STOP immediately**. Do not run Step 3 or Step 4.
+  - `<SCORE>`:
+      • `1` if **Good** is checked (and **Bad** is not)
+      • `2` if **Bad** is checked (and **Good** is not)
+      • `null` if both or neither are checked
+  - `<CONSENT>`:
+      • `yes` only if **Yes, store trajectory** is checked and **No, don't
+        store trajectory** is not
+      • `no` otherwise (No checked, both checked, or neither checked)
+  - `<COMMENT_OR_NULL>`:
+      • If `annotations` contains a `notes` field for this question, use that
         text as a JSON string (escape internal `"` and `\`).
-      • Otherwise, if the user gave a free-text answer instead of picking
-        a label, use that text as the comment.
-      • Otherwise `null`.
-  - `<CONSENT>` (from Question 2): `yes` only if the user picked "Yes";
-    `no` for "No", a free-text answer, or a dismissed second question.
+      • Otherwise, if the user typed a free-text answer, use that text.
+      • Otherwise (including **Comment** checked but no text typed) → `null`.
+
+Note: the **Comment** checkbox is only a hint to the user; the comment text
+comes from the typed note above, not from the box being checked.
 
 ## Step 3 — submit feedback (and transcript) in one call
 

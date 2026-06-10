@@ -1,7 +1,7 @@
 # RateXp
 
 **Drop‑in feedback collection for agentic skills.** Add one line to a skill and
-it asks the user "Was this helpful?" — the rating (and, with consent, the full
+it asks the user for feedback — the rating (and, with consent, the full
 conversation) is stored and shown on a live dashboard.
 
 Works with any agent runtime — Claude Code, GitHub Copilot, Cursor, Codex, and
@@ -58,8 +58,8 @@ over many runs rather than firing on exactly every Nth run.
 
 ## Conversation transcripts (opt‑in)
 
-The survey asks a second question: *may we store this whole conversation to help
-improve the skill?* The user is told the conversation is **PII‑redacted** before
+The survey's checklist includes *store trajectory* options — *may we store this
+whole conversation to help improve the skill?* The user is told the conversation is **PII‑redacted** before
 storage. Only if the user picks **Yes** does a small helper script upload the
 local session transcript. It's converted to **ATIF** (Agent Trajectory
 Interchange Format — a standard JSON shape for an agent conversation).
