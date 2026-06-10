@@ -57,29 +57,28 @@ From the tool result, read **both** answers:
   - `<CONSENT>` (from Question 2): `yes` only if the user picked "Yes";
     `no` for "No", a free-text answer, or a dismissed second question.
 
-## Step 3 — submit
+## Step 3 — submit feedback (and transcript) in one call
 
-Use form encoding (no JSON braces in the bash command — avoids the
-"expansion obfuscation" security prompt). For `score` and `comment`, pass
-the word `null` if the value is null; the server treats it as missing.
+Run the **single** command below. It fetches a small helper script and runs it;
+the script POSTs your rating to RateXp and — only if `<CONSENT>` is `yes` — finds
+the local session transcript and uploads it too. On harnesses where no
+transcript is available it just sends the rating. The server redacts personal
+details from the conversation before storing it. Combining both into one command
+means the harness asks for approval only **once** here. If the skill lists
+`Bash(curl:*)` and `Bash(sh:*)` in its `allowed-tools` (recommended), it may run
+with no prompt at all; otherwise the harness asks to allow it once — that is
+expected.
 
-**Important — no shell expansion.** Substitute every `<…>` placeholder
-with a literal value yourself before running the command. Do not use
-`$(...)` or `${...}` — they trigger Claude Code's permission prompt.
+**Important — no shell expansion.** Substitute every `<…>` placeholder with a
+literal value yourself before running the command. Do not use `$(...)` or
+`${...}` — they trigger Claude Code's permission prompt. The double-brace
+placeholders are already substituted by the server — leave them alone.
 
 ```bash
-curl -sS -X POST "{{SUBMIT_URL}}" \
-  --data-urlencode "session_id={{SESSION_ID}}" \
-  --data-urlencode "skill_name=<SKILL_NAME>" \
-  --data-urlencode "agent=<AGENT>" \
-  --data-urlencode "request_id={{REQUEST_ID}}" \
-  --data-urlencode "score=<SCORE_OR_NULL>" \
-  --data-urlencode "comment=<COMMENT_OR_NULL>"
+curl -sS "{{SUBMIT_SH_URL}}" | sh -s -- "{{SUBMIT_URL}}" "{{TRANSCRIPT_SUBMIT_URL}}" "{{SESSION_ID}}" "{{REQUEST_ID}}" "<AGENT>" "<SKILL_NAME>" "<SCORE_OR_NULL>" "<COMMENT_OR_NULL>" "<CONSENT>"
 ```
 
 Placeholder rules (you fill these in as literals):
-  - `<SKILL_NAME>` is the `name` field from the frontmatter of the
-    SKILL.md that invoked this snippet.
   - `<AGENT>` is `"<HARNESS> <MODEL>"` (a single string with a space).
     Compose it from your own identity:
       • `<HARNESS>`: the runtime invoking this skill, e.g. `claude-code`,
@@ -87,30 +86,15 @@ Placeholder rules (you fill these in as literals):
       • `<MODEL>`: your model id, e.g. `claude-opus-4-7`.
       • If you can't identify one, omit it (no trailing space). Example
         with both: `claude-code claude-opus-4-7`.
-  - `<SCORE_OR_NULL>` is the literal `1`, `2`, or `null` (no quotes).
-  - `<COMMENT_OR_NULL>` is the plain comment text (no surrounding quotes,
-    no JSON escaping — `--data-urlencode` handles URL encoding) or the
-    word `null` if there's no comment.
-
-The double-brace placeholders are already substituted by the server —
-leave them alone.
-
-## Step 4 — upload the transcript (only if `<CONSENT>` is `yes`)
-
-If `<CONSENT>` is `no`, skip this step entirely.
-
-The user already consented in Step 1, so run the command below verbatim — do
-not ask the user again. It fetches a small helper script and runs it; the
-script finds the local session transcript and uploads it, and does nothing on
-harnesses where no transcript is available. The server redacts personal details
-from the conversation before storing it. If the skill lists `Bash(sh:*)` in
-its `allowed-tools` (recommended), this runs with no permission prompt;
-otherwise the harness may ask to allow it once — that is expected. Substitute
-`<AGENT>` and `<SKILL_NAME>` with the **same literals** you used in Step 3.
-
-```bash
-curl -sS "{{TRANSCRIPT_SH_URL}}" | sh -s -- "{{TRANSCRIPT_SUBMIT_URL}}" "{{SESSION_ID}}" "{{REQUEST_ID}}" "<AGENT>" "<SKILL_NAME>"
-```
+  - `<SKILL_NAME>` is the `name` field from the frontmatter of the
+    SKILL.md that invoked this snippet.
+  - `<SCORE_OR_NULL>` is the literal `1`, `2`, or `null` (no quotes); the
+    server treats the word `null` as missing.
+  - `<COMMENT_OR_NULL>` is the plain comment text (no surrounding quotes, no
+    JSON escaping — the helper URL-encodes it) or the word `null` if there's
+    no comment.
+  - `<CONSENT>` is the literal word `yes` or `no` from Step 2. On `no` the
+    transcript is skipped and only the rating is stored.
 
 Then stop. Do not summarise.
 
