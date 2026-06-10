@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import uuid
+
+_UUID_RE = re.compile(
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
 
 
 def test_snippet_substitutes_all_placeholders(client, monkeypatch):
@@ -33,11 +38,13 @@ def test_snippet_generates_uuids_when_ids_omitted(client):
     c, _ = client
     # every=1 forces the full survey prompt (default 2 would sometimes skip).
     body = c.get("/snippet", params={"every": 1}).text
-    for key in ("session_id", "request_id"):
-        marker = f'"{key}='
-        start = body.index(marker) + len(marker)
-        value = body[start : body.index('"', start)]
+    # With ids omitted the server fills the session_id and request_id placeholders
+    # with freshly generated UUIDs — the only UUIDs in the snippet. Both must be
+    # present and valid (and distinct).
+    found = set(_UUID_RE.findall(body))
+    for value in found:
         uuid.UUID(value)  # raises if not a valid UUID
+    assert len(found) >= 2
 
 
 def test_snippet_rejects_invalid_agent_when_supplied(client):

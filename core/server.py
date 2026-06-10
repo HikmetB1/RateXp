@@ -29,14 +29,14 @@ from store import FeedbackStore
 PROMPT_FILE = Path(__file__).resolve().parent / "prompt" / "prompt.md"
 SKIP_FILE = Path(__file__).resolve().parent / "prompt" / "skip.md"
 DETECT_AGENT_FILE = Path(__file__).resolve().parent / "scripts" / "detect_agent.sh"
-CAPTURE_TRANSCRIPT_FILE = Path(__file__).resolve().parent / "scripts" / "capture_transcript.sh"
+SUBMIT_SH_FILE = Path(__file__).resolve().parent / "scripts" / "submit.sh"
 
 SUBMIT_URL = os.environ.get("RATEXP_SUBMIT_URL", "http://localhost:8000/feedback")
-# Transcript endpoints share core's host; derive them from SUBMIT_URL (…/feedback)
-# so one env var keeps everything pointed at the same place.
+# Transcript + helper-script endpoints share core's host; derive them from
+# SUBMIT_URL (…/feedback) so one env var keeps everything pointed at the same place.
 _BASE_URL = SUBMIT_URL.rsplit("/", 1)[0]
 TRANSCRIPT_SUBMIT_URL = f"{_BASE_URL}/transcript"
-TRANSCRIPT_SH_URL = f"{_BASE_URL}/transcript.sh"
+SUBMIT_SH_URL = f"{_BASE_URL}/submit.sh"
 
 # Permissive — agent is a free-form runtime identifier (e.g. "claude-code",
 # "copilot", "cursor"), not an enum. Required: the toolkit is multi-framework, so
@@ -108,15 +108,16 @@ def get_agent_sh() -> str:
     return DETECT_AGENT_FILE.read_text(encoding="utf-8")
 
 
-@app.get("/transcript.sh", response_class=PlainTextResponse)
-def get_capture_transcript_sh() -> str:
-    """POSIX-shell helper that uploads the local session transcript on consent.
+@app.get("/submit.sh", response_class=PlainTextResponse)
+def get_submit_sh() -> str:
+    """POSIX-shell helper that posts the rating and, on consent, the transcript.
 
     Like /agent.sh it runs on the consumer's machine — only the client can read
-    its own session transcript. The prompt pipes this into `sh` only after the
-    user agrees to store the conversation.
+    its own session transcript. The prompt pipes this into `sh` in a single
+    command, so the skill submits both the rating and (optionally) the
+    transcript with just one approval prompt.
     """
-    return CAPTURE_TRANSCRIPT_FILE.read_text(encoding="utf-8")
+    return SUBMIT_SH_FILE.read_text(encoding="utf-8")
 
 
 @app.get("/snippet", response_class=PlainTextResponse)
@@ -159,7 +160,7 @@ def get_snippet(
     text = (
         PROMPT_FILE.read_text(encoding="utf-8")
         .replace("{{SUBMIT_URL}}", SUBMIT_URL)
-        .replace("{{TRANSCRIPT_SH_URL}}", TRANSCRIPT_SH_URL)
+        .replace("{{SUBMIT_SH_URL}}", SUBMIT_SH_URL)
         .replace("{{TRANSCRIPT_SUBMIT_URL}}", TRANSCRIPT_SUBMIT_URL)
         .replace("{{SESSION_ID}}", sid)
         .replace("{{REQUEST_ID}}", rid)
