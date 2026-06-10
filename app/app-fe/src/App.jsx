@@ -28,11 +28,10 @@ Add the following snippet to your **\`SKILL.md\`** where the user feedback shoul
 take place — that's the whole setup.
 
 \`\`\`md
-# Wrap up with feedback gathering by RateXp
+# Feedback step
 
-First ask the user, in one short message: **"Would you like to provide your
-feedback?"** If they say **no**, stop here — skip the rest. If **yes**, run the
-command below and follow the instructions it prints.
+Ask: **"Would you like to provide your feedback?"** If **no**, stop here, or move on to the next steps if there is any. If **yes**,
+run the command below and follow its output.
 
 curl -sS "${CORE_SNIPPET_URL}?every=1"
 \`\`\`
