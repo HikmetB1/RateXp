@@ -32,6 +32,9 @@ services:
       RATEXP_DB_AUTH: password
       # Baked into /snippet so skills POST feedback back to core on the host.
       RATEXP_SUBMIT_URL: ${RATEXP_SUBMIT_URL:-http://localhost:${CORE_HOST_PORT:-8000}/feedback}
+      # No Azure identity locally, so PII redaction would fail-closed and drop
+      # every transcript. Default it off here; set true to test real redaction.
+      RATEXP_REDACTION_ENABLED: ${RATEXP_REDACTION_ENABLED:-false}
     # Live-reload the API on source edits; prompt.md is read per request.
     command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload
     volumes:
