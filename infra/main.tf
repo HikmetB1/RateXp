@@ -10,10 +10,16 @@
 # Images are pulled from an ACR provisioned here using the web apps' identities.
 
 locals {
+  # The default (prod) deployment keeps its random-suffixed, globally-unique names.
+  # A named environment (e.g. "dev") gets clean, deterministic names instead, so the
+  # web app URL is exactly https://ratexp-dev-app.azurewebsites.net.
+  is_default_env = var.environment == ""
+  name_base      = local.is_default_env ? var.project : "${var.project}-${var.environment}"
+
   suffix    = random_string.suffix.result
-  acr_name  = "${replace(var.project, "-", "")}acr${local.suffix}"
-  core_name = "${var.project}-core-${local.suffix}"
-  app_name  = "${var.project}-app-${local.suffix}"
+  acr_name  = local.is_default_env ? "${replace(var.project, "-", "")}acr${local.suffix}" : "${replace(local.name_base, "-", "")}acr"
+  core_name = local.is_default_env ? "${var.project}-core-${local.suffix}" : "${local.name_base}-core"
+  app_name  = local.is_default_env ? "${var.project}-app-${local.suffix}" : "${local.name_base}-app"
 
   core_url = "https://${local.core_name}.azurewebsites.net"
   app_url  = "https://${local.app_name}.azurewebsites.net"
@@ -25,6 +31,10 @@ locals {
   # password is supplied at runtime as an Entra token. TLS is required.
   core_dsn = "postgresql://${local.core_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
   app_dsn  = "postgresql://${local.app_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
+
+  # The Language account core authenticates against: its own in the default env, or a
+  # reused (shared) one elsewhere. Null when redaction is off.
+  language_id = var.enable_redaction ? (local.is_default_env ? azurerm_cognitive_account.language[0].id : data.azurerm_cognitive_account.shared_language[0].id) : null
 }
 
 resource "random_string" "suffix" {
@@ -34,7 +44,7 @@ resource "random_string" "suffix" {
 }
 
 resource "azurerm_resource_group" "this" {
-  name     = "rg-${var.project}"
+  name     = "rg-${local.name_base}"
   location = var.location
 }
 
@@ -48,7 +58,7 @@ resource "azurerm_container_registry" "this" {
 
 # --- PostgreSQL (Entra-only authentication) ---
 resource "azurerm_postgresql_flexible_server" "this" {
-  name                          = "pg-${var.project}-${local.suffix}"
+  name                          = local.is_default_env ? "pg-${var.project}-${local.suffix}" : "pg-${local.name_base}"
   resource_group_name           = azurerm_resource_group.this.name
   location                      = azurerm_resource_group.this.location
   version                       = var.pg_version
@@ -93,7 +103,7 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "azure" {
 
 # --- Compute ---
 resource "azurerm_service_plan" "this" {
-  name                = "plan-${var.project}"
+  name                = "plan-${local.name_base}"
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
   os_type             = "Linux"
@@ -108,7 +118,7 @@ resource "azurerm_service_plan" "this" {
 # token, so no key is stored anywhere. A custom subdomain is required for Entra ID
 # auth, and local (key) auth is disabled.
 resource "azurerm_cognitive_account" "language" {
-  count                 = var.enable_redaction ? 1 : 0
+  count                 = var.enable_redaction && local.is_default_env ? 1 : 0
   name                  = "${var.project}-lang-${local.suffix}"
   resource_group_name   = azurerm_resource_group.this.name
   location              = azurerm_resource_group.this.location
@@ -118,10 +128,19 @@ resource "azurerm_cognitive_account" "language" {
   local_auth_enabled    = false # Entra ID only — no access keys
 }
 
-# core's identity may call the Language data plane (PII detection) via Entra ID.
+# Non-default environments reuse an existing (prod) Language account rather than
+# provisioning their own — the free F0 tier is one-per-subscription.
+data "azurerm_cognitive_account" "shared_language" {
+  count               = var.enable_redaction && !local.is_default_env ? 1 : 0
+  name                = var.shared_language_account_name
+  resource_group_name = var.shared_language_resource_group
+}
+
+# core's identity may call the Language data plane (PII detection) via Entra ID —
+# scoped to whichever account this environment uses (its own, or the shared one).
 resource "azurerm_role_assignment" "core_language" {
   count                = var.enable_redaction ? 1 : 0
-  scope                = azurerm_cognitive_account.language[0].id
+  scope                = local.language_id
   role_definition_name = "Cognitive Services User"
   principal_id         = azurerm_linux_web_app.core.identity[0].principal_id
 }
