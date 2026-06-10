@@ -26,7 +26,9 @@ const SKILL_GUIDE_MD = `### Add RateXp to your skill
 
 One small edit to your **\`SKILL.md\`** — that's the whole setup.
 
-**Body** — add one last step that fetches the survey and follows it:
+**Body** — add one last step that fetches the survey and follows it. First ask
+the user *"Would you like to provide your feedback?"*; only if they say **yes**,
+run the command (on **no**, skip it):
 
 \`\`\`bash
 curl -sS "${CORE_SNIPPET_URL}?every=1"
