@@ -4,9 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="dark" />
-    <!-- Tab icon: just the logo, no tile. It flips with the browser's tab-bar
-         theme - white logo on a dark tab bar, black logo on a light one. The
-         .ico is a plain fallback for browsers that ignore the media queries. -->
+    <!-- Tab icon flips with the browser tab-bar theme (white on dark, black on light); .ico is the fallback. -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" media="(prefers-color-scheme: dark)" href="/favicon-white.png" />
     <link rel="icon" type="image/png" media="(prefers-color-scheme: light)" href="/favicon-black.png" />
@@ -17,11 +15,8 @@
       content="Real-time dashboard for rating agent skills - browse feedback, inspect full conversations, and see the top-rated skills."
     />
 
-    <!-- Link-preview cards (WhatsApp, Slack, iMessage, Facebook, etc.). Pasting
-         the URL turns it into a card with a title, description and the og-image.
-         Scrapers need a PUBLIC https url and ABSOLUTE image urls - these point at
-         the deployed Azure host. If the app moves to a custom domain, update the
-         absolute urls below to match. -->
+    <!-- Link-preview cards. Scrapers need a PUBLIC https url and ABSOLUTE image
+         urls (the deployed Azure host); update these if the domain changes. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="RateXp" />
     <meta property="og:url" content="https://ratexp-app-4y6yju.azurewebsites.net/" />
