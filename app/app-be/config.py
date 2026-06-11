@@ -1,8 +1,7 @@
 """Loads runtime config from config.yaml. Self-contained per service.
 
 Resolved relative to this file so the working directory doesn't matter. Every
-key is required - there are no in-code fallbacks, so the yaml is the single
-source of truth and a missing key fails loudly at startup.
+key is required - no in-code fallbacks, so a missing key fails loudly at startup.
 """
 
 from __future__ import annotations

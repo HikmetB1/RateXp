@@ -39,8 +39,7 @@ _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 def _resolve_cors_origins() -> list[str]:
-    # Truthy check (not `is not None`) so an empty value - e.g. an unset
-    # RATEXP_CORS_ORIGINS injected as "" by compose - behaves like absent.
+    # Truthy (not `is not None`) so a "" injected by compose behaves like absent.
     if CORS_ORIGINS_RAW:
         return [o.strip() for o in CORS_ORIGINS_RAW.split(",") if o.strip()]
     if ENV in ("", "local"):
@@ -51,13 +50,10 @@ def _resolve_cors_origins() -> list[str]:
     )
 
 
-# Resolved once and shared by both the CORS middleware (HTTP) and the WebSocket
-# origin check (CORS middleware doesn't apply to WebSocket handshakes).
+# Shared by the CORS middleware and the WebSocket origin check (CORS doesn't cover WS handshakes).
 ALLOWED_ORIGINS = _resolve_cors_origins()
 
-# Write/DDL keywords rejected anywhere in a /query body. The read-only
-# transaction is the real guard; this denylist is defense-in-depth that also
-# catches data-modifying CTEs (e.g. WITH x AS (DELETE ...) ...).
+# Defense-in-depth on top of the read-only transaction; also catches data-modifying CTEs.
 _FORBIDDEN_SQL = re.compile(
     r"\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|copy|vacuum|merge|call|do)\b",
     re.IGNORECASE,
@@ -87,12 +83,7 @@ def _jsonable(value):
     return value
 
 
-# --- Shared reads -------------------------------------------------------------
-# These back both the HTTP list/stats endpoints and the WebSocket snapshot, so
-# the dashboard sees exactly the same shape whether it polls once on load or
-# receives a live push.
-
-
+# Shared by the HTTP endpoints and the WebSocket snapshot, so both return the same shape.
 def _row_to_feedback(r) -> Feedback:
     return Feedback(
         created_at=_jsonable(r[0]),
@@ -167,8 +158,7 @@ def _select_top_skills(limit: int) -> list[dict]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.pool = make_pool()
-    # One shared broadcaster fans live snapshots out to every connected
-    # dashboard, so write volume - not viewer count - drives DB load.
+    # One broadcaster fans snapshots to all clients, so DB load tracks writes, not viewers.
     broadcaster = asyncio.create_task(_broadcaster()) if WS_ENABLED else None
     try:
         yield
@@ -200,8 +190,7 @@ def list_feedback(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
     full: bool = False,
 ) -> list[Feedback]:
-    # Default returns the small dashboard view (list_view_limit). full=true - used
-    # by the dashboard's "Download CSV" - returns everything up to the hard ceiling.
+    # full=true (the dashboard's Download) returns up to the hard ceiling; else the small view.
     effective = LIST_MAX_LIMIT if full else limit
     try:
         rows = _select_feedback(effective)
@@ -215,9 +204,7 @@ def list_transcript(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
     full: bool = False,
 ) -> list[Transcript]:
-    # Default returns the small dashboard view (list_view_limit). full=true - used
-    # by the dashboard's "Download CSV" - returns every transcript up to the hard
-    # ceiling so the export can attach each row's conversation.
+    # full=true (the dashboard's Download) returns every transcript up to the hard ceiling.
     effective = LIST_MAX_LIMIT if full else limit
     try:
         rows = _select_transcript(effective)
@@ -228,9 +215,7 @@ def list_transcript(
 
 @app.get("/stats/top-skills")
 def top_skills(limit: int = Query(TOP_SKILLS_LIMIT, ge=1, le=LIST_MAX_LIMIT)) -> dict:
-    """Most-rated skills with their good/bad tally - powers the dashboard's
-    "Top skills" panel. Aggregates the whole feedback table, ordered by number of
-    ratings, capped at `limit` (default top_skills_limit from config.yaml)."""
+    """Most-rated skills with their good/bad tally, for the "Top skills" panel."""
     try:
         skills = _select_top_skills(limit)
     except Exception as e:
@@ -250,8 +235,7 @@ def run_query(req: QueryRequest) -> dict:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "query endpoint disabled")
 
     cleaned = _validate_select(req.sql)
-    # full=true (the dashboard's "Download CSV") returns everything up to the hard
-    # row cap; otherwise the default is the small dashboard view (list_view_limit).
+    # full=true exports up to the row cap; else the small view.
     if req.full:
         cap = QUERY_MAX_ROWS
     elif req.limit is None:
@@ -263,8 +247,7 @@ def run_query(req: QueryRequest) -> dict:
     try:
         with app.state.pool.connection() as conn:
             with conn.transaction(), conn.cursor() as cur:
-                # SET takes a literal, not a bound param; QUERY_TIMEOUT_MS is an
-                # int from config, so int() makes the inlining injection-safe.
+                # SET needs a literal, not a bound param; int() keeps the inlining injection-safe.
                 cur.execute(f"SET LOCAL statement_timeout = {int(QUERY_TIMEOUT_MS)}")
                 cur.execute("SET TRANSACTION READ ONLY")
                 cur.execute(wrapped, (cap,))
@@ -273,8 +256,7 @@ def run_query(req: QueryRequest) -> dict:
     except HTTPException:
         raise
     except Exception as e:
-        # Most failures here are the user's SQL (bad syntax, unknown column), so
-        # surface them as 400 so they can fix the query rather than a 503.
+        # Most failures here are the user's SQL, so surface them as 400, not 503.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"query error: {e!r}") from e
 
     return {
@@ -285,12 +267,8 @@ def run_query(req: QueryRequest) -> dict:
     }
 
 
-# --- Live updates (WebSocket) -------------------------------------------------
-# The dashboard opens /ws and receives a full "snapshot" whenever the data
-# changes. A single shared broadcaster does one DB read per interval and fans it
-# out to every connected client, so cost scales with write volume, not viewers.
-
-
+# The dashboard opens /ws and gets a full snapshot on every change. One broadcaster
+# does one DB read per interval and fans it out, so cost scales with writes, not viewers.
 class Hub:
     """Tracks connected dashboards and pushes a message to all of them."""
 
@@ -329,8 +307,7 @@ hub = Hub()
 
 
 def _build_snapshot() -> dict:
-    """The dashboard's whole live view in one message - same shapes the HTTP
-    endpoints return, so the frontend applies it with identical code."""
+    """The whole live view in one message, in the same shapes the HTTP endpoints return."""
     return {
         "type": "snapshot",
         "feedback": [_row_to_feedback(r).model_dump() for r in _select_feedback(LIST_VIEW_LIMIT)],
@@ -342,8 +319,7 @@ def _build_snapshot() -> dict:
 
 
 def _change_signature() -> tuple:
-    """A cheap fingerprint of the tables so the broadcaster can skip work (and
-    avoid needless client re-renders) when nothing has changed."""
+    """A cheap fingerprint of the tables so the broadcaster can skip unchanged data."""
     with app.state.pool.connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*), max(created_at) FROM feedback")
         feedback = cur.fetchall()
@@ -374,8 +350,7 @@ async def _broadcaster() -> None:
 
 
 def _ws_origin_allowed(websocket: WebSocket) -> bool:
-    # CORS middleware doesn't guard WebSocket handshakes, so enforce the same
-    # allowlist here. "*" (local default) lets any origin connect.
+    # CORS middleware doesn't guard WS handshakes, so enforce the allowlist here.
     if "*" in ALLOWED_ORIGINS:
         return True
     origin = websocket.headers.get("origin")
@@ -384,8 +359,7 @@ def _ws_origin_allowed(websocket: WebSocket) -> bool:
 
 @app.websocket("/ws")
 async def ws_feed(websocket: WebSocket) -> None:
-    """Live feed: pushes a snapshot on connect, then on every change. Incoming
-    client messages are ignored - this channel is server -> dashboard only."""
+    """Live feed: a snapshot on connect, then on every change. Server -> dashboard only."""
     if not WS_ENABLED:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
@@ -405,8 +379,6 @@ async def ws_feed(websocket: WebSocket) -> None:
         await hub.remove(websocket)
 
 
-# Serve the built dashboard from the same origin as the API (production image).
-# Mounted last so the API routes above take precedence; absent in local dev,
-# where the Vite dev server serves the UI instead.
+# Serve the built UI from the API origin; mounted last so API routes win. Absent in local dev.
 if _STATIC_DIR.is_dir():
     app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="dashboard")
