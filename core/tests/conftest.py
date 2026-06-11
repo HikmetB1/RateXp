@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-# core/ is laid out as flat modules — make them importable regardless of where
+# core/ is laid out as flat modules - make them importable regardless of where
 # pytest is invoked from.
 _CORE_DIR = Path(__file__).resolve().parent.parent
 if str(_CORE_DIR) not in sys.path:
@@ -61,7 +61,7 @@ def client(monkeypatch):
 
 @pytest.fixture
 def failing_client(monkeypatch):
-    """TestClient whose store raises — used for the 503 path."""
+    """TestClient whose store raises - used for the 503 path."""
     import server
     from fastapi.testclient import TestClient
 

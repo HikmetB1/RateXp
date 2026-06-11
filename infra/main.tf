@@ -125,18 +125,18 @@ resource "azurerm_cognitive_account" "language" {
   kind                  = "TextAnalytics"
   sku_name              = var.language_sku_name
   custom_subdomain_name = "${var.project}-lang-${local.suffix}"
-  local_auth_enabled    = false # Entra ID only — no access keys
+  local_auth_enabled    = false # Entra ID only - no access keys
 }
 
 # Non-default environments reuse an existing (prod) Language account rather than
-# provisioning their own — the free F0 tier is one-per-subscription.
+# provisioning their own - the free F0 tier is one-per-subscription.
 data "azurerm_cognitive_account" "shared_language" {
   count               = var.enable_redaction && !local.is_default_env ? 1 : 0
   name                = var.shared_language_account_name
   resource_group_name = var.shared_language_resource_group
 }
 
-# core's identity may call the Language data plane (PII detection) via Entra ID —
+# core's identity may call the Language data plane (PII detection) via Entra ID -
 # scoped to whichever account this environment uses (its own, or the shared one).
 resource "azurerm_role_assignment" "core_language" {
   count                = var.enable_redaction ? 1 : 0

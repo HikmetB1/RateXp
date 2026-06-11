@@ -1,4 +1,4 @@
-"""claude_jsonl_to_atif — Claude Code .jsonl → ATIF trajectory."""
+"""claude_jsonl_to_atif - Claude Code .jsonl -> ATIF trajectory."""
 
 from __future__ import annotations
 

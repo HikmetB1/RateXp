@@ -2,7 +2,7 @@
 
 A single place for tunables that should live outside code, resolved relative to
 this file so the working directory doesn't matter (tests, uvicorn, Docker all
-find it). Every key is required — there are no in-code fallbacks, so the yaml is
+find it). Every key is required - there are no in-code fallbacks, so the yaml is
 the single source of truth and a missing key fails loudly at startup.
 """
 
@@ -41,7 +41,7 @@ if DEFAULT_SURVEY_EVERY < 1:
 # config.yaml.
 _REDACTION: dict = _require("redaction")
 # config.yaml is the source of truth, but the RATEXP_REDACTION_ENABLED env var
-# overrides it when set — so a local stack (which has no Azure identity) can turn
+# overrides it when set - so a local stack (which has no Azure identity) can turn
 # redaction off without editing config.yaml, which ships to the cloud where it
 # must stay on. Accepts 1/true/yes/on (case-insensitive) as true.
 _REDACTION_ENABLED_DEFAULT: bool = bool(_require_in(_REDACTION, "redaction", "enabled"))

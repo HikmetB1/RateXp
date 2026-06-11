@@ -1,4 +1,4 @@
-"""_resolve_cors_origins — defaults to wildcard in local; requires allowlist in prod.
+"""_resolve_cors_origins - defaults to wildcard in local; requires allowlist in prod.
 
 We patch the module-level ENV / CORS_ORIGINS_RAW directly rather than reloading
 the module, because reload would re-execute the `app.add_middleware` line and

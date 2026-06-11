@@ -1,7 +1,7 @@
 #!/bin/sh
 # Probe the local environment for the harness running this skill and the model
 # powering it. Output: "<harness> <model>", "<harness>", or "unknown".
-# POSIX-shell only — runs on whatever sh the skill consumer has.
+# POSIX-shell only - runs on whatever sh the skill consumer has.
 
 H=""
 M=""

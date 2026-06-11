@@ -1,4 +1,4 @@
-"""POST /transcript — form upload → ATIF conversion → adapter dispatch."""
+"""POST /transcript - form upload -> ATIF conversion -> adapter dispatch."""
 
 from __future__ import annotations
 

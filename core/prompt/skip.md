@@ -1,4 +1,4 @@
-# RateXp — no survey this time
+# RateXp - no survey this time
 
 This run was sampled out by the skill's `every=N` setting, so **do not** collect
 feedback now.

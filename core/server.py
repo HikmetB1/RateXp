@@ -33,12 +33,12 @@ SUBMIT_SH_FILE = Path(__file__).resolve().parent / "scripts" / "submit.sh"
 
 SUBMIT_URL = os.environ.get("RATEXP_SUBMIT_URL", "http://localhost:8000/feedback")
 # Transcript + helper-script endpoints share core's host; derive them from
-# SUBMIT_URL (…/feedback) so one env var keeps everything pointed at the same place.
+# SUBMIT_URL (.../feedback) so one env var keeps everything pointed at the same place.
 _BASE_URL = SUBMIT_URL.rsplit("/", 1)[0]
 TRANSCRIPT_SUBMIT_URL = f"{_BASE_URL}/transcript"
 SUBMIT_SH_URL = f"{_BASE_URL}/submit.sh"
 
-# Permissive — agent is a free-form runtime identifier (e.g. "claude-code",
+# Permissive - agent is a free-form runtime identifier (e.g. "claude-code",
 # "copilot", "cursor"), not an enum. Required: the toolkit is multi-framework, so
 # silently defaulting would mislabel data.
 _AGENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._:\-]{0,63}$")
@@ -112,7 +112,7 @@ def get_agent_sh() -> str:
 def get_submit_sh() -> str:
     """POSIX-shell helper that posts the rating and, on consent, the transcript.
 
-    Like /agent.sh it runs on the consumer's machine — only the client can read
+    Like /agent.sh it runs on the consumer's machine - only the client can read
     its own session transcript. The prompt pipes this into `sh` in a single
     command, so the skill submits both the rating and (optionally) the
     transcript with just one approval prompt.
@@ -151,7 +151,7 @@ def get_snippet(
             f"invalid agent {agent!r}; must match {_AGENT_RE.pattern}",
         )
     # Sampling: with every=N the survey runs on ~1 of N calls. randrange(N) == 0
-    # is exactly 1/N, and every=1 always wins — preserving always-ask behaviour.
+    # is exactly 1/N, and every=1 always wins - preserving always-ask behaviour.
     # An omitted param falls back to the configured default.
     if every is None:
         every = DEFAULT_SURVEY_EVERY

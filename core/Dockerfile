@@ -1,4 +1,4 @@
-# core — public ingestion service.
+# core - public ingestion service.
 #
 # Build with the Entra extra for cloud (Managed Identity DB auth):
 #   docker build --build-arg EXTRAS=entra -t ratexp-core .
@@ -20,7 +20,7 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 WORKDIR /app
 
-# Lockfile-driven install — same deps every rebuild. EXTRAS may name several
+# Lockfile-driven install - same deps every rebuild. EXTRAS may name several
 # extras separated by spaces; each becomes its own --extra flag.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev \

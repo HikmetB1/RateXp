@@ -1,11 +1,11 @@
 # app-be (dashboard) runtime config. Edit values here without touching code.
-# Every key is required — a missing key fails loudly at startup.
+# Every key is required - a missing key fails loudly at startup.
 
 # ATIF schema version expected on stored transcripts (matches core's value).
 schema_version: ATIF-v1.7
 
 # Dashboard "view" size: how many rows GET /feedback and GET /transcript return
-# by default, and the default cap for a POST /query result — i.e. what the table
+# by default, and the default cap for a POST /query result - i.e. what the table
 # shows at once. The full set stays reachable with full=true (used by Download
 # CSV). list_max_limit is the hard ceiling on any single response.
 list_view_limit: 10

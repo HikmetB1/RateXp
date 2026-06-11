@@ -1,6 +1,6 @@
 -- One row per submitted rating. score is binary: 1 = good, 2 = bad (nullable,
 -- since a user may submit a comment only). request_id is an optional idempotency
--- key — a unique partial index dedupes retries without blocking null values.
+-- key - a unique partial index dedupes retries without blocking null values.
 CREATE TABLE IF NOT EXISTS feedback (
     id          BIGSERIAL PRIMARY KEY,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
