@@ -32,15 +32,12 @@ DETECT_AGENT_FILE = Path(__file__).resolve().parent / "scripts" / "detect_agent.
 SUBMIT_SH_FILE = Path(__file__).resolve().parent / "scripts" / "submit.sh"
 
 SUBMIT_URL = os.environ.get("RATEXP_SUBMIT_URL", "http://localhost:8000/feedback")
-# Transcript + helper-script endpoints share core's host; derive them from
-# SUBMIT_URL (.../feedback) so one env var keeps everything pointed at the same place.
+# Derive the other endpoints from SUBMIT_URL so one env var points them all at the same host.
 _BASE_URL = SUBMIT_URL.rsplit("/", 1)[0]
 TRANSCRIPT_SUBMIT_URL = f"{_BASE_URL}/transcript"
 SUBMIT_SH_URL = f"{_BASE_URL}/submit.sh"
 
-# Permissive - agent is a free-form runtime identifier (e.g. "claude-code",
-# "copilot", "cursor"), not an enum. Required: the toolkit is multi-framework, so
-# silently defaulting would mislabel data.
+# Free-form runtime id (e.g. "claude-code", "cursor"), not an enum. Required so data isn't mislabeled.
 _AGENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._:\-]{0,63}$")
 
 _store: FeedbackStore | None = None
@@ -56,12 +53,11 @@ def get_store() -> FeedbackStore:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Open the store eagerly so the schema (migrations) exists before the
-    # dashboard reads it. If the database isn't ready yet, fall back to opening
-    # lazily on the first write rather than crash-looping at boot.
+    # Open the store now so migrations run before the dashboard reads. If the DB
+    # isn't ready, open lazily on first write instead of crash-looping at boot.
     try:
         get_store()
-    except Exception:  # noqa: BLE001 - tolerate a not-yet-ready database at boot
+    except Exception:  # noqa: BLE001 - DB may not be ready at boot
         pass
     yield
     if _store is not None:
@@ -102,8 +98,8 @@ def healthz() -> dict[str, str]:
 def get_agent_sh() -> str:
     """POSIX-shell helper that detects the local harness + model.
 
-    Runs on the consumer's machine (only the client can see its own env vars and
-    session files), so SKILL.md can stay free of harness-specific literals.
+    Runs on the consumer's machine (only it can see its own env vars and session
+    files), so SKILL.md stays free of harness-specific literals.
     """
     return DETECT_AGENT_FILE.read_text(encoding="utf-8")
 
@@ -112,10 +108,9 @@ def get_agent_sh() -> str:
 def get_submit_sh() -> str:
     """POSIX-shell helper that posts the rating and, on consent, the transcript.
 
-    Like /agent.sh it runs on the consumer's machine - only the client can read
-    its own session transcript. The prompt pipes this into `sh` in a single
-    command, so the skill submits both the rating and (optionally) the
-    transcript with just one approval prompt.
+    Runs on the consumer's machine (only it can read its own transcript). The
+    prompt pipes it into `sh` in one command, so rating and transcript go up
+    behind a single approval prompt.
     """
     return SUBMIT_SH_FILE.read_text(encoding="utf-8")
 
@@ -136,10 +131,9 @@ def get_snippet(
         None,
         ge=1,
         description=(
-            "Survey roughly 1 in every N runs. The server rolls a 1-in-N dice on"
-            " each call: on a win it returns the survey prompt, otherwise a short"
-            " 'skip silently' message. Omit to use the configured default"
-            " (default_survey_every in config.yaml); 1 always asks."
+            "Survey roughly 1 in every N runs: each call returns either the"
+            " survey prompt or a short 'skip silently' message. Omit to use the"
+            " configured default (default_survey_every in config.yaml); 1 always asks."
         ),
     ),
 ) -> str:
@@ -150,9 +144,7 @@ def get_snippet(
             status.HTTP_400_BAD_REQUEST,
             f"invalid agent {agent!r}; must match {_AGENT_RE.pattern}",
         )
-    # Sampling: with every=N the survey runs on ~1 of N calls. randrange(N) == 0
-    # is exactly 1/N, and every=1 always wins - preserving always-ask behaviour.
-    # An omitted param falls back to the configured default.
+    # randrange(N) == 0 fires ~1 in N times; every=1 always asks. Omitted = default.
     if every is None:
         every = DEFAULT_SURVEY_EVERY
     if random.randrange(every) != 0:
@@ -186,9 +178,8 @@ def _fill_defaults(record: Feedback | Transcript) -> None:
 async def _parse_feedback(request: Request) -> Feedback:
     """Accept either JSON or form-encoded /feedback bodies.
 
-    Form encoding lets SKILL.md authors send POSTs without literal `{...}` in the
-    bash command, which would otherwise trigger Claude Code's "expansion
-    obfuscation" security prompt.
+    Form encoding lets SKILL.md authors POST without literal `{...}` in the bash
+    command, which would trip Claude Code's "expansion obfuscation" prompt.
     """
     ct = (request.headers.get("content-type") or "").lower()
     if ct.startswith("application/x-www-form-urlencoded") or ct.startswith("multipart/form-data"):
@@ -221,9 +212,8 @@ async def post_feedback(request: Request) -> dict[str, str]:
 async def post_transcript(request: Request) -> dict[str, str]:
     """Receive a consented session transcript, convert to ATIF, persist it.
 
-    The capture script posts the raw session .jsonl as form field `transcript`;
-    we convert it server-side so the client stays simple. A JSON body carrying an
-    already-built `atif` object is also accepted (e.g. tests).
+    The capture script posts the raw .jsonl as form field `transcript`; we
+    convert it server-side. A JSON body with a ready-built `atif` also works (tests).
     """
     ct = (request.headers.get("content-type") or "").lower()
     if ct.startswith("application/x-www-form-urlencoded") or ct.startswith("multipart/form-data"):
@@ -248,8 +238,7 @@ async def post_transcript(request: Request) -> dict[str, str]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, e.errors()) from e
 
     _fill_defaults(record)
-    # Mask PII before anything is stored. Fail-closed: if redaction is enabled
-    # and Azure errors, drop the upload rather than persist unredacted text.
+    # Mask PII before storing. Fail-closed: on a redaction error, drop the upload.
     try:
         record.atif = redact_atif(record.atif)
     except Exception as e:

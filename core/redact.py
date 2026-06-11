@@ -1,27 +1,17 @@
 """Azure AI Language PII redaction for consented transcripts.
 
-When redaction is enabled (config.yaml: ``redaction.enabled``), the conversation
-text in an uploaded ATIF transcript - user/agent messages, reasoning, and tool
-observations - is sent to Azure AI Language's PII detection, which returns the
-same text with personal data (names, emails, phone numbers, ...) masked. Only the
-redacted text is persisted; the raw text never reaches the database.
+When enabled (config.yaml ``redaction.enabled``), each transcript's conversation
+text is sent to Azure for PII detection and only the masked text is stored; the
+raw text never reaches the database. Fail-closed: any Azure error makes
+:func:`redact_atif` raise so the caller drops the upload.
 
-Failure is fail-closed: when redaction is enabled and Azure errors (or is
-misconfigured), :func:`redact_atif` raises so the caller drops the upload rather
-than store unredacted text.
+No secret is stored - like the database, core authenticates with its Managed
+Identity (Entra ID). The Azure SDK is an optional extra imported lazily, so core
+runs without it when redaction is off.
 
-Configuration is config.yaml only (``redaction.enabled``, ``redaction.endpoint``,
-``redaction.languages``). There is no secret: like the database (see db.py),
-core authenticates to Azure with its Managed Identity via Entra ID
-(``DefaultAzureCredential``), so no key is stored or passed anywhere. The Azure
-SDK is an optional extra (``pip install .[redaction]``) imported lazily, so core
-runs without it whenever redaction is off.
-
-Multi-language: each message's language is auto-detected. The detected language
-is used for PII when it's one of the configured ``languages``; otherwise the
-first configured language is the fallback. If a detected language is rejected by
-the PII model, that document is retried once with the fallback, so an unexpected
-language never drops the whole upload - only a genuine Azure failure does.
+Multi-language: each message's language is auto-detected and used for PII if it's
+one of the configured ``languages``, else the first is the fallback. A document
+the PII model rejects is retried once with the fallback.
 """
 
 from __future__ import annotations

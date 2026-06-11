@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 
-from config import SCHEMA_VERSION  # sourced from config.yaml; re-exported here
+from config import SCHEMA_VERSION
 
 
 def _text_from_content(content) -> str:

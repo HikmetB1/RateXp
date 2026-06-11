@@ -1,8 +1,7 @@
 """Writes feedback and transcripts to PostgreSQL.
 
-core is the only writer in the system; the dashboard service reads the same
-tables. Schema is managed by migrate.py. The server owns a single FeedbackStore
-instance (the connection pool) for the process lifetime.
+core is the only writer; the dashboard reads the same tables. Schema is managed
+by migrate.py. The server holds one FeedbackStore (the pool) for its lifetime.
 """
 
 from __future__ import annotations

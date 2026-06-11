@@ -1,42 +1,28 @@
-# core runtime config. Edit values here without touching code. Every key is
-# required - a missing key fails loudly at startup, so this file is the single
-# source of truth for these tunables.
+# core runtime config. Every key is required - a missing key fails loudly at startup.
 
-# ATIF (Agent Trajectory Interchange Format) schema version stamped on every
-# stored transcript. Bump when the shape produced by atif.py changes.
+# ATIF schema version stamped on every stored transcript. Bump when atif.py's shape changes.
 schema_version: ATIF-v1.7
 
-# Largest request body core will accept, in bytes. Guards the public endpoints
-# (especially /transcript) against oversized uploads. 5 MiB by default.
+# Largest request body core accepts, in bytes (guards /transcript). 5 MiB.
 max_body_bytes: 5242880
 
-# Per-client request budget per minute (token bucket, keyed by caller IP).
-# Throttles abusive callers on the public surface. 0 disables the limiter.
+# Per-IP request budget per minute (token bucket). 0 disables the limiter.
 rate_limit_per_minute: 120
 
-# Default sampling for the survey when a /snippet call omits `every`. The core
-# shows the rating on ~1 in N runs; 1 = always ask, 2 = ~half, higher = rarer.
-# A skill can still override per call with ?every=N. Must be >= 1.
+# Default survey sampling when /snippet omits `every`: ~1 in N runs (1 = always,
+# 2 = ~half). A skill can override per call with ?every=N. Must be >= 1.
 default_survey_every: 2
 
-# PII redaction for consented transcripts (Azure AI Language). When enabled, the
-# conversation text in an uploaded transcript - user/agent messages, reasoning
-# and tool observations - is sent to Azure's PII detection, which masks personal
-# data (names, emails, phone numbers, ...). Only the redacted text is stored; the
-# raw text never reaches the database. If Azure errors, the upload is dropped so
-# unredacted text is never persisted (fail-closed).
-#
-# Configured here only - there is no secret. Core authenticates to Azure with its
-# Managed Identity (Entra ID), exactly like the database. To run locally without
-# redaction (no Azure identity), set enabled: false.
+# PII redaction for consented transcripts (Azure AI Language). When enabled, each
+# transcript's conversation text is sent to Azure to mask personal data before
+# storage; on error the upload is dropped (fail-closed). No secret - core uses its
+# Managed Identity, like the database. Set enabled: false to run locally.
 redaction:
   enabled: true
-  # Azure AI Language resource endpoint (the Terraform-provisioned account, which
-  # has a custom subdomain so Entra ID token auth works).
+  # Azure AI Language endpoint (custom subdomain so Entra ID token auth works).
   endpoint: "https://ratexp-lang-4y6yju.cognitiveservices.azure.com/"
-  # PII model languages. Each message's language is auto-detected; if it is one
-  # of these it is used, otherwise the first entry is the fallback. Listed are
-  # the world's 10 most-spoken languages (BCP-47 codes Azure understands).
+  # PII model languages; each message is auto-detected, falling back to the first.
+  # The 10 most-spoken languages (BCP-47 codes).
   languages:
     - en       # English
     - zh-hans  # Mandarin Chinese
