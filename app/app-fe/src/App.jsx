@@ -59,6 +59,22 @@ const groupBox = {
   marginBottom: 20,
 }
 
+// Inner "glass card": the frosted panel each section (Filter, Feedback, Top
+// skills) sits in. Shared so the three cards stay visually identical.
+const glassCard = {
+  margin: 0,
+  border: '1px solid var(--card-border)',
+  borderRadius: 14,
+  padding: '14px 16px',
+  background: 'var(--glass-bg)',
+  backdropFilter: 'var(--blur)',
+  WebkitBackdropFilter: 'var(--blur)',
+  boxShadow: 'var(--shadow)',
+}
+
+// Heading shared by all three glass cards (accent-coloured section title).
+const cardHeading = { margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }
+
 export default function App() {
   const [allRows, setAllRows] = useState([]) // full list from /feedback
   const [rows, setRows] = useState([]) // what the table shows (all, or filtered)
@@ -219,17 +235,8 @@ export default function App() {
         <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} onFilter={applyFilter} onClear={clearFilter} />
         {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
         {!loading && !error && (
-          <section className="glow-edge" style={{
-            margin: 0,
-            border: '1px solid var(--card-border)',
-            borderRadius: 14,
-            padding: '14px 16px',
-            background: 'var(--glass-bg)',
-            backdropFilter: 'var(--blur)',
-            WebkitBackdropFilter: 'var(--blur)',
-            boxShadow: 'var(--shadow)',
-          }}>
-            <h2 style={{ margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }}>Feedback</h2>
+          <section className="glow-edge" style={glassCard}>
+            <h2 style={cardHeading}>Feedback</h2>
             {/* Scroll wrapper: if cells can't shrink enough on a tight width, the
                 table scrolls sideways inside the card instead of overflowing it. */}
             <div className="table-scroll">
@@ -339,17 +346,8 @@ function LiveDot({ live }) {
 function TopSkills({ skills }) {
   if (!skills || skills.length === 0) return null
   return (
-    <section className="glow-edge" style={{
-      margin: 0,
-      border: '1px solid var(--card-border)',
-      borderRadius: 14,
-      padding: '14px 16px',
-      background: 'var(--glass-bg)',
-      backdropFilter: 'var(--blur)',
-      WebkitBackdropFilter: 'var(--blur)',
-      boxShadow: 'var(--shadow)',
-    }}>
-      <h2 style={{ margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }}>Top skills</h2>
+    <section className="glow-edge" style={glassCard}>
+      <h2 style={cardHeading}>Top skills</h2>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8, marginBottom: 12 }}>
         The {skills.length} most-rated skill{skills.length === 1 ? '' : 's'} and their score across all feedback.
       </p>
@@ -479,17 +477,8 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   }
 
   return (
-    <section className="glow-edge" style={{
-      margin: 0,
-      border: '1px solid var(--card-border)',
-      borderRadius: 14,
-      padding: '14px 16px',
-      background: 'var(--glass-bg)',
-      backdropFilter: 'var(--blur)',
-      WebkitBackdropFilter: 'var(--blur)',
-      boxShadow: 'var(--shadow)',
-    }}>
-      <h2 style={{ margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }}>Filter with SQL</h2>
+    <section className="glow-edge" style={glassCard}>
+      <h2 style={cardHeading}>Filter with SQL</h2>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
         Read-only SELECT against the feedback table — results replace the table below.
         Tip: <code>SELECT * FROM feedback WHERE …</code>. Results are capped and time-limited.
