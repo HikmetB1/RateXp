@@ -164,7 +164,7 @@ button:hover:not(:disabled) {
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── Moving-light border ───────────────────────────────────────────────────
+/* Moving-light border
    A bright accent arc that travels slowly around an element's outline. It's a
    conic-gradient masked down to a thin ring at the very edge, rotated by the
    animatable custom property --glow-angle. The element keeps its own
@@ -209,7 +209,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .glow-edge::after { animation: none; }
 }
 
-/* ── Liquid-glass action buttons ───────────────────────────────────────────
+/* Liquid-glass action buttons
    These buttons (theme toggle, Apply/Clear/Download) read as solid, tinted
    "liquid glass": a translucent accent-coloured body with a glossy top sheen,
    a bright inner top edge, a soft drop shadow and a backdrop blur. A small
@@ -441,7 +441,7 @@ summary:hover { opacity: 0.8; }
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
 
-/* ── Trajectory drawer ─────────────────────────────────────────────────────
+/* Trajectory drawer
    A slide-over panel that shows one stored trajectory as a vertical timeline.
    Triggered from the "View" link in each feedback row (see App.jsx). */
 
@@ -527,7 +527,7 @@ summary:hover { opacity: 0.8; }
   animation: fadeIn 0.2s ease both;
 }
 
-/* ── "Add your skill" popup ────────────────────────────────────────────────
+/* "Add your skill" popup
    A centered glass card over the shared backdrop. Holds the short Markdown
    how-to (SKILL_GUIDE_MD). The wrap centres it and catches outside clicks. */
 .modal-wrap {
@@ -731,7 +731,7 @@ summary:hover { opacity: 0.8; }
 }
 
 
-/* ── Phones (≤640px) ───────────────────────────────────────────────────────
+/* Phones (<=640px)
    Tighten the page padding and shrink the title, then turn the seven-column
    feedback table into a stack of cards: the header row is hidden and each row
    becomes a bordered block whose cells read as "Label / value" pairs. The
