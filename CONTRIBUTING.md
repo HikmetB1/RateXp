@@ -12,21 +12,6 @@ embed it in a skill, see the [README](./README.md).
   the tests directly
 - [Node.js](https://nodejs.org/) 22+ - only for frontend work
 
-## Repository layout
-
-```text
-.
-├── core/         Public FastAPI service: serves the snippet, writes to PostgreSQL
-├── app/
-│   ├── app-be/   Dashboard FastAPI service: read-only API; also serves the UI
-│   └── app-fe/   React dashboard (source)
-├── infra/        Terraform stack for Azure
-└── examples/     Sample SKILL.md files
-```
-
-`core/` and `app/app-be/` are each self-contained - they deliberately duplicate
-small helpers (`db.py`, `config.py`) so either can be built and deployed alone.
-
 ## Run it locally
 
 First, clone the repo and enter it (run all commands below from this root):
@@ -159,12 +144,20 @@ once, in order, and recorded in the `schema_version` table.
   the image with the `entra` extra (`--build-arg EXTRAS=entra`) so `azure-identity`
   is installed. Setup is wired by [`infra/`](./infra/README.md).
 
-## Coding conventions
+## Repository layout
 
-- Keep top-of-file comments short; explain *why*, not *what*.
-- Match the style of the surrounding code; keep changes small and focused.
-- Update tests and docs in the same change as the code.
-- Nothing here is tied to a specific coding agent - see [AGENTS.md](./AGENTS.md).
+```text
+.
+├── core/         Public FastAPI service: serves the snippet, writes to PostgreSQL
+├── app/
+│   ├── app-be/   Dashboard FastAPI service: read-only API; also serves the UI
+│   └── app-fe/   React dashboard (source)
+├── infra/        Terraform stack for Azure
+└── examples/     Sample SKILL.md files
+```
+
+`core/` and `app/app-be/` are each self-contained - they deliberately duplicate
+small helpers (`db.py`, `config.py`) so either can be built and deployed alone.
 
 ## TODO
 
