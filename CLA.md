@@ -13,7 +13,7 @@ pull request, patch, or issue attachment).
 ## How you accept this agreement
 
 You accept this agreement automatically when you submit a contribution to
-RateXp — for example, by opening a pull request. You also confirm acceptance by
+RateXp - for example, by opening a pull request. You also confirm acceptance by
 adding a `Signed-off-by` line to your commits:
 
 ```
@@ -29,7 +29,7 @@ terms, do not submit a contribution.
 
 You give the owner a **perpetual, worldwide, non-exclusive, royalty-free,
 irrevocable** copyright license to your contribution, with the right to **use,
-reproduce, modify, distribute, sublicense, and relicense** it — including under
+reproduce, modify, distribute, sublicense, and relicense** it - including under
 license terms different from the project's current license. This lets the owner
 ship your contribution as part of RateXp and change the project's license in the
 future without asking you again.
@@ -38,7 +38,7 @@ future without asking you again.
 
 You give the owner (and everyone who receives RateXp) a **perpetual, worldwide,
 non-exclusive, royalty-free, irrevocable** patent license covering any of your
-patent claims that your contribution would otherwise infringe — to make, use,
+patent claims that your contribution would otherwise infringe - to make, use,
 sell, and distribute RateXp.
 
 ## 3. You keep your own rights
