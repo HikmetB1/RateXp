@@ -170,7 +170,12 @@ async def lifespan(app: FastAPI):
         app.state.pool.close()
 
 
-app = FastAPI(title="ratexp-app-be", version="1.0.0", lifespan=lifespan)
+# Hide Swagger/ReDoc/OpenAPI outside local dev.
+_docs_kwargs = (
+    {} if ENV in ("", "local") else {"docs_url": None, "redoc_url": None, "openapi_url": None}
+)
+
+app = FastAPI(title="ratexp-app-be", version="1.0.0", lifespan=lifespan, **_docs_kwargs)
 
 app.add_middleware(
     CORSMiddleware,
