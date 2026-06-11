@@ -1,9 +1,7 @@
 """A tiny in-memory per-client rate limiter (token bucket).
 
-Dependency-free and per-process: each core instance keeps its own buckets, which
-is the right granularity for the small single-instance deployment this project
-targets. It throttles abusive callers on the public surface without needing
-Redis or a sidecar. Set rate_limit_per_minute to 0 in config.yaml to disable.
+Dependency-free and per-process - no Redis or sidecar, which fits this single-
+instance deployment. Set rate_limit_per_minute to 0 in config.yaml to disable.
 """
 
 from __future__ import annotations

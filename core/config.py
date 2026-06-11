@@ -1,9 +1,7 @@
 """Loads runtime config from config.yaml.
 
-A single place for tunables that should live outside code, resolved relative to
-this file so the working directory doesn't matter (tests, uvicorn, Docker all
-find it). Every key is required - there are no in-code fallbacks, so the yaml is
-the single source of truth and a missing key fails loudly at startup.
+Resolved relative to this file so the working directory doesn't matter. Every
+key is required - no in-code fallbacks, so a missing key fails loudly at startup.
 """
 
 from __future__ import annotations
@@ -36,14 +34,10 @@ DEFAULT_SURVEY_EVERY: int = _require("default_survey_every")
 if DEFAULT_SURVEY_EVERY < 1:
     raise RuntimeError(f"default_survey_every must be >= 1, got {DEFAULT_SURVEY_EVERY}")
 
-# Azure AI Language PII redaction for stored transcripts (see redact.py). The
-# block is required; the API key is a secret read from the environment, never
-# config.yaml.
+# PII redaction config (see redact.py).
 _REDACTION: dict = _require("redaction")
-# config.yaml is the source of truth, but the RATEXP_REDACTION_ENABLED env var
-# overrides it when set - so a local stack (which has no Azure identity) can turn
-# redaction off without editing config.yaml, which ships to the cloud where it
-# must stay on. Accepts 1/true/yes/on (case-insensitive) as true.
+# RATEXP_REDACTION_ENABLED overrides config.yaml, so a local stack (no Azure
+# identity) can disable redaction without editing the cloud-bound file. Truthy: 1/true/yes/on.
 _REDACTION_ENABLED_DEFAULT: bool = bool(_require_in(_REDACTION, "redaction", "enabled"))
 _REDACTION_ENABLED_ENV = os.getenv("RATEXP_REDACTION_ENABLED")
 REDACTION_ENABLED: bool = (

@@ -1,16 +1,11 @@
-"""PostgreSQL connection helpers with two auth modes.
+"""PostgreSQL connection helpers with two auth modes (`RATEXP_DB_AUTH`).
 
-`RATEXP_DB_AUTH` selects how we authenticate to PostgreSQL:
+- `password` (default, local): the password comes from `DATABASE_URL`.
+- `entra` (cloud): no stored password. The Managed Identity fetches a short-lived
+  Entra ID token and uses it as the password, fetched fresh per connection.
 
-- `password` (default, local dev) - the password is taken from `DATABASE_URL`.
-- `entra` (cloud) - no password is stored anywhere. The web app's Managed
-  Identity fetches a short-lived Microsoft Entra ID access token and uses it as
-  the database password. PostgreSQL only checks credentials at connect time, so
-  a fresh token is requested for each new physical connection.
-
-`DATABASE_URL` is a standard libpq connection string. In `entra` mode it carries
-host / port / dbname / user (the Managed Identity's database role) but no
-password.
+`DATABASE_URL` is a standard libpq string; in `entra` mode it carries everything
+but the password.
 """
 
 from __future__ import annotations
