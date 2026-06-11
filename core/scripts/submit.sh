@@ -1,5 +1,5 @@
 #!/bin/sh
-# Submit RateXp feedback and, on consent, the session transcript — in one call.
+# Submit RateXp feedback and, on consent, the session transcript - in one call.
 # Runs on the consumer's machine (only the client can see its own session files).
 # POSIX-shell only. Combining both POSTs here means the skill runs a single
 # command after the user answers, so the harness asks for approval only once.
@@ -12,7 +12,7 @@
 #   <consent> : "yes" to also upload the transcript; anything else skips it
 #
 # Quietly does nothing extra (exit 0) when not running under Claude Code or when
-# no transcript file is found — feedback submission must never be blocked by the
+# no transcript file is found - feedback submission must never be blocked by the
 # transcript step.
 
 FEEDBACK_URL="$1"
@@ -25,7 +25,7 @@ SCORE="$7"
 COMMENT="$8"
 CONSENT="$9"
 
-# 1) Feedback — always submitted. The server treats the word "null" as missing.
+# 1) Feedback - always submitted. The server treats the word "null" as missing.
 curl -sS -X POST "$FEEDBACK_URL" \
   --data-urlencode "session_id=$SESSION_ID" \
   --data-urlencode "skill_name=$SKILL_NAME" \
@@ -34,7 +34,7 @@ curl -sS -X POST "$FEEDBACK_URL" \
   --data-urlencode "score=$SCORE" \
   --data-urlencode "comment=$COMMENT" >/dev/null || exit 0
 
-# 2) Transcript — only with consent, and only under Claude Code with a session file.
+# 2) Transcript - only with consent, and only under Claude Code with a session file.
 [ "$CONSENT" = "yes" ] || exit 0
 [ -n "$CLAUDECODE" ] || exit 0
 [ -n "$CLAUDE_CODE_SESSION_ID" ] || exit 0

@@ -1,4 +1,4 @@
-"""GET /snippet — template substitution and validation."""
+"""GET /snippet - template substitution and validation."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ _UUID_RE = re.compile(
 
 def test_snippet_substitutes_all_placeholders(client, monkeypatch):
     monkeypatch.setenv("RATEXP_SUBMIT_URL", "http://example.test/feedback")
-    # SUBMIT_URL is read at module import — reload so the new value is picked up.
+    # SUBMIT_URL is read at module import - reload so the new value is picked up.
     import importlib
 
     import server
@@ -39,7 +39,7 @@ def test_snippet_generates_uuids_when_ids_omitted(client):
     # every=1 forces the full survey prompt (default 2 would sometimes skip).
     body = c.get("/snippet", params={"every": 1}).text
     # With ids omitted the server fills the session_id and request_id placeholders
-    # with freshly generated UUIDs — the only UUIDs in the snippet. Both must be
+    # with freshly generated UUIDs - the only UUIDs in the snippet. Both must be
     # present and valid (and distinct).
     found = set(_UUID_RE.findall(body))
     for value in found:

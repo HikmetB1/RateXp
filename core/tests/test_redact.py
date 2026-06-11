@@ -67,7 +67,7 @@ def test_redact_masks_conversation_fields(monkeypatch):
     assert out["steps"][0]["message"] == "[REDACTED]"
     assert out["steps"][1]["reasoning_content"] == "[REDACTED]"
     assert out["steps"][2]["observation"] == "[REDACTED]"
-    # 4 text fields → one batch of 4 documents.
+    # 4 text fields -> one batch of 4 documents.
     assert [len(b) for b in fake.batches] == [4]
 
 
@@ -103,7 +103,7 @@ def test_redact_uses_detected_language(monkeypatch):
     monkeypatch.setattr(redact, "REDACTION_LANGUAGES", ["en", "zh-hans", "es"])
     monkeypatch.setattr(redact, "REDACTION_LANGUAGE", "en")
     monkeypatch.setattr(redact, "_LANG_BY_ISO", {"en": "en", "zh": "zh-hans", "es": "es"})
-    # Detection reports Chinese → the configured "zh-hans" code is passed to PII.
+    # Detection reports Chinese -> the configured "zh-hans" code is passed to PII.
     fake = _FakeClient(detect_iso="zh")
     monkeypatch.setattr(redact, "_make_client", lambda: fake)
 
@@ -118,7 +118,7 @@ def test_redact_unknown_language_falls_back_to_default(monkeypatch):
     monkeypatch.setattr(redact, "REDACTION_LANGUAGES", ["en", "es"])
     monkeypatch.setattr(redact, "REDACTION_LANGUAGE", "en")
     monkeypatch.setattr(redact, "_LANG_BY_ISO", {"en": "en", "es": "es"})
-    # Detected language ("ja") is not configured → fall back to the first ("en").
+    # Detected language ("ja") is not configured -> fall back to the first ("en").
     fake = _FakeClient(detect_iso="ja")
     monkeypatch.setattr(redact, "_make_client", lambda: fake)
 
@@ -166,7 +166,7 @@ def test_redact_doc_error_is_fail_closed(monkeypatch):
             return [_FakeLang("en") for _ in documents]
 
         def recognize_pii_entities(self, documents, language=None):
-            # Errors on every call, including the fallback retry → fail-closed.
+            # Errors on every call, including the fallback retry -> fail-closed.
             return [_FakeDoc(d["id"], "", is_error=True, error="bad input") for d in documents]
 
     monkeypatch.setattr(redact, "_make_client", lambda: ErrClient())

@@ -1,4 +1,4 @@
-"""POST /feedback — validation, store dispatch, default filling."""
+"""POST /feedback - validation, store dispatch, default filling."""
 
 from __future__ import annotations
 

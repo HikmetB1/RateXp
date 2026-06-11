@@ -1,20 +1,20 @@
 """Convert a Claude Code session transcript (.jsonl) into ATIF.
 
-ATIF — the Agent Trajectory Interchange Format (Harbor) — is a JSON shape for a
+ATIF - the Agent Trajectory Interchange Format (Harbor) - is a JSON shape for a
 whole agent conversation: an ordered list of `steps`, each from a `source`
 ("user", "agent", "system") carrying a `message`, optional `reasoning_content`,
 `tool_calls`, and tool `observation`s.
 
 Claude Code writes one JSON object per line. The shapes we care about:
 
-  {"type":"user","message":{"role":"user","content":"hi"},"timestamp":"…"}
-  {"type":"assistant","message":{"role":"assistant","model":"claude-…",
-      "content":[{"type":"text","text":"…"},
-                 {"type":"thinking","thinking":"…"},
-                 {"type":"tool_use","id":"…","name":"Bash","input":{…}}],
-      "usage":{"input_tokens":…,"output_tokens":…}},"timestamp":"…"}
+  {"type":"user","message":{"role":"user","content":"hi"},"timestamp":"..."}
+  {"type":"assistant","message":{"role":"assistant","model":"claude-...",
+      "content":[{"type":"text","text":"..."},
+                 {"type":"thinking","thinking":"..."},
+                 {"type":"tool_use","id":"...","name":"Bash","input":{...}}],
+      "usage":{"input_tokens":...,"output_tokens":...}},"timestamp":"..."}
   {"type":"user","message":{"role":"user","content":[
-      {"type":"tool_result","tool_use_id":"…","content":"…"}]},"timestamp":"…"}
+      {"type":"tool_result","tool_use_id":"...","content":"..."}]},"timestamp":"..."}
 
 `content` is either a plain string or a list of typed blocks. Lines that are not
 conversation messages (e.g. "summary" entries) are skipped. The converter is
@@ -149,7 +149,7 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
             # An assistant turn with no text and no tool calls carries nothing.
             if "message" not in step and "tool_calls" not in step:
                 continue
-        else:  # user line — either a real user message or a tool result
+        else:  # user line - either a real user message or a tool result
             observation = _observation_from_content(content)
             if observation is not None and not _has_block(content, "text"):
                 step["source"] = "system"

@@ -2,8 +2,8 @@
 
 `RATEXP_DB_AUTH` selects how we authenticate to PostgreSQL:
 
-- `password` (default, local dev) — the password is taken from `DATABASE_URL`.
-- `entra` (cloud) — no password is stored anywhere. The web app's Managed
+- `password` (default, local dev) - the password is taken from `DATABASE_URL`.
+- `entra` (cloud) - no password is stored anywhere. The web app's Managed
   Identity fetches a short-lived Microsoft Entra ID access token and uses it as
   the database password. PostgreSQL only checks credentials at connect time, so
   a fresh token is requested for each new physical connection.

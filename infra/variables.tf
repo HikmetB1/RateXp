@@ -88,7 +88,7 @@ variable "language_sku_name" {
 }
 
 # Non-default environments (e.g. dev) reuse an existing Language account instead of
-# creating their own — the free F0 tier is one-per-subscription and already used by
+# creating their own - the free F0 tier is one-per-subscription and already used by
 # prod. These point core's redaction at that shared account; leave empty for prod.
 variable "shared_language_account_name" {
   description = "Name of an existing Azure AI Language account to reuse for redaction (non-default environments). Empty creates a new account."

@@ -1,4 +1,4 @@
-/* RateXp dashboard theme — modern dark "glassmorphism".
+/* RateXp dashboard theme - modern dark "glassmorphism".
    Colors live here as CSS variables so App.jsx can reference them inline
    (var(--token)) and there's a single source of truth for the palette. */
 
@@ -35,7 +35,7 @@
     radial-gradient(70rem 70rem at 50% 120%, rgba(106, 166, 255, 0.08), transparent 60%);
 }
 
-/* Light theme — same glassy layout, bright surfaces. */
+/* Light theme - same glassy layout, bright surfaces. */
 :root[data-theme='light'] {
   --bg: #eef2f8;
   --text: #182233;
@@ -72,7 +72,7 @@ html, body {
 body {
   background-color: var(--bg);
   /* Layered radial glows give the background depth/atmosphere
-     instead of a flat fill — the "modern" part of the look. */
+     instead of a flat fill - the "modern" part of the look. */
   background-image: var(--glow);
   background-attachment: fixed;
   color: var(--text);
@@ -96,7 +96,7 @@ h1 {
   font-family: 'Sora', system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.02em;
-  /* Aqua → blue gradient text for the title. */
+  /* Aqua -> blue gradient text for the title. */
   background: linear-gradient(100deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text;
   background-clip: text;
@@ -105,7 +105,7 @@ h1 {
 
 /* Brand logo: the PNG supplies only the shape (via mask); the fill is the same
    gradient as the h1 wordmark, so the mark matches "RateXp" and recolours with
-   the theme. Sits flush beside the word — slight negative margin closes the gap
+   the theme. Sits flush beside the word - slight negative margin closes the gap
    left by the glyph's transparent padding. */
 .brand-logo {
   flex: none;
@@ -144,7 +144,7 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(79, 227, 193, 0.15);
 }
 
-/* Buttons — glass pills with an accent hover */
+/* Buttons - glass pills with an accent hover */
 button {
   font-family: inherit;
   font-size: 13px;
@@ -204,7 +204,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   animation: glow-spin 20s linear infinite;
 }
 
-/* Respect users who ask for less motion — show a steady accent ring instead. */
+/* Respect users who ask for less motion - show a steady accent ring instead. */
 @media (prefers-reduced-motion: reduce) {
   .glow-edge::after { animation: none; }
 }
@@ -219,7 +219,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   position: relative;
   color: var(--text);
   border: 1px solid var(--card-border);
-  /* gloss sheen on top, accent→accent-2 colour tint underneath */
+  /* gloss sheen on top, accent->accent-2 colour tint underneath */
   background:
     linear-gradient(180deg,
       rgba(255, 255, 255, 0.18) 0%,
@@ -245,7 +245,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     inset 0 1px 0 rgba(255, 255, 255, 0.40),
     inset 0 -8px 14px rgba(0, 0, 0, 0.06);
 }
-/* The shiny corner kiss — short accent arc at the top-right, normal elsewhere. */
+/* The shiny corner kiss - short accent arc at the top-right, normal elsewhere. */
 .btn-edge::after {
   content: '';
   position: absolute;
@@ -268,7 +268,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   pointer-events: none;
 }
 
-/* Modern theme switch — a glass pill with sun/moon icons and a sliding knob.
+/* Modern theme switch - a glass pill with sun/moon icons and a sliding knob.
    The knob slides under the active icon (which brightens). Position/highlight key
    off <html data-theme>, so a single React state keeps everything in sync. */
 .theme-toggle {
@@ -335,12 +335,12 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .theme-toggle .knob { transition: none; }
 }
 
-/* Page shell — centred column with comfortable padding (tightened on phones,
+/* Page shell - centred column with comfortable padding (tightened on phones,
    see the responsive block at the bottom of this file). */
 .app { padding: 24px; max-width: 1100px; margin: 0 auto; }
 
 /* Feedback table cells. Kept as classes (not inline styles) so the mobile
-   breakpoint can override them — inline styles win over media queries. */
+   breakpoint can override them - inline styles win over media queries. */
 /* Holds the feedback table; scrolls sideways within the card on tight widths
    so the table can never spill past the card's edge. */
 .table-scroll { overflow-x: auto; }
@@ -364,7 +364,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   overflow-wrap: anywhere;
 }
 /* Skill/Agent/Session values are shown via <code>, but a pill box around every
-   row entry is visually noisy — render them as plain monospace text instead. */
+   row entry is visually noisy - render them as plain monospace text instead. */
 .data-table .td code {
   border: none;
   background: none;
@@ -428,8 +428,8 @@ summary:hover { opacity: 0.8; }
 .md table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 8px; font-size: 0.9em; }
 .md th, .md td { border: 1px solid var(--glass-border); padding: 4px 8px; text-align: left; }
 .md th { background: var(--glass-bg-strong); }
-/* Muted variant for tool observations — same layout, dimmer text. */
-/* Block (not inline-block) so it fills the card and wraps to that width — an
+/* Muted variant for tool observations - same layout, dimmer text. */
+/* Block (not inline-block) so it fills the card and wraps to that width - an
    inline-block shrink-to-fits and can spill past the card on narrow screens. */
 .md-muted { display: block; color: var(--faint); }
 
@@ -445,7 +445,7 @@ summary:hover { opacity: 0.8; }
    A slide-over panel that shows one stored trajectory as a vertical timeline.
    Triggered from the "View" link in each feedback row (see App.jsx). */
 
-/* The "View (N steps)" trigger — a link, not a glass button. */
+/* The "View (N steps)" trigger - a link, not a glass button. */
 .link-btn {
   background: none;
   border: none;
@@ -461,7 +461,7 @@ summary:hover { opacity: 0.8; }
   text-decoration: underline;
 }
 
-/* The "View conversation" trigger in each feedback row — a glass pill chip with
+/* The "View conversation" trigger in each feedback row - a glass pill chip with
    a line-style chat glyph, the step count in accent-gradient text, and a sliding
    arrow. A light sweeps across it on hover, echoing the moving-light borders. */
 .tx-chip {
@@ -496,7 +496,7 @@ summary:hover { opacity: 0.8; }
   transition: transform 0.18s ease;
 }
 .tx-chip:hover:not(:disabled) .tx-chip-arrow { transform: translateX(3px); }
-/* Diagonal light sweep on hover — sits above the chip, clipped to its pill. */
+/* Diagonal light sweep on hover - sits above the chip, clipped to its pill. */
 .tx-chip::after {
   content: '';
   position: absolute;
@@ -580,7 +580,7 @@ summary:hover { opacity: 0.8; }
 .modal-md { font-size: 14px; }
 .modal-md hr { border: none; border-top: 1px solid var(--glass-border); margin: 16px 0; }
 
-/* The panel itself — glass surface anchored to the right, sliding in. */
+/* The panel itself - glass surface anchored to the right, sliding in. */
 .drawer {
   position: fixed;
   top: 0;
@@ -612,7 +612,7 @@ summary:hover { opacity: 0.8; }
   font-family: 'Sora', system-ui, sans-serif;
   font-size: 18px;
   font-weight: 700;
-  /* Same aqua→blue gradient text as the page title. */
+  /* Same aqua->blue gradient text as the page title. */
   background: linear-gradient(100deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text;
   background-clip: text;
@@ -635,7 +635,7 @@ summary:hover { opacity: 0.8; }
 .dm-item { display: inline-flex; align-items: center; }
 .dm-item::before { content: '·'; color: var(--faint); margin-right: 8px; }
 .dm-item:first-child::before { content: none; }
-/* Small uppercase KEY label in front of each value (Skill, Agent, …). */
+/* Small uppercase KEY label in front of each value (Skill, Agent, ...). */
 .dm-key {
   text-transform: uppercase;
   font-size: 9.5px;
@@ -657,7 +657,7 @@ summary:hover { opacity: 0.8; }
 .drawer-close:hover:not(:disabled) { color: var(--text); border: none; transform: none; }
 
 /* overflow-x:hidden keeps every step's content inside the panel on narrow
-   (phone) widths — nothing can spill past the drawer's edge. */
+   (phone) widths - nothing can spill past the drawer's edge. */
 .drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; }
 
 /* Timeline: a connector rail with a coloured dot per step. */
@@ -741,7 +741,7 @@ summary:hover { opacity: 0.8; }
   .app { padding: 16px 14px; }
   h1 { font-size: 26px; }
 
-  /* Hide the column headers — each card labels its own fields instead. */
+  /* Hide the column headers - each card labels its own fields instead. */
   .data-table thead { display: none; }
   .data-table,
   .data-table tbody,

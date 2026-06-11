@@ -1,9 +1,9 @@
 """Azure AI Language PII redaction for consented transcripts.
 
 When redaction is enabled (config.yaml: ``redaction.enabled``), the conversation
-text in an uploaded ATIF transcript — user/agent messages, reasoning, and tool
-observations — is sent to Azure AI Language's PII detection, which returns the
-same text with personal data (names, emails, phone numbers, …) masked. Only the
+text in an uploaded ATIF transcript - user/agent messages, reasoning, and tool
+observations - is sent to Azure AI Language's PII detection, which returns the
+same text with personal data (names, emails, phone numbers, ...) masked. Only the
 redacted text is persisted; the raw text never reaches the database.
 
 Failure is fail-closed: when redaction is enabled and Azure errors (or is
@@ -21,7 +21,7 @@ Multi-language: each message's language is auto-detected. The detected language
 is used for PII when it's one of the configured ``languages``; otherwise the
 first configured language is the fallback. If a detected language is rejected by
 the PII model, that document is retried once with the fallback, so an unexpected
-language never drops the whole upload — only a genuine Azure failure does.
+language never drops the whole upload - only a genuine Azure failure does.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from config import (
 _TEXT_FIELDS = ("message", "reasoning_content", "observation")
 # Azure AI Language accepts at most 5 documents per PII request.
 _BATCH = 5
-# Detected ISO 639-1 code (e.g. "zh") → the configured PII code (e.g. "zh-hans").
+# Detected ISO 639-1 code (e.g. "zh") -> the configured PII code (e.g. "zh-hans").
 _LANG_BY_ISO = {code.split("-", 1)[0].lower(): code for code in REDACTION_LANGUAGES}
 
 
@@ -74,7 +74,7 @@ def _redact_batch(client, texts: list[str]) -> list[str]:
     for doc in client.recognize_pii_entities(docs):
         i = int(doc.id)
         if doc.is_error:
-            retry.append(i)  # detected language may be unsupported — try the fallback
+            retry.append(i)  # detected language may be unsupported - try the fallback
         else:
             out[i] = doc.redacted_text
     if retry:
@@ -99,7 +99,7 @@ def redact_atif(atif: dict) -> dict:
     if not isinstance(steps, list):
         return atif
 
-    # Collect every non-empty text field as (step_index, field) → value, so we
+    # Collect every non-empty text field as (step_index, field) -> value, so we
     # can batch them all to Azure and write the redacted text straight back.
     targets: list[tuple[int, str]] = []
     texts: list[str] = []

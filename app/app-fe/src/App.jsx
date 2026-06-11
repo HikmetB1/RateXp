@@ -17,7 +17,7 @@ const WS_BASE =
 
 // The core service that hands a skill the rating-survey snippet. Skill authors
 // curl this from their SKILL.md; shown in the "Add your skill" popup. (Same
-// host as the deployed core — change here if the core URL changes.)
+// host as the deployed core - change here if the core URL changes.)
 const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
 
 // Short, friendly how-to shown in the "Add your skill" popup. Rendered as
@@ -25,7 +25,7 @@ const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
 const SKILL_GUIDE_MD = `### Add RateXp to your skill
 
 Add the following snippet to your **\`SKILL.md\`** where the user feedback should
-take place — that's the whole setup.
+take place - that's the whole setup.
 
 \`\`\`md
 # Feedback step
@@ -43,10 +43,10 @@ it off to default to \`every=2\`.
 
 🎉 **Congratulations!** Your skill is now exposed to RateXp. Under the user
 consent, every N run can collect a good / bad rating and its full trajectory
-— all visible right here on this dashboard.`
+- all visible right here on this dashboard.`
 
 // Outer "group" frame: visually bundles the inner glass cards into two sections
-// — (Filter + Feedback) and (Top skills) — so the two areas read as distinct
+// - (Filter + Feedback) and (Top skills) - so the two areas read as distinct
 // groups. Children lay out in a column with even spacing (their own margins are
 // zeroed, see the inner <section>s).
 const groupBox = {
@@ -116,7 +116,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    // Initial load over HTTP — works even if the WebSocket is blocked. No ?limit:
+    // Initial load over HTTP - works even if the WebSocket is blocked. No ?limit:
     // the backend returns its configured "view" size (list_view_limit), so the
     // table's row count is decided server-side, not here.
     Promise.all([
@@ -284,7 +284,7 @@ export default function App() {
 
 // Always-on note under the default table: the dashboard is a preview that shows
 // only the latest rows and the most-rated skills (both capped by app-be's
-// config.yaml — list_view_limit / top_skills_limit, default 10 each). The data
+// config.yaml - list_view_limit / top_skills_limit, default 10 each). The data
 // behind it is larger; Download JSON or the SQL box pull the full set (up to
 // query_max_rows). Hidden while a filter is active, since ViewLimitNotice then
 // explains the cap for the filtered result instead.
@@ -297,7 +297,7 @@ function ViewDisclaimer() {
       fontSize: 13,
       textAlign: 'center',
     }}>
-      This is a preview — the table shows only the latest entries. Use{' '}
+      This is a preview - the table shows only the latest entries. Use{' '}
       <strong>Download JSON</strong> or the SQL filter above to get the full data.
     </p>
   )
@@ -325,7 +325,7 @@ function indexTranscripts(transcripts) {
 function LiveDot({ live }) {
   return (
     <span
-      title={live ? 'Live — updating in real time' : 'Offline — not receiving live updates'}
+      title={live ? 'Live - updating in real time' : 'Offline - not receiving live updates'}
       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}
     >
       <span style={{
@@ -395,7 +395,7 @@ function ViewLimitNotice({ shown }) {
       color: 'var(--muted)',
       fontSize: 13,
     }}>
-      Showing the first <strong>{shown}</strong> rows — you have more than the view limit.
+      Showing the first <strong>{shown}</strong> rows - you have more than the view limit.
       To see all, use <strong>Download JSON</strong> above.
     </p>
   )
@@ -439,8 +439,8 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   // backend for the FULL set (full=true) so the user can "see all". For a filter
   // it re-runs the same SELECT unbounded; otherwise it exports all feedback.
   // Each row carries its full ATIF trajectory (the native JSON shape) under
-  // `conversation`, so the export keeps the whole transcript — steps, tool calls
-  // and metrics — instead of flattening it the way a CSV cell would.
+  // `conversation`, so the export keeps the whole transcript - steps, tool calls
+  // and metrics - instead of flattening it the way a CSV cell would.
   const download = async () => {
     setErr(null)
     try {
@@ -480,8 +480,8 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
     <section className="glow-edge" style={glassCard}>
       <h2 style={cardHeading}>Filter with SQL</h2>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
-        Read-only SELECT against the feedback table — results replace the table below.
-        Tip: <code>SELECT * FROM feedback WHERE …</code>. Results are capped and time-limited.
+        Read-only SELECT against the feedback table - results replace the table below.
+        Tip: <code>SELECT * FROM feedback WHERE ...</code>. Results are capped and time-limited.
       </p>
       <textarea
         value={sql}
@@ -492,7 +492,7 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
         style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 10, boxSizing: 'border-box' }}
       />
       <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button className="btn-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering…' : 'Apply filter'}</button>
+        <button className="btn-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering...' : 'Apply filter'}</button>
         <button className="btn-edge" onClick={clear} disabled={!active && !sql}>Clear</button>
         <button className="btn-edge" onClick={download} disabled={rows.length === 0}>Download JSON</button>
         {err && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{err}</span>}
@@ -511,9 +511,9 @@ function Trajectory({ transcript, onOpen }) {
     <button
       className="tx-chip"
       onClick={() => onOpen(transcript)}
-      title={`Open trajectory — ${steps.length} steps`}
+      title={`Open trajectory - ${steps.length} steps`}
     >
-      {/* Just the chat glyph + a sliding arrow — the step count lives in the
+      {/* Just the chat glyph + a sliding arrow - the step count lives in the
           drawer's meta header now, not in the table cell. */}
       <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
         <path
@@ -641,7 +641,7 @@ function SkillGuideModal({ open, onClose }) {
 
   if (!open) return null
   // Portal to <body> so the fixed backdrop/popup anchor to the viewport rather
-  // than to #root — whose page-load transform animation otherwise becomes the
+  // than to #root - whose page-load transform animation otherwise becomes the
   // containing block and pushes the centered popup down the page on mobile.
   return createPortal(
     <>
@@ -658,7 +658,7 @@ function SkillGuideModal({ open, onClose }) {
 }
 
 // Render an ATIF step's text (agent/user messages, tool observations) as
-// Markdown — agents write Markdown (headings, lists, code blocks, tables), so
+// Markdown - agents write Markdown (headings, lists, code blocks, tables), so
 // rendering it formatted is what makes the transcript readable. GFM adds tables,
 // task lists and strikethrough. Styling lives under the .md class in index.css.
 // (react-markdown v9 has no className prop, so we wrap it in a div.)
@@ -671,7 +671,7 @@ function Md({ className, children }) {
 }
 
 // Cell styling lives in index.css (.th/.td) so the mobile breakpoint can
-// restyle the table into stacked cards — inline styles would block those rules.
+// restyle the table into stacked cards - inline styles would block those rules.
 // Each Td carries a `label` echoed into data-label, used as the card row's
 // heading on phones (see the @media block in index.css).
 function Th({ children }) { return <th className="th">{children}</th> }
@@ -683,7 +683,7 @@ function sourceStyle(source) {
   return { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color, fontWeight: 600 }
 }
 
-// Colored label so good/bad reads at a glance — plain text, no bounding box.
+// Colored label so good/bad reads at a glance - plain text, no bounding box.
 function ScoreBadge({ kind }) {
   const color = kind === 'good' ? 'var(--good)' : 'var(--bad)'
   return (
@@ -704,7 +704,7 @@ function scoreLabel(score) {
 }
 
 function StatusLine({ loading, error, filtered }) {
-  if (loading) return 'Loading…'
+  if (loading) return 'Loading...'
   if (error) return <span style={{ color: 'var(--danger)' }}>{error}</span>
   if (filtered) return 'Filtered'
   return null

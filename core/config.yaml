@@ -1,5 +1,5 @@
 # core runtime config. Edit values here without touching code. Every key is
-# required — a missing key fails loudly at startup, so this file is the single
+# required - a missing key fails loudly at startup, so this file is the single
 # source of truth for these tunables.
 
 # ATIF (Agent Trajectory Interchange Format) schema version stamped on every
@@ -20,13 +20,13 @@ rate_limit_per_minute: 120
 default_survey_every: 2
 
 # PII redaction for consented transcripts (Azure AI Language). When enabled, the
-# conversation text in an uploaded transcript — user/agent messages, reasoning
-# and tool observations — is sent to Azure's PII detection, which masks personal
-# data (names, emails, phone numbers, …). Only the redacted text is stored; the
+# conversation text in an uploaded transcript - user/agent messages, reasoning
+# and tool observations - is sent to Azure's PII detection, which masks personal
+# data (names, emails, phone numbers, ...). Only the redacted text is stored; the
 # raw text never reaches the database. If Azure errors, the upload is dropped so
 # unredacted text is never persisted (fail-closed).
 #
-# Configured here only — there is no secret. Core authenticates to Azure with its
+# Configured here only - there is no secret. Core authenticates to Azure with its
 # Managed Identity (Entra ID), exactly like the database. To run locally without
 # redaction (no Azure identity), set enabled: false.
 redaction:

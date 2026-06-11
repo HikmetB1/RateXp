@@ -1,7 +1,7 @@
 """Dashboard service: a read-only API over the feedback/transcript tables,
 plus the built dashboard UI served from the same origin.
 
-This service never writes — core is the only writer — so it can run with a
+This service never writes - core is the only writer - so it can run with a
 read-only database identity. It exposes list/stats/query endpoints and a live
 WebSocket feed, and (in the built image) serves the React dashboard.
 """
@@ -39,8 +39,8 @@ _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 def _resolve_cors_origins() -> list[str]:
-    # Truthy check (not `is not None`) so an empty value — e.g. an unset
-    # RATEXP_CORS_ORIGINS injected as "" by compose — behaves like absent.
+    # Truthy check (not `is not None`) so an empty value - e.g. an unset
+    # RATEXP_CORS_ORIGINS injected as "" by compose - behaves like absent.
     if CORS_ORIGINS_RAW:
         return [o.strip() for o in CORS_ORIGINS_RAW.split(",") if o.strip()]
     if ENV in ("", "local"):
@@ -168,7 +168,7 @@ def _select_top_skills(limit: int) -> list[dict]:
 async def lifespan(app: FastAPI):
     app.state.pool = make_pool()
     # One shared broadcaster fans live snapshots out to every connected
-    # dashboard, so write volume — not viewer count — drives DB load.
+    # dashboard, so write volume - not viewer count - drives DB load.
     broadcaster = asyncio.create_task(_broadcaster()) if WS_ENABLED else None
     try:
         yield
@@ -200,8 +200,8 @@ def list_feedback(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
     full: bool = False,
 ) -> list[Feedback]:
-    # Default returns the small dashboard view (list_view_limit). full=true — used
-    # by the dashboard's "Download CSV" — returns everything up to the hard ceiling.
+    # Default returns the small dashboard view (list_view_limit). full=true - used
+    # by the dashboard's "Download CSV" - returns everything up to the hard ceiling.
     effective = LIST_MAX_LIMIT if full else limit
     try:
         rows = _select_feedback(effective)
@@ -215,8 +215,8 @@ def list_transcript(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
     full: bool = False,
 ) -> list[Transcript]:
-    # Default returns the small dashboard view (list_view_limit). full=true — used
-    # by the dashboard's "Download CSV" — returns every transcript up to the hard
+    # Default returns the small dashboard view (list_view_limit). full=true - used
+    # by the dashboard's "Download CSV" - returns every transcript up to the hard
     # ceiling so the export can attach each row's conversation.
     effective = LIST_MAX_LIMIT if full else limit
     try:
@@ -228,7 +228,7 @@ def list_transcript(
 
 @app.get("/stats/top-skills")
 def top_skills(limit: int = Query(TOP_SKILLS_LIMIT, ge=1, le=LIST_MAX_LIMIT)) -> dict:
-    """Most-rated skills with their good/bad tally — powers the dashboard's
+    """Most-rated skills with their good/bad tally - powers the dashboard's
     "Top skills" panel. Aggregates the whole feedback table, ordered by number of
     ratings, capped at `limit` (default top_skills_limit from config.yaml)."""
     try:
@@ -244,7 +244,7 @@ def run_query(req: QueryRequest) -> dict:
 
     Layered guardrails: SELECT-only + single statement (validated), wrapped in a
     row-capping subquery, and executed in a read-only transaction with a
-    statement timeout — so writes are impossible and cost/volume are bounded.
+    statement timeout - so writes are impossible and cost/volume are bounded.
     """
     if not QUERY_ENABLED:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "query endpoint disabled")
@@ -318,7 +318,7 @@ class Hub:
             try:
                 await ws.send_json(message)
             except Exception:
-                dead.append(ws)  # send failed — the socket is gone
+                dead.append(ws)  # send failed - the socket is gone
         if dead:
             async with self._lock:
                 for ws in dead:
@@ -329,7 +329,7 @@ hub = Hub()
 
 
 def _build_snapshot() -> dict:
-    """The dashboard's whole live view in one message — same shapes the HTTP
+    """The dashboard's whole live view in one message - same shapes the HTTP
     endpoints return, so the frontend applies it with identical code."""
     return {
         "type": "snapshot",
@@ -358,7 +358,7 @@ async def _broadcaster() -> None:
     while True:
         await asyncio.sleep(interval)
         if hub.empty:
-            continue  # nobody watching — don't touch the DB
+            continue  # nobody watching - don't touch the DB
         try:
             sig = await asyncio.to_thread(_change_signature)
         except Exception:
@@ -385,7 +385,7 @@ def _ws_origin_allowed(websocket: WebSocket) -> bool:
 @app.websocket("/ws")
 async def ws_feed(websocket: WebSocket) -> None:
     """Live feed: pushes a snapshot on connect, then on every change. Incoming
-    client messages are ignored — this channel is server -> dashboard only."""
+    client messages are ignored - this channel is server -> dashboard only."""
     if not WS_ENABLED:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
