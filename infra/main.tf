@@ -10,9 +10,8 @@
 # Images are pulled from an ACR provisioned here using the web apps' identities.
 
 locals {
-  # The default (prod) deployment keeps its random-suffixed, globally-unique names.
-  # A named environment (e.g. "dev") gets clean, deterministic names instead, so the
-  # web app URL is exactly https://ratexp-dev-app.azurewebsites.net.
+  # Default (prod) uses random-suffixed global names; a named env (e.g. "dev")
+  # gets clean deterministic names like ratexp-dev-app.azurewebsites.net.
   is_default_env = var.environment == ""
   name_base      = local.is_default_env ? var.project : "${var.project}-${var.environment}"
 
@@ -111,12 +110,9 @@ resource "azurerm_service_plan" "this" {
 }
 
 # --- Azure AI Language: transcript PII redaction (optional) ---
-# Created only when var.enable_redaction is true. core masks personal data in
-# consented transcripts via this resource before writing them to PostgreSQL
-# (see core/redact.py). Access is passwordless: core's Managed Identity is granted
-# the "Cognitive Services User" role below and authenticates with an Entra ID
-# token, so no key is stored anywhere. A custom subdomain is required for Entra ID
-# auth, and local (key) auth is disabled.
+# Created only when var.enable_redaction is true. core masks PII via this resource
+# before writing to PostgreSQL (see core/redact.py). Passwordless: core's identity
+# gets "Cognitive Services User" below. A custom subdomain is required for Entra auth.
 resource "azurerm_cognitive_account" "language" {
   count                 = var.enable_redaction && local.is_default_env ? 1 : 0
   name                  = "${var.project}-lang-${local.suffix}"
