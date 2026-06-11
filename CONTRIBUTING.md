@@ -4,6 +4,15 @@ Thanks for helping improve RateXp. This guide covers running the project,
 testing it, and every setting you can change. For what RateXp *is* and how to
 embed it in a skill, see the [README](./README.md).
 
+## Contributor License Agreement
+
+Before your contribution can be merged, you agree to the
+[Contributor License Agreement](./CLA.md). You accept it automatically by
+submitting a pull request; sign your commits with `git commit -s` (adds a
+`Signed-off-by` line) to confirm. In short: you keep your own rights, but you
+grant the owner a license to your contribution — including the right to
+relicense it later.
+
 ## Prerequisites
 
 - [Docker](https://www.docker.com/) + Docker Compose **v2** (the `docker compose`
