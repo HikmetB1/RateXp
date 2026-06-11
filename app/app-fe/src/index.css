@@ -1,6 +1,4 @@
-/* RateXp dashboard theme - modern dark "glassmorphism".
-   Colors live here as CSS variables so App.jsx can reference them inline
-   (var(--token)) and there's a single source of truth for the palette. */
+/* RateXp dashboard theme. Palette as CSS variables so App.jsx can use var(--token) inline. */
 
 /* Dark is the default theme (no data-theme attribute, or data-theme="dark"). */
 :root {
@@ -21,8 +19,7 @@
   --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-bg-strong: rgba(255, 255, 255, 0.07);
   --glass-border: rgba(255, 255, 255, 0.10);
-  /* Stronger outline used only on the card/group boxes so they read as clearly
-     framed against the dark background (high contrast for easy visibility). */
+  /* Stronger outline on the card/group boxes so they read as framed. */
   --card-border: rgba(255, 255, 255, 0.30);
   --row-border: rgba(255, 255, 255, 0.06);
   --blur: blur(16px) saturate(140%);
@@ -71,8 +68,7 @@ html, body {
 
 body {
   background-color: var(--bg);
-  /* Layered radial glows give the background depth/atmosphere
-     instead of a flat fill - the "modern" part of the look. */
+  /* Layered radial glows for depth instead of a flat fill. */
   background-image: var(--glow);
   background-attachment: fixed;
   color: var(--text);
@@ -103,10 +99,8 @@ h1 {
   color: transparent;
 }
 
-/* Brand logo: the PNG supplies only the shape (via mask); the fill is the same
-   gradient as the h1 wordmark, so the mark matches "RateXp" and recolours with
-   the theme. Sits flush beside the word - slight negative margin closes the gap
-   left by the glyph's transparent padding. */
+/* PNG supplies the shape via mask; fill is the h1 gradient so the mark matches
+   the wordmark. The negative margin closes the gap from the glyph's padding. */
 .brand-logo {
   flex: none;
   width: 38px;
@@ -164,13 +158,9 @@ button:hover:not(:disabled) {
 }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Moving-light border
-   A bright accent arc that travels slowly around an element's outline. It's a
-   conic-gradient masked down to a thin ring at the very edge, rotated by the
-   animatable custom property --glow-angle. The element keeps its own
-   high-contrast border as the steady base; this light rides on top.
-   Add the class `glow-edge` to any box/button you want it on. The element needs
-   position (set here) and must not clip its corners with overflow:hidden. */
+/* Moving-light border: a conic-gradient masked to a thin ring at the edge,
+   rotated by --glow-angle. Add `glow-edge` to a box; it needs position and must
+   not clip its corners with overflow:hidden. */
 @property --glow-angle {
   syntax: '<angle>';
   initial-value: 0deg;
@@ -209,12 +199,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .glow-edge::after { animation: none; }
 }
 
-/* Liquid-glass action buttons
-   These buttons (theme toggle, Apply/Clear/Download) read as solid, tinted
-   "liquid glass": a translucent accent-coloured body with a glossy top sheen,
-   a bright inner top edge, a soft drop shadow and a backdrop blur. A small
-   shiny accent "kiss" sits at the top-right corner of the outline (the rest of
-   the ring stays the normal border colour). */
+/* Liquid-glass buttons: translucent tinted body, glossy top sheen, soft shadow
+   and blur, with a small accent "kiss" at the top-right corner of the outline. */
 .btn-edge {
   position: relative;
   color: var(--text);
@@ -268,9 +254,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   pointer-events: none;
 }
 
-/* Modern theme switch - a glass pill with sun/moon icons and a sliding knob.
-   The knob slides under the active icon (which brightens). Position/highlight key
-   off <html data-theme>, so a single React state keeps everything in sync. */
+/* Theme switch: a glass pill whose knob slides under the active icon.
+   Position keys off <html data-theme>, so one React state keeps it in sync. */
 .theme-toggle {
   position: relative;
   flex: none;
@@ -295,9 +280,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .theme-toggle:hover { filter: brightness(1.1); }
 .theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* Faint end icons sit behind the knob (z-index) as a hint of the other mode; the
-   knob slides over the current side, covering its icon. The active icon lives
-   inside the knob (below), so it stays centred in the circle. */
+/* Faint end icons hint the other mode; the active icon lives in the knob so it stays centred. */
 .theme-toggle .ico {
   position: absolute;
   top: 50%;
@@ -335,14 +318,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   .theme-toggle .knob { transition: none; }
 }
 
-/* Page shell - centred column with comfortable padding (tightened on phones,
-   see the responsive block at the bottom of this file). */
+/* Page shell - centred column (tightened on phones; see the responsive block below). */
 .app { padding: 24px; max-width: 1100px; margin: 0 auto; }
 
-/* Feedback table cells. Kept as classes (not inline styles) so the mobile
-   breakpoint can override them - inline styles win over media queries. */
-/* Holds the feedback table; scrolls sideways within the card on tight widths
-   so the table can never spill past the card's edge. */
+/* Scrolls sideways within the card on tight widths so the table can't spill out. */
 .table-scroll { overflow-x: auto; }
 
 .th {
@@ -359,12 +338,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   padding: 10px 12px;
   border-bottom: 1px solid var(--row-border);
   vertical-align: top;
-  /* Let long single tokens (session ids, ISO timestamps) wrap so a cell can't
-     push the table wider than its card. anywhere only breaks when needed. */
+  /* Wrap long tokens (session ids, timestamps) so a cell can't widen the table. */
   overflow-wrap: anywhere;
 }
-/* Skill/Agent/Session values are shown via <code>, but a pill box around every
-   row entry is visually noisy - render them as plain monospace text instead. */
+/* Show <code> values as plain monospace, no pill box (less visual noise). */
 .data-table .td code {
   border: none;
   background: none;
@@ -378,14 +355,8 @@ tbody tr:hover { background: var(--glass-bg); }
 summary { transition: opacity 0.15s ease; }
 summary:hover { opacity: 0.8; }
 
-/* Rendered Markdown inside a conversation step (ATIF message/observation).
-   Tightens default margins so it sits cleanly in the transcript and reuses the
-   theme tokens so it works in both light and dark. */
-/* min-width:0 lets this flex/table child actually shrink; overflow-wrap stops a
-   single long word/URL from forcing the column wider than its cap. */
-/* overflow-wrap:anywhere (not just break-word) also lets long tokens count as
-   wrap points when the browser sizes the element, so a long word can't push the
-   content wider than its box on narrow (phone) widths. */
+/* Rendered Markdown inside a conversation step. min-width:0 + overflow-wrap:anywhere
+   let long words/URLs wrap instead of widening the column on narrow widths. */
 .md { font-size: 14px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
@@ -403,10 +374,8 @@ summary:hover { opacity: 0.8; }
   border-left: 3px solid var(--glass-border);
   color: var(--muted);
 }
-/* Fenced code blocks: a scrollable monospace panel. Inline code reuses the
-   global <code> pill style already defined above. */
-/* Wrap long code lines instead of scrolling, so a wide command (e.g. the curl
-   snippet) can't stretch the conversation column past its cap. */
+/* Fenced code blocks: wrap long lines instead of scrolling, so a wide command
+   can't stretch the column. Inline code reuses the global <code> pill style. */
 .md pre {
   margin: 0 0 8px;
   padding: 10px 12px;
@@ -423,14 +392,11 @@ summary:hover { opacity: 0.8; }
   color: var(--text);
   font-size: 0.85em;
 }
-/* display:block + overflow lets a wide table scroll within the column rather
-   than widening it. */
+/* display:block lets a wide table scroll within the column instead of widening it. */
 .md table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 8px; font-size: 0.9em; }
 .md th, .md td { border: 1px solid var(--glass-border); padding: 4px 8px; text-align: left; }
 .md th { background: var(--glass-bg-strong); }
-/* Muted variant for tool observations - same layout, dimmer text. */
-/* Block (not inline-block) so it fills the card and wraps to that width - an
-   inline-block shrink-to-fits and can spill past the card on narrow screens. */
+/* Muted variant for observations. Block so it fills the card and wraps instead of spilling. */
 .md-muted { display: block; color: var(--faint); }
 
 /* Custom scrollbar to match the dark glass theme */
@@ -441,9 +407,7 @@ summary:hover { opacity: 0.8; }
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
 
-/* Trajectory drawer
-   A slide-over panel that shows one stored trajectory as a vertical timeline.
-   Triggered from the "View" link in each feedback row (see App.jsx). */
+/* Trajectory drawer: a slide-over showing one trajectory as a vertical timeline. */
 
 /* The "View (N steps)" trigger - a link, not a glass button. */
 .link-btn {
@@ -461,9 +425,7 @@ summary:hover { opacity: 0.8; }
   text-decoration: underline;
 }
 
-/* The "View conversation" trigger in each feedback row - a glass pill chip with
-   a line-style chat glyph, the step count in accent-gradient text, and a sliding
-   arrow. A light sweeps across it on hover, echoing the moving-light borders. */
+/* "View conversation" chip: chat glyph + sliding arrow, with a light sweep on hover. */
 .tx-chip {
   display: inline-flex;
   align-items: center;
@@ -527,9 +489,7 @@ summary:hover { opacity: 0.8; }
   animation: fadeIn 0.2s ease both;
 }
 
-/* "Add your skill" popup
-   A centered glass card over the shared backdrop. Holds the short Markdown
-   how-to (SKILL_GUIDE_MD). The wrap centres it and catches outside clicks. */
+/* "Add your skill" popup: a centred glass card over the backdrop (SKILL_GUIDE_MD). */
 .modal-wrap {
   position: fixed;
   inset: 0;
@@ -619,8 +579,7 @@ summary:hover { opacity: 0.8; }
   color: transparent;
 }
 .drawer-head-main { min-width: 0; }
-/* Meta strip under the drawer title: skill · agent · model · score · steps ·
-   tokens. Items wrap on narrow widths; a faint middot separates each. */
+/* Meta strip under the title; items wrap, a faint middot separates each. */
 .drawer-meta {
   margin-top: 8px;
   display: flex;
@@ -656,8 +615,7 @@ summary:hover { opacity: 0.8; }
 }
 .drawer-close:hover:not(:disabled) { color: var(--text); border: none; transform: none; }
 
-/* overflow-x:hidden keeps every step's content inside the panel on narrow
-   (phone) widths - nothing can spill past the drawer's edge. */
+/* overflow-x:hidden keeps step content inside the panel on narrow widths. */
 .drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; }
 
 /* Timeline: a connector rail with a coloured dot per step. */
@@ -697,8 +655,7 @@ summary:hover { opacity: 0.8; }
   border: 1px solid var(--card-border);
   border-radius: 12px;
   background: var(--glass-bg);
-  /* min-width:0 lets the card shrink inside the timeline; overflow-wrap breaks a
-     long unbroken token (path, URL) so it can't stretch past the card edge. */
+  /* min-width:0 + overflow-wrap let the card shrink and break long tokens (path, URL). */
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -731,12 +688,8 @@ summary:hover { opacity: 0.8; }
 }
 
 
-/* Phones (<=640px)
-   Tighten the page padding and shrink the title, then turn the seven-column
-   feedback table into a stack of cards: the header row is hidden and each row
-   becomes a bordered block whose cells read as "Label / value" pairs. The
-   label comes from each cell's data-label (set in App.jsx). The drawer is
-   already fluid (width: min(560px, 92vw)), so it needs no extra rules. */
+/* Phones (<=640px): tighten padding, shrink the title, and turn the table into a
+   stack of cards (header hidden; each cell shows its data-label, set in App.jsx). */
 @media (max-width: 640px) {
   .app { padding: 16px 14px; }
   h1 { font-size: 26px; }
@@ -757,8 +710,7 @@ summary:hover { opacity: 0.8; }
   }
   .data-table tr:hover { background: var(--glass-bg); }
 
-  /* Each cell: small uppercase label above its value, left-aligned so long
-     comments and session ids wrap cleanly. */
+  /* Each cell: label above value, left-aligned so long text wraps cleanly. */
   .data-table .td {
     display: flex;
     flex-direction: column;

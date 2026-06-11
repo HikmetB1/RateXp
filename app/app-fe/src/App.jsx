@@ -3,25 +3,19 @@ import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-// In the built image the dashboard is served from the same origin as the API,
-// so VITE_API_BASE is "" and requests are relative. For local dev it defaults to
-// app-be on :8001. (?? keeps an explicit empty string meaning "same origin".)
+// Same origin as the API in the built image (VITE_API_BASE ""); defaults to app-be on :8001 in dev.
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001'
-// Live updates come over a WebSocket, derived from the API base (http->ws). An
-// empty API base means same origin, so build the ws URL from window.location.
+// WebSocket base derived from the API base (http->ws); same origin if the API base is empty.
 const WS_BASE =
   import.meta.env.VITE_WS_BASE ||
   (API_BASE
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// The core service that hands a skill the rating-survey snippet. Skill authors
-// curl this from their SKILL.md; shown in the "Add your skill" popup. (Same
-// host as the deployed core - change here if the core URL changes.)
+// Snippet URL shown in the "Add your skill" popup. Update if the core URL changes.
 const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
 
-// Short, friendly how-to shown in the "Add your skill" popup. Rendered as
-// Markdown (see Md). One edit to a SKILL.md is all it takes to start reporting.
+// How-to shown in the "Add your skill" popup, rendered as Markdown (see Md).
 const SKILL_GUIDE_MD = `### Add RateXp to your skill
 
 Add the following snippet to your **\`SKILL.md\`** where the user feedback should
@@ -45,10 +39,7 @@ it off to default to \`every=2\`.
 consent, every N run can collect a good / bad rating and its full trajectory
 - all visible right here on this dashboard.`
 
-// Outer "group" frame: visually bundles the inner glass cards into two sections
-// - (Filter + Feedback) and (Top skills) - so the two areas read as distinct
-// groups. Children lay out in a column with even spacing (their own margins are
-// zeroed, see the inner <section>s).
+// Outer frame bundling the inner glass cards into one section (column, even spacing).
 const groupBox = {
   display: 'flex',
   flexDirection: 'column',
@@ -59,8 +50,7 @@ const groupBox = {
   marginBottom: 20,
 }
 
-// Inner "glass card": the frosted panel each section (Filter, Feedback, Top
-// skills) sits in. Shared so the three cards stay visually identical.
+// The frosted panel each section sits in. Shared so the cards stay identical.
 const glassCard = {
   margin: 0,
   border: '1px solid var(--card-border)',
@@ -91,15 +81,12 @@ export default function App() {
   // Whether the "Add your skill" how-to popup is open.
   const [guideOpen, setGuideOpen] = useState(false)
 
-  // Mirror `filter` into a ref so the WebSocket handler can read the latest
-  // value without re-subscribing each time a filter is applied or cleared.
+  // Mirror filter into a ref so the WS handler reads the latest value without re-subscribing.
   const filterRef = useRef(false)
   useEffect(() => { filterRef.current = !!filter }, [filter])
 
-  // Apply a fresh dataset from either the initial fetch or a live snapshot.
-  // Index transcripts so each feedback row can show its own conversation inline
-  // (prefer request_id 1:1, fall back to session_id). A live push refreshes the
-  // visible rows only when no filter is active, so it never clobbers a filter.
+  // Apply a dataset (initial fetch or live snapshot). Index transcripts so each row
+  // finds its conversation; leave the visible rows alone while a filter is active.
   const applyData = useCallback((feedback, transcripts, topSkills) => {
     const index = indexTranscripts(transcripts)
     setAllRows(feedback)
@@ -116,9 +103,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    // Initial load over HTTP - works even if the WebSocket is blocked. No ?limit:
-    // the backend returns its configured "view" size (list_view_limit), so the
-    // table's row count is decided server-side, not here.
+    // Initial load over HTTP - works even if the WebSocket is blocked. The backend
+    // decides the row count (list_view_limit), so no ?limit here.
     Promise.all([
       fetch(`${API_BASE}/feedback`).then(okJson),
       fetch(`${API_BASE}/transcript`).then(okJson),
@@ -131,9 +117,7 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [applyData])
 
-  // Live updates: connect to /ws and apply each pushed snapshot. The backend
-  // sends one on connect and again whenever the data changes. Auto-reconnects
-  // with a fixed delay so a dropped connection recovers on its own.
+  // Connect to /ws, apply each pushed snapshot, and auto-reconnect on a drop.
   useEffect(() => {
     let ws
     let retry
@@ -183,16 +167,13 @@ export default function App() {
     <div className="app" style={{ color: 'var(--text)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Brand mark: the logo shape is used as a CSS mask and filled with the
-              same accent→accent-2 gradient as the "RateXp" wordmark, so the two
-              read as one unit and recolour together with the theme. */}
+          {/* Logo mask filled with the wordmark gradient so the two read as one unit. */}
           <span className="brand-logo" role="img" aria-label="RateXp logo" />
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Opens a short how-to popup for skill authors: the edit that
-              wires their SKILL.md into RateXp. */}
+          {/* Opens the how-to popup for skill authors. */}
           <button
             className="btn-edge"
             onClick={() => setGuideOpen(true)}
@@ -209,9 +190,7 @@ export default function App() {
           >
             Add RateXp to your skill
           </button>
-          {/* Modern sliding pill switch: a glass knob slides under the active
-              icon. Theme state drives [data-theme] on <html>, which the CSS keys
-              off, so position/highlight stay in sync without inline styles. */}
+          {/* Sliding pill switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
             className="theme-toggle"
             onClick={toggleTheme}
@@ -237,8 +216,7 @@ export default function App() {
         {!loading && !error && (
           <section className="glow-edge" style={glassCard}>
             <h2 style={cardHeading}>Feedback</h2>
-            {/* Scroll wrapper: if cells can't shrink enough on a tight width, the
-                table scrolls sideways inside the card instead of overflowing it. */}
+            {/* Scrolls sideways inside the card on tight widths instead of overflowing. */}
             <div className="table-scroll">
             <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
               <thead>
@@ -282,12 +260,8 @@ export default function App() {
   )
 }
 
-// Always-on note under the default table: the dashboard is a preview that shows
-// only the latest rows and the most-rated skills (both capped by app-be's
-// config.yaml - list_view_limit / top_skills_limit, default 10 each). The data
-// behind it is larger; Download JSON or the SQL box pull the full set (up to
-// query_max_rows). Hidden while a filter is active, since ViewLimitNotice then
-// explains the cap for the filtered result instead.
+// Note under the default table: the dashboard is a preview of the latest rows (capped
+// in app-be config). Download JSON or the SQL box pull the full set. Hidden while filtering.
 function ViewDisclaimer() {
   return (
     <p style={{
@@ -308,8 +282,7 @@ function okJson(r) {
   return r.json()
 }
 
-// Index transcripts by request_id (1:1) and session_id (fallback) so a feedback
-// row can find its conversation. Used both for the live table and CSV export.
+// Index transcripts by request_id (1:1) then session_id (fallback) so a row finds its conversation.
 function indexTranscripts(transcripts) {
   const index = {}
   for (const t of transcripts) {
@@ -319,9 +292,7 @@ function indexTranscripts(transcripts) {
   return index
 }
 
-// Small dot showing whether the live WebSocket is connected. Green + glowing
-// when updates are streaming in; grey when offline (the table still works from
-// the initial load and reconnects on its own).
+// Dot showing whether the live WebSocket is connected: green when streaming, grey when offline.
 function LiveDot({ live }) {
   return (
     <span
@@ -340,9 +311,7 @@ function LiveDot({ live }) {
   )
 }
 
-// Always-on stats panel: the most-rated skills and their good/bad score,
-// aggregated across the whole feedback table by GET /stats/top-skills. How many
-// it returns is set by top_skills_limit in app-be's config.yaml (default 10).
+// The most-rated skills and their good/bad score (GET /stats/top-skills).
 function TopSkills({ skills }) {
   if (!skills || skills.length === 0) return null
   return (
@@ -381,9 +350,7 @@ function TopSkills({ skills }) {
   )
 }
 
-// Shown when a filter has more matches than the backend's view size returned.
-// Tells the user the view is capped and to use Download JSON (which re-runs the
-// filter with full=true) to get the complete result set.
+// Shown when a filter has more matches than the view size; points to Download JSON for all of them.
 function ViewLimitNotice({ shown }) {
   return (
     <p style={{
@@ -403,9 +370,8 @@ function ViewLimitNotice({ shown }) {
 
 const EXAMPLE_SQL = 'SELECT * FROM feedback WHERE score = 2'
 
-// SELECT-only SQL box that filters the feedback table below in place: the query
-// result replaces the table's rows (Clear restores the full list). The backend
-// enforces all the guardrails (SELECT-only, read-only, timeout, row cap).
+// SELECT-only SQL box that filters the table in place (Clear restores it). The
+// backend enforces the guardrails (SELECT-only, read-only, timeout, row cap).
 function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   const [sql, setSql] = useState('')
   const [err, setErr] = useState(null)
@@ -435,12 +401,8 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
     onClear()
   }
 
-  // The table only shows the backend's capped "view"; Download JSON asks the
-  // backend for the FULL set (full=true) so the user can "see all". For a filter
-  // it re-runs the same SELECT unbounded; otherwise it exports all feedback.
-  // Each row carries its full ATIF trajectory (the native JSON shape) under
-  // `conversation`, so the export keeps the whole transcript - steps, tool calls
-  // and metrics - instead of flattening it the way a CSV cell would.
+  // Download the FULL set (full=true): re-run the filter unbounded, or export all
+  // feedback, then attach each row's full ATIF trajectory under `conversation`.
   const download = async () => {
     setErr(null)
     try {
@@ -457,8 +419,6 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
       } else {
         exportRows = await fetch(`${apiBase}/feedback?full=true`).then(okJson)
       }
-      // Match each exported row to its stored conversation (request_id, then
-      // session_id) and attach the full ATIF transcript.
       const index = indexTranscripts(await fetch(`${apiBase}/transcript?full=true`).then(okJson))
       const exportWithConversation = exportRows.map((r) => {
         const transcript = index[`r:${r.request_id}`] || index[`s:${r.session_id}`]
@@ -501,9 +461,7 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
   )
 }
 
-// Each feedback row links to its stored trajectory; opening it reveals the
-// full trajectory in a slide-over drawer (see TrajectoryDrawer) rather than
-// cramming it into the table cell.
+// Each row links to its trajectory, opened in a slide-over drawer (see TrajectoryDrawer).
 function Trajectory({ transcript, onOpen }) {
   const steps = transcript?.atif?.steps ?? []
   if (steps.length === 0) return <Dash />
@@ -513,8 +471,7 @@ function Trajectory({ transcript, onOpen }) {
       onClick={() => onOpen(transcript)}
       title={`Open trajectory - ${steps.length} steps`}
     >
-      {/* Just the chat glyph + a sliding arrow - the step count lives in the
-          drawer's meta header now, not in the table cell. */}
+      {/* Chat glyph + sliding arrow; the step count lives in the drawer header. */}
       <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
         <path
           d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
@@ -529,8 +486,7 @@ function Trajectory({ transcript, onOpen }) {
   )
 }
 
-// A single agent tool call: a monospace chip showing the tool name, expandable
-// to its JSON arguments when there are any.
+// A tool call: a chip with the tool name, expandable to its JSON arguments if any.
 function ToolCall({ call }) {
   const args =
     call.arguments && Object.keys(call.arguments).length > 0
@@ -545,11 +501,8 @@ function ToolCall({ call }) {
   )
 }
 
-// Slide-over panel showing one stored trajectory as a vertical timeline:
-// role-coloured dots on a connector rail, Markdown messages, collapsible tool
-// calls / reasoning / observations, and a meta header. Closes on the backdrop,
-// the ✕, or Escape. Rendered once at the app root; `data` carries the chosen
-// transcript (and its feedback row, for the header) or null when hidden.
+// Slide-over panel showing one trajectory as a vertical timeline. Closes on the
+// backdrop, the X, or Escape. `data` is the chosen transcript (+ its row) or null.
 function TrajectoryDrawer({ data, onClose }) {
   useEffect(() => {
     if (!data) return
@@ -572,9 +525,7 @@ function TrajectoryDrawer({ data, onClose }) {
         <header className="drawer-head">
           <div className="drawer-head-main">
             <div className="drawer-title">Trajectory</div>
-            {/* Meta strip: each fact gets a small KEY label so it's clear what
-                the value means (Skill, Agent, Model, Score, Steps, Tokens). The
-                step and token totals moved up here from the old footer. */}
+            {/* Each fact gets a small KEY label (Skill, Agent, Model, Score, Steps, Tokens). */}
             <div className="drawer-meta">
               {[
                 row?.skill_name && { k: 'Skill', v: <code>{row.skill_name}</code> },
@@ -628,9 +579,7 @@ function TrajectoryDrawer({ data, onClose }) {
   )
 }
 
-// Centered popup with a short, Markdown-rendered how-to for skill authors: the
-// edit that wires a SKILL.md into RateXp (see SKILL_GUIDE_MD). Closes on the
-// backdrop, the ✕, or Escape. Rendered once at the app root; `open` toggles it.
+// Centered how-to popup for skill authors (SKILL_GUIDE_MD). Closes on the backdrop, the X, or Escape.
 function SkillGuideModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return
@@ -640,9 +589,8 @@ function SkillGuideModal({ open, onClose }) {
   }, [open, onClose])
 
   if (!open) return null
-  // Portal to <body> so the fixed backdrop/popup anchor to the viewport rather
-  // than to #root - whose page-load transform animation otherwise becomes the
-  // containing block and pushes the centered popup down the page on mobile.
+  // Portal to <body> so the fixed backdrop anchors to the viewport, not #root
+  // (whose load animation would otherwise offset the centered popup on mobile).
   return createPortal(
     <>
       <div className="drawer-backdrop" onClick={onClose} />
@@ -657,10 +605,7 @@ function SkillGuideModal({ open, onClose }) {
   )
 }
 
-// Render an ATIF step's text (agent/user messages, tool observations) as
-// Markdown - agents write Markdown (headings, lists, code blocks, tables), so
-// rendering it formatted is what makes the transcript readable. GFM adds tables,
-// task lists and strikethrough. Styling lives under the .md class in index.css.
+// Render an ATIF step's text as Markdown (GFM). Styling lives under .md in index.css.
 // (react-markdown v9 has no className prop, so we wrap it in a div.)
 function Md({ className, children }) {
   return (
@@ -670,10 +615,8 @@ function Md({ className, children }) {
   )
 }
 
-// Cell styling lives in index.css (.th/.td) so the mobile breakpoint can
-// restyle the table into stacked cards - inline styles would block those rules.
-// Each Td carries a `label` echoed into data-label, used as the card row's
-// heading on phones (see the @media block in index.css).
+// Cell styling lives in index.css (.th/.td) so the mobile breakpoint can restyle
+// the table into cards. `label` becomes data-label, the card row's heading on phones.
 function Th({ children }) { return <th className="th">{children}</th> }
 function Td({ children, label }) { return <td className="td" data-label={label}>{children}</td> }
 function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
