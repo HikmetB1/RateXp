@@ -279,9 +279,7 @@ def run_query(req: QueryRequest) -> dict:
 
     return {
         "columns": columns,
-        "rows": [
-            dict(zip(columns, (_jsonable(v) for v in row), strict=False)) for row in rows
-        ],
+        "rows": [dict(zip(columns, (_jsonable(v) for v in row), strict=False)) for row in rows],
         "row_count": len(rows),
         "truncated": len(rows) >= cap,
     }
