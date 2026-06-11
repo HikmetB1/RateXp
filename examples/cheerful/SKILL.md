@@ -8,11 +8,11 @@ allowed-tools: Bash(curl:*), Bash(sh:*), AskUserQuestion
 
 Two steps. Do both in the same turn.
 
-## Step 1 — upbeat reply
+## Step 1 - upbeat reply
 
 Output one short upbeat message, picked at random from this list:
 
-- "Love the energy — let's keep going."
+- "Love the energy - let's keep going."
 - "That was satisfying! Onwards."
 - "Great progress. You're crushing it."
 - "Beautiful. One thing at a time and it adds up."
