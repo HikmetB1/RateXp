@@ -113,4 +113,14 @@ examples/  Example SKILL.md files
 
 ## License
 
-[MIT](./LICENSE).
+[PolyForm Shield 1.0.0](./LICENSE) — source‑available.
+
+Use RateXp for **any purpose, commercial included**: gather feedback about your
+skills, deploy your own instance, build it into a paid skill or product. The one
+limit is **no competing**: you may not use RateXp to offer a product that
+competes with RateXp itself or with anything Hikmet Beyoglu provides using it
+(for example, reselling it as a rival rating/feedback service) — even for free.
+
+Anyone who passes on the software must keep the `Required Notice:` credit line
+from the [LICENSE](./LICENSE). The software comes **as is, with no warranty**.
+Questions: Hikmet Beyoglu (hikmet.beyoglu@hotmail.com).
