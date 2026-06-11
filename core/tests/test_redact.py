@@ -144,7 +144,9 @@ def test_redact_retries_rejected_language_with_fallback(monkeypatch):
         def recognize_pii_entities(self, documents, language=None):
             self.calls += 1
             if self.calls == 1:
-                return [_FakeDoc(d["id"], "", is_error=True, error="unsupported") for d in documents]
+                return [
+                    _FakeDoc(d["id"], "", is_error=True, error="unsupported") for d in documents
+                ]
             return [_FakeDoc(d["id"], "[REDACTED]") for d in documents]
 
     client = RetryClient()
