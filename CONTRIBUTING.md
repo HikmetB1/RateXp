@@ -4,15 +4,6 @@ Thanks for helping improve RateXp. This guide covers running the project,
 testing it, and every setting you can change. For what RateXp *is* and how to
 embed it in a skill, see the [README](./README.md).
 
-## Contributor License Agreement
-
-Before your contribution can be merged, you agree to the
-[Contributor License Agreement](./CLA.md). You accept it automatically by
-submitting a pull request; sign your commits with `git commit -s` (adds a
-`Signed-off-by` line) to confirm. In short: you keep your own rights, but you
-grant the owner a license to your contribution - including the right to
-relicense it later.
-
 ## Prerequisites
 
 - [Docker](https://www.docker.com/) + Docker Compose **v2** (the `docker compose`
@@ -23,13 +14,15 @@ relicense it later.
 
 ## Repository layout
 
-| Path           | What it is                                                        |
-|----------------|-------------------------------------------------------------------|
-| `core/`        | Public FastAPI service: serves the snippet, writes to PostgreSQL  |
-| `app/app-be/`  | Dashboard FastAPI service: read-only API; also serves the UI      |
-| `app/app-fe/`  | React dashboard (source)                                          |
-| `infra/`       | Terraform stack for Azure                                         |
-| `examples/`    | Sample `SKILL.md` files                                           |
+```text
+.
+├── core/         Public FastAPI service: serves the snippet, writes to PostgreSQL
+├── app/
+│   ├── app-be/   Dashboard FastAPI service: read-only API; also serves the UI
+│   └── app-fe/   React dashboard (source)
+├── infra/        Terraform stack for Azure
+└── examples/     Sample SKILL.md files
+```
 
 `core/` and `app/app-be/` are each self-contained - they deliberately duplicate
 small helpers (`db.py`, `config.py`) so either can be built and deployed alone.
@@ -177,3 +170,12 @@ once, in order, and recorded in the `schema_version` table.
 
 - [ ] Flip storage into an adapter
 - [ ] Flip query into adapter-based
+
+## Contributor License Agreement
+
+Before your contribution can be merged, you agree to the
+[Contributor License Agreement](./CLA.md). You accept it automatically by
+submitting a pull request; sign your commits with `git commit -s` (adds a
+`Signed-off-by` line) to confirm. In short: you keep your own rights, but you
+grant the owner a license to your contribution - including the right to
+relicense it later.
