@@ -26,3 +26,6 @@ dist/
 
 # Locally-installed skills for testing against a core on your own machine
 .claude/skills/
+
+# Archive (local UI style mockups, not tracked)
+archive/

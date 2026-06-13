@@ -1,0 +1,7 @@
+azure-functions
+python-dotenv
+requests
+pyyaml
+langchain
+langgraph
+langchain-openai

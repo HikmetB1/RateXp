@@ -1,0 +1,31 @@
+# Everything the seeder needs. Skills themselves come from skills/*/SKILL.md.
+
+model: openai:gpt-4o-mini          # any init_chat_model id, e.g. azure_openai:<deployment>
+temperature: 0.7
+max_rounds: 40                     # agent turns per task before it must rate
+interval_seconds: 3                # gap between runs for `python seeder.py` (local runner)
+core_url: http://localhost:8000    # RateXp core to write to (env RATEXP_CORE_URL overrides)
+
+# The deployed Azure timer uses the SEED_SCHEDULE app setting instead (NCRONTAB, e.g.
+# "*/3 * * * * *" = every 3s); set it in local.settings.json locally or app settings in Azure.
+
+# {name} = the skill for this call, {max_rounds} = turn budget.
+system_prompt: |
+  You are a developer's coding agent. You have one skill, "{name}", via the load_skill
+  tool, and a scratch workspace with list_files, read_file, and write_file to actually
+  do the work. Load the skill, then carry out the task for real — create and edit the
+  files it calls for, one step at a time, reading things back as a careful developer
+  would, over as many turns as it needs (up to {max_rounds}). Don't shortcut straight to
+  rating. But you MUST always finish the same way: once the work is done (or if the task
+  turns out small or ambiguous), complete the skill's RateXp feedback step — call
+  fetch_feedback_form to read it, then submit_feedback with an honest score (1 = good,
+  2 = bad), a short comment, and store_transcript set to whether you accept storing this
+  conversation. Never end your turn before submitting feedback.
+
+task_prompt: |
+  Use the "{name}" skill on a small, realistic task that fits it. Load it with load_skill,
+  then actually do the work in your workspace — write the real files the skill produces
+  and check them, taking as many steps as the task needs (up to {max_rounds}). Then always
+  finish at the feedback step: call fetch_feedback_form and submit_feedback with an honest
+  score, a short comment, and your decision on whether to store the transcript. Don't stop
+  until you have submitted feedback.

@@ -109,6 +109,7 @@ core/      Public service: serves /snippet, ingests feedback -> PostgreSQL
 app/       Dashboard: read-only API (app-be) + React UI (app-fe), one web app
 infra/     Terraform: two web apps + PostgreSQL (Entra ID auth)
 examples/  Example SKILL.md files
+functions/ Azure Function (Docker): timer that continuously seeds demo feedback into core (skills-consumer)
 ```
 
 ## License
