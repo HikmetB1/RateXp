@@ -5,3 +5,4 @@ pyyaml
 langchain
 langgraph
 langchain-openai
+azure-identity

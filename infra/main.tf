@@ -15,10 +15,18 @@ locals {
   is_default_env = var.environment == ""
   name_base      = local.is_default_env ? var.project : "${var.project}-${var.environment}"
 
-  suffix    = random_string.suffix.result
-  acr_name  = local.is_default_env ? "${replace(var.project, "-", "")}acr${local.suffix}" : "${replace(local.name_base, "-", "")}acr"
-  core_name = local.is_default_env ? "${var.project}-core-${local.suffix}" : "${local.name_base}-core"
-  app_name  = local.is_default_env ? "${var.project}-app-${local.suffix}" : "${local.name_base}-app"
+  suffix      = random_string.suffix.result
+  acr_name    = local.is_default_env ? "${replace(var.project, "-", "")}acr${local.suffix}" : "${replace(local.name_base, "-", "")}acr"
+  core_name   = local.is_default_env ? "${var.project}-core-${local.suffix}" : "${local.name_base}-core"
+  app_name    = local.is_default_env ? "${var.project}-app-${local.suffix}" : "${local.name_base}-app"
+  seeder_name = local.is_default_env ? "${var.project}-seeder-${local.suffix}" : "${local.name_base}-seeder"
+
+  # Storage account names: lowercase alphanumeric only, <=24 chars, globally unique.
+  seeder_sa_name = local.is_default_env ? "${replace(var.project, "-", "")}seed${local.suffix}" : "${replace(local.name_base, "-", "")}seed"
+
+  # Azure OpenAI (AI Foundry) account the seeder's agent calls - one per environment.
+  aoai_name     = local.is_default_env ? "${var.project}-aoai-${local.suffix}" : "${local.name_base}-aoai"
+  aoai_endpoint = var.enable_seeder ? azurerm_cognitive_account.aoai[0].endpoint : ""
 
   core_url = "https://${local.core_name}.azurewebsites.net"
   app_url  = "https://${local.app_name}.azurewebsites.net"
@@ -196,12 +204,110 @@ resource "azurerm_linux_web_app" "app" {
   }
 }
 
-# Let each web app's identity pull images from the ACR.
-resource "azurerm_role_assignment" "acr_pull" {
-  for_each = {
-    core = azurerm_linux_web_app.core.identity[0].principal_id
-    app  = azurerm_linux_web_app.app.identity[0].principal_id
+# --- skills-consumer: Azure Function that seeds demo feedback into core (optional) ---
+# Provisioned only when var.enable_seeder is true. A timer trigger has a LangChain agent
+# run a bundled skill and POST feedback to core's public API. The agent's model is Azure
+# OpenAI, reached passwordlessly: the function's Managed Identity holds "Cognitive Services
+# OpenAI User" on the account below - no API key anywhere (see seeder.py).
+
+# Azure OpenAI (AI Foundry) account + a single chat model deployment.
+resource "azurerm_cognitive_account" "aoai" {
+  count                 = var.enable_seeder ? 1 : 0
+  name                  = local.aoai_name
+  resource_group_name   = azurerm_resource_group.this.name
+  location              = azurerm_resource_group.this.location
+  kind                  = "OpenAI"
+  sku_name              = var.aoai_sku_name
+  custom_subdomain_name = local.aoai_name
+  local_auth_enabled    = false # Entra ID only - no access keys
+}
+
+resource "azurerm_cognitive_deployment" "seeder_model" {
+  count                = var.enable_seeder ? 1 : 0
+  name                 = var.aoai_deployment
+  cognitive_account_id = azurerm_cognitive_account.aoai[0].id
+
+  model {
+    format  = "OpenAI"
+    name    = var.aoai_model
+    version = var.aoai_model_version
   }
+
+  sku {
+    name     = var.aoai_deployment_sku
+    capacity = var.aoai_capacity
+  }
+}
+
+# Storage account backing the Functions runtime (required - the timer trigger keeps its
+# state here).
+resource "azurerm_storage_account" "seeder" {
+  count                    = var.enable_seeder ? 1 : 0
+  name                     = local.seeder_sa_name
+  resource_group_name      = azurerm_resource_group.this.name
+  location                 = azurerm_resource_group.this.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_linux_function_app" "seeder" {
+  count               = var.enable_seeder ? 1 : 0
+  name                = local.seeder_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_service_plan.this.location
+  service_plan_id     = azurerm_service_plan.this.id
+
+  storage_account_name       = azurerm_storage_account.seeder[0].name
+  storage_account_access_key = azurerm_storage_account.seeder[0].primary_access_key
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    always_on = true # keep the timer trigger firing on the dedicated B1 plan
+    application_stack {
+      docker {
+        registry_url = "https://${azurerm_container_registry.this.login_server}"
+        image_name   = "seeder"
+        image_tag    = var.image_tag
+      }
+    }
+    container_registry_use_managed_identity = true
+  }
+
+  app_settings = {
+    # Required for a custom-container Function App: without this, Azure mounts an empty
+    # Files share over /home/site/wwwroot and the host can't see the image's code (host
+    # finds 0 functions). false = run from the image's filesystem.
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
+    FUNCTIONS_WORKER_RUNTIME            = "python"
+    SEED_SCHEDULE                       = var.seed_schedule
+    RATEXP_CORE_URL                     = local.core_url
+    MODEL                               = var.seeder_model
+    AZURE_OPENAI_ENDPOINT               = azurerm_cognitive_account.aoai[0].endpoint
+    OPENAI_API_VERSION                  = var.openai_api_version
+    # No AZURE_OPENAI_API_KEY: seeder.py auths with the Managed Identity below.
+  }
+}
+
+# The seeder's identity may call the Azure OpenAI data plane (chat completions) via Entra ID.
+resource "azurerm_role_assignment" "seeder_aoai" {
+  count                = var.enable_seeder ? 1 : 0
+  scope                = azurerm_cognitive_account.aoai[0].id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azurerm_linux_function_app.seeder[0].identity[0].principal_id
+}
+
+# Let each web app's (and the seeder's) identity pull images from the ACR.
+resource "azurerm_role_assignment" "acr_pull" {
+  for_each = merge(
+    {
+      core = azurerm_linux_web_app.core.identity[0].principal_id
+      app  = azurerm_linux_web_app.app.identity[0].principal_id
+    },
+    var.enable_seeder ? { seeder = azurerm_linux_function_app.seeder[0].identity[0].principal_id } : {},
+  )
 
   scope                = azurerm_container_registry.this.id
   role_definition_name = "AcrPull"

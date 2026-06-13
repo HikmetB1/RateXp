@@ -100,6 +100,35 @@ Build the core image with the redaction extra (step 3 note above). The default
 `language_sku_name` is the free `F0` tier (one per subscription); switch to `S`
 for pay-as-you-go.
 
+## Optional: demo feedback seeder (skills-consumer)
+
+Set `enable_seeder = true` to deploy the **skills-consumer** Azure Function - a timer that
+has a LangChain agent run a bundled skill and submit feedback to `core` (see
+`functions/skills-consumer/`). It provisions an **Azure OpenAI** (AI Foundry) account with a
+`gpt-4o-mini` deployment, a containerised **Function App** (on the same plan), and a storage
+account for the Functions runtime.
+
+The agent reaches the model **passwordlessly**: the function's Managed Identity is granted
+**Cognitive Services OpenAI User** on the account, so no API key is stored anywhere - exactly
+like the database and redaction. Build and push its image alongside the others (step 3), then
+start it:
+
+```bash
+docker build -t "$(terraform output -raw seeder_image)" ../functions/skills-consumer
+docker push "$(terraform output -raw seeder_image)"
+
+RG="$(terraform output -raw resource_group)"
+az functionapp stop  --name "$(terraform output -raw seeder_name)" --resource-group "$RG"
+az functionapp start --name "$(terraform output -raw seeder_name)" --resource-group "$RG"
+```
+
+> Use **stop**/**start** (not `restart`): a containerised Function App only reads its code
+> from the image once `WEBSITES_ENABLE_APP_SERVICE_STORAGE=false` has taken effect, which
+> needs a full start.
+
+Feedback from agent `langchain gpt-4o-mini` then appears on the dashboard. Tunables live in
+`infra/variables.tf` (`seed_schedule`, `seeder_model`, `aoai_*`).
+
 ## Multiple environments (e.g. dev)
 
 The same stack can run a second, parallel environment alongside prod using a
@@ -138,5 +167,9 @@ preserved.
 | PostgreSQL Flexible| Burstable B1ms   | Feedback + transcript storage             |
 | Container Registry | Basic            | Holds the `core` and `app` images         |
 | AI Language*       | F0               | PII redaction for transcripts (`enable_redaction`) |
+| Function App `seeder`† | -            | Timer: seeds demo feedback into core      |
+| Azure OpenAI†      | S0               | `gpt-4o-mini` for the seeder agent        |
+| Storage account†   | Standard LRS     | Functions runtime state for the seeder    |
 
 \* Only when `enable_redaction = true`.
+† Only when `enable_seeder = true`.

@@ -69,11 +69,13 @@ VITE_API_BASE=http://localhost:8001 npm run dev   # http://localhost:5173
 
 ### Seed demo feedback (skills-consumer)
 
-`functions/skills-consumer/` deploys as an Azure Function (timer trigger), but locally
-it runs as a plain script that continuously fills RateXp with realistic **agentic**
-feedback: each run a LangChain agent loads one bundled skill, does a small task with it,
-then submits a score, a comment, and (with consent) the transcript. With the stack
-already up, point it at `core` and let it run (`Ctrl-C` to stop):
+`functions/skills-consumer/` deploys as an Azure Function (timer trigger; see
+[infra/README.md](infra/README.md#optional-demo-feedback-seeder-skills-consumer), where it
+uses Azure OpenAI passwordlessly via Managed Identity), but locally it runs as a plain script
+that continuously fills RateXp with realistic **agentic** feedback: each run a LangChain agent
+loads one bundled skill, does a small task with it, then submits a score, a comment, and (with
+consent) the transcript. With the stack already up, point it at `core` and let it run
+(`Ctrl-C` to stop):
 
 ```bash
 cd functions/skills-consumer
@@ -134,7 +136,8 @@ Settings come from two places:
 | `VITE_API_BASE`       | app-fe      | `http://localhost:8001`         | API base baked into the UI at build time (`""` = same origin)      |
 | `MODEL`               | skills-consumer | `openai:gpt-4o-mini`        | LangChain `init_chat_model` id; selects the provider               |
 | `OPENAI_API_KEY`      | skills-consumer | -                           | Key when `MODEL` starts with `openai:`                             |
-| `AZURE_OPENAI_API_KEY`| skills-consumer | -                           | Azure key when `MODEL` starts with `azure_openai:` (with `AZURE_OPENAI_ENDPOINT` + `OPENAI_API_VERSION`) |
+| `AZURE_OPENAI_ENDPOINT`| skills-consumer | -                          | Azure OpenAI endpoint when `MODEL` starts with `azure_openai:` (with `OPENAI_API_VERSION`) |
+| `AZURE_OPENAI_API_KEY`| skills-consumer | -                           | Optional Azure key; if unset the seeder auths passwordlessly with its Managed Identity (the deployed function's path) |
 | `RATEXP_CORE_URL`     | skills-consumer | `http://localhost:8000`     | RateXp core the seeder POSTs feedback to                           |
 | `SEED_SCHEDULE`       | skills-consumer | `*/3 * * * * *`             | Deployed Azure timer cadence (NCRONTAB); ignored by the local script |
 

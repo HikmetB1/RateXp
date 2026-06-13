@@ -75,6 +75,66 @@ variable "entra_admin_principal_type" {
   default     = "User"
 }
 
+variable "enable_seeder" {
+  description = "Provision the skills-consumer Azure Function plus its Azure OpenAI (AI Foundry) account. The timer-triggered agent seeds demo feedback into core and costs model credits. Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "seed_schedule" {
+  description = "NCRONTAB cadence (with seconds) for the seeder timer trigger. Default fires every 3s."
+  type        = string
+  default     = "*/3 * * * * *"
+}
+
+variable "seeder_model" {
+  description = "LangChain init_chat_model id the seeder uses. azure_openai:<deployment> auths to the AI Foundry account via Managed Identity (passwordless)."
+  type        = string
+  default     = "azure_openai:gpt-4o-mini"
+}
+
+variable "aoai_sku_name" {
+  description = "Azure OpenAI account SKU. S0 is the standard pay-as-you-go tier."
+  type        = string
+  default     = "S0"
+}
+
+variable "aoai_deployment" {
+  description = "Name of the chat model deployment the seeder targets (must match the deployment in seeder_model)."
+  type        = string
+  default     = "gpt-4o-mini"
+}
+
+variable "aoai_model" {
+  description = "Azure OpenAI base model to deploy."
+  type        = string
+  default     = "gpt-4o-mini"
+}
+
+variable "aoai_model_version" {
+  description = "Version of the Azure OpenAI base model to deploy."
+  type        = string
+  default     = "2024-07-18"
+}
+
+variable "aoai_deployment_sku" {
+  description = "Deployment SKU for the model. gpt-4o-mini in many regions (e.g. westeurope) is only offered as GlobalStandard, not regional Standard."
+  type        = string
+  default     = "GlobalStandard"
+}
+
+variable "aoai_capacity" {
+  description = "Deployment capacity in thousands of tokens per minute (TPM). Drawn from the subscription's regional quota."
+  type        = number
+  default     = 20
+}
+
+variable "openai_api_version" {
+  description = "Azure OpenAI REST API version the seeder's client uses (OPENAI_API_VERSION app setting)."
+  type        = string
+  default     = "2024-10-21"
+}
+
 variable "enable_redaction" {
   description = "Provision an Azure AI Language account and wire transcript PII redaction into core (see core/redact.py). Off by default."
   type        = bool

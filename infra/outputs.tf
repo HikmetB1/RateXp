@@ -63,6 +63,21 @@ output "grant_db_access_hint" {
   value       = "core role: ${local.core_name} (read/write) · app role: ${local.app_name} (read-only)"
 }
 
+output "seeder_name" {
+  description = "skills-consumer Function App name (empty when enable_seeder is false). Use with `az functionapp restart`."
+  value       = var.enable_seeder ? azurerm_linux_function_app.seeder[0].name : ""
+}
+
+output "seeder_image" {
+  description = "Build & push this image, then restart the seeder function app."
+  value       = "${azurerm_container_registry.this.login_server}/seeder:${var.image_tag}"
+}
+
+output "aoai_endpoint" {
+  description = "Azure OpenAI (AI Foundry) endpoint the seeder calls (empty when enable_seeder is false)."
+  value       = local.aoai_endpoint
+}
+
 output "language_endpoint" {
   description = "Azure AI Language endpoint wired into core for PII redaction (empty when enable_redaction is false). Reuses the shared account in non-default environments."
   value       = var.enable_redaction ? (local.is_default_env ? azurerm_cognitive_account.language[0].endpoint : data.azurerm_cognitive_account.shared_language[0].endpoint) : ""
