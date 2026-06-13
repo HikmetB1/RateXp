@@ -7,6 +7,9 @@
 #
 # Values default to a working local setup; override via a .env file (see
 # .env.example), which compose reads automatically.
+#
+# Add the demo feedback seeder with the opt-in `seed` profile (costs API credits):
+#   docker compose --profile seed up --build -d
 
 services:
   db:
@@ -61,6 +64,25 @@ services:
         condition: service_started
     ports:
       - "${APP_HOST_PORT:-8001}:8000"
+
+  # Opt-in demo seeder: a LangChain agent uses a bundled skill and submits feedback to
+  # core, continuously. Only runs under the `seed` profile because it spends API credits.
+  # Needs functions/skills-consumer/.env (cp from .env.example) with MODEL + matching key.
+  seed:
+    build: ./functions/skills-consumer
+    profiles: ["seed"]
+    restart: unless-stopped
+    env_file:
+      - path: ./functions/skills-consumer/.env
+        required: false
+    environment:
+      RATEXP_CORE_URL: http://core:8000   # reach core over the compose network
+    # Run the continuous local seeder (sched loop), not the Azure Functions host, so no
+    # Azurite/storage is needed locally. The deployed image still runs the timer trigger.
+    entrypoint: ["python3", "/home/site/wwwroot/seeder.py"]
+    depends_on:
+      core:
+        condition: service_started
 
 volumes:
   pgdata:

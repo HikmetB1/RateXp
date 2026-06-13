@@ -67,6 +67,33 @@ npm install
 VITE_API_BASE=http://localhost:8001 npm run dev   # http://localhost:5173
 ```
 
+### Seed demo feedback (skills-consumer)
+
+`functions/skills-consumer/` deploys as an Azure Function (timer trigger), but locally
+it runs as a plain script that continuously fills RateXp with realistic **agentic**
+feedback: each run a LangChain agent loads one bundled skill, does a small task with it,
+then submits a score, a comment, and (with consent) the transcript. With the stack
+already up, point it at `core` and let it run (`Ctrl-C` to stop):
+
+```bash
+cd functions/skills-consumer
+cp .env.example .env           # set MODEL + the matching key
+uv run --no-project --with-requirements requirements.txt seeder.py
+```
+
+Or bring it up with the rest of the stack via the opt-in `seed` profile (left out of a
+plain `docker compose up` because it spends API credits):
+
+```bash
+docker compose --profile seed up --build -d
+```
+
+Either way it logs a line per run (`seeded skill=handoff feedback=True transcript=True`);
+watch the results land on the dashboard and stop it when done. Its settings are in the
+[configuration reference](#configuration-reference) (`skills-consumer` rows, plus
+`functions/skills-consumer/config.yaml`). Add a skill by dropping a `skills/<name>/SKILL.md`
+- no code changes (credits in `skills/ATTRIBUTION.md`).
+
 ## Tests
 
 Real tests, no network or database needed (the database layer is stubbed).
@@ -105,6 +132,11 @@ Settings come from two places:
 | `RATEXP_ENV`          | app         | `local`                         | `prod` requires `RATEXP_CORS_ORIGINS`                              |
 | `RATEXP_CORS_ORIGINS` | app         | empty (`*` locally)             | Comma-separated allowlist of browser origins                       |
 | `VITE_API_BASE`       | app-fe      | `http://localhost:8001`         | API base baked into the UI at build time (`""` = same origin)      |
+| `MODEL`               | skills-consumer | `openai:gpt-4o-mini`        | LangChain `init_chat_model` id; selects the provider               |
+| `OPENAI_API_KEY`      | skills-consumer | -                           | Key when `MODEL` starts with `openai:`                             |
+| `AZURE_OPENAI_API_KEY`| skills-consumer | -                           | Azure key when `MODEL` starts with `azure_openai:` (with `AZURE_OPENAI_ENDPOINT` + `OPENAI_API_VERSION`) |
+| `RATEXP_CORE_URL`     | skills-consumer | `http://localhost:8000`     | RateXp core the seeder POSTs feedback to                           |
+| `SEED_SCHEDULE`       | skills-consumer | `*/3 * * * * *`             | Deployed Azure timer cadence (NCRONTAB); ignored by the local script |
 
 ### `core/config.yaml`
 
@@ -128,6 +160,17 @@ Settings come from two places:
 | `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns        |
 | `ws_enabled`               | `true`      | Turn the live-updates WebSocket on/off               |
 | `ws_broadcast_interval_ms` | `2000`      | How often the live feed checks for changes           |
+
+### `functions/skills-consumer/config.yaml`
+
+| Key                | Default                 | Meaning                                          |
+|--------------------|-------------------------|--------------------------------------------------|
+| `model`            | `openai:gpt-4o-mini`    | Same id as `MODEL`; env `MODEL` overrides it     |
+| `temperature`      | `0.7`                   | Sampling temperature for the agent               |
+| `max_rounds`       | `40`                    | Agent turns per task before it must rate         |
+| `interval_seconds` | `3`                     | Pause between runs for the local script (Azure uses `SEED_SCHEDULE` instead) |
+| `core_url`         | `http://localhost:8000` | Core URL; env `RATEXP_CORE_URL` overrides it     |
+| `system_prompt`, `task_prompt` | -          | The agent's instructions                         |
 
 ## Database
 
@@ -153,7 +196,8 @@ once, in order, and recorded in the `schema_version` table.
 │   ├── app-be/   Dashboard FastAPI service: read-only API; also serves the UI
 │   └── app-fe/   React dashboard (source)
 ├── infra/        Terraform stack for Azure
-└── examples/     Sample SKILL.md files
+├── examples/     Sample SKILL.md files
+└── functions/    Azure Function (Docker): timer seeding demo feedback into core
 ```
 
 `core/` and `app/app-be/` are each self-contained - they deliberately duplicate
