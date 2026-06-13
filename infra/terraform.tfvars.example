@@ -12,6 +12,13 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # enable_redaction  = true
 # language_sku_name = "F0"
 
+# skills-consumer demo seeder + its own Azure OpenAI (AI Foundry) account. Off by
+# default; set true to deploy the timer-triggered feedback seeder. It reaches the
+# model passwordlessly via its Managed Identity (no key) and costs model credits.
+# enable_seeder   = true
+# aoai_deployment = "gpt-4o-mini"
+# aoai_capacity   = 20
+
 # PostgreSQL Entra admin = the identity running `terraform apply`. By default
 # Terraform uses the deployer's object id; set these only to use a different
 # admin (e.g. a group). principal_name must match the Entra display name.

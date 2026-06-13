@@ -2,7 +2,7 @@
 
 Each call to seed_once() picks a random skill, has a LangChain agent load it and do a
 small task, then gives RateXp feedback: an honest good/bad score, a comment, and its
-consent to store the conversation transcript. A timer trigger (see function_app.py)
+consent to store the conversation transcript. A timer trigger (see seed/__init__.py)
 calls it on a schedule so feedback keeps trickling in. Everything tunable lives in
 config.yaml.
 """
@@ -60,6 +60,22 @@ def skills() -> tuple[dict, ...]:
 
 def _model_name() -> str:
     return config()["model"].split(":")[-1]
+
+
+def _init_model():
+    """Build the chat model. For Azure OpenAI with no API key set, auth passwordlessly
+    with the host's Managed Identity (locally: your `az login`) via an Entra token - this
+    is how the deployed function reaches AI Foundry (it holds "Cognitive Services OpenAI
+    User" on the account). A plain openai: model, or an explicit key, takes its usual path.
+    """
+    cfg = config()
+    kwargs = {"temperature": cfg["temperature"]}
+    if cfg["model"].startswith("azure_openai:") and not os.environ.get("AZURE_OPENAI_API_KEY"):
+        from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+
+        kwargs["azure_ad_token_provider"] = get_bearer_token_provider(
+            DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+    return init_chat_model(cfg["model"], **kwargs)
 
 
 def _text(content) -> str:
@@ -184,7 +200,7 @@ def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
 
     prompt_fields = {"name": skill["name"], "max_rounds": rounds}
     agent = create_agent(
-        model=init_chat_model(cfg["model"], temperature=cfg["temperature"]),
+        model=_init_model(),
         tools=[load_skill, list_files, read_file, write_file, fetch_feedback_form, submit_feedback],
         system_prompt=cfg["system_prompt"].format(**prompt_fields),
     )
