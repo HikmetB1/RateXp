@@ -117,6 +117,42 @@ def test_get_transcript_limit_too_high(app_with_fake_pool):
     assert client.get("/transcript?limit=1001").status_code == 422
 
 
+# --- GET /snapshot ------------------------------------------------------------
+
+
+def test_snapshot_returns_correlated_shape(app_with_fake_pool):
+    client, pool = app_with_fake_pool
+    pool.set_select_rows([])  # all snapshot queries empty
+    r = client.get("/snapshot")
+    assert r.status_code == 200
+    assert r.json() == {"type": "snapshot", "feedback": [], "transcripts": [], "stats": []}
+
+
+def test_select_transcripts_for_queries_by_feedback_ids(app_with_fake_pool):
+    from config import LIST_MAX_LIMIT
+
+    _, pool = app_with_fake_pool
+    import server
+
+    # A feedback row is (created_at, session_id, ..., request_id): match on both ids.
+    feedback = [(datetime(2026, 5, 25, tzinfo=UTC), "sess-1", "demo", "claude-code", 2, "ok", "req-1")]
+    pool.set_select_rows(
+        [(datetime(2026, 5, 25, tzinfo=UTC), "sess-1", "demo", "claude-code", "ATIF-v1.7", {"steps": []}, "req-1")]
+    )
+    rows = server._select_transcripts_for(feedback)
+    assert pool.store["params"] == (["req-1"], ["sess-1"], LIST_MAX_LIMIT)
+    assert len(rows) == 1 and rows[0][6] == "req-1"
+
+
+def test_select_transcripts_for_empty_feedback_skips_query(app_with_fake_pool):
+    _, pool = app_with_fake_pool
+    import server
+
+    pool.store.pop("params", None)
+    assert server._select_transcripts_for([]) == []
+    assert "params" not in pool.store  # no query issued when there are no ids
+
+
 # --- GET /stats/top-skills ----------------------------------------------------
 
 

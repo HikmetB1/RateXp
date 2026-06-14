@@ -35,6 +35,30 @@ jobs:
           uv sync --frozen --extra test
           uv run pytest -q
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Bring up the stack
+        run: docker compose up --build -d
+      - name: Wait for core + dashboard
+        run: |
+          for url in http://localhost:8000/healthz http://localhost:8001/healthz; do
+            for i in $(seq 1 30); do
+              curl -fsS "$url" && break
+              sleep 2
+            done
+          done
+      - name: Whole-app tests
+        run: uv run --no-project --with pytest --with httpx pytest tests/
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   frontend:
     runs-on: ubuntu-latest
     steps:
