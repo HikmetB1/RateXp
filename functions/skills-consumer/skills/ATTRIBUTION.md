@@ -6,7 +6,7 @@ These skills are the **original** versions copied **verbatim** from the MIT-lice
 **Feedback step** (`curl .../snippet?every=1`) appended to each. They are fully
 self-contained — no companion scripts or reference files.
 
-handoff, migrate-to-shoehorn, setup-pre-commit, to-issues, to-prd.
+handoff, to-issues, to-prd.
 
 ```
 MIT License
