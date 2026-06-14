@@ -593,7 +593,29 @@ function ToolCall({ call }) {
 
 // Slide-over panel showing one trajectory as a vertical timeline. Closes on the
 // backdrop, the X, or Escape. `data` is the chosen transcript (+ its row) or null.
+// Lock the background page scroll while an overlay (drawer/modal) is open, so on
+// touch screens the scroll stays inside the overlay instead of leaking to the
+// page behind it. Restores the page's prior scroll position on close.
+function useBodyScrollLock(active) {
+  useEffect(() => {
+    if (!active) return
+    const { body } = document
+    const scrollY = window.scrollY
+    const prev = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow }
+    // position:fixed (not just overflow:hidden) is what iOS Safari actually honours.
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
+    body.style.overflow = 'hidden'
+    return () => {
+      Object.assign(body.style, prev)
+      window.scrollTo(0, scrollY)
+    }
+  }, [active])
+}
+
 function TrajectoryDrawer({ data, onClose }) {
+  useBodyScrollLock(!!data)
   useEffect(() => {
     if (!data) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -608,7 +630,10 @@ function TrajectoryDrawer({ data, onClose }) {
   const fm = atif.final_metrics ?? {}
   const model = atif.agent?.model_name
 
-  return (
+  // Portal to <body> so the fixed drawer anchors to the viewport, not #root
+  // (whose load animation's transform would otherwise offset it by the page
+  // scroll on mobile, making the drawer open mid-scroll instead of at the top).
+  return createPortal(
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <aside className="drawer" role="dialog" aria-label="Trajectory">
@@ -668,12 +693,14 @@ function TrajectoryDrawer({ data, onClose }) {
           </ol>
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   )
 }
 
 // Centered how-to popup for skill authors (SKILL_GUIDE_MD). Closes on the backdrop, the X, or Escape.
 function SkillGuideModal({ open, onClose }) {
+  useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -701,6 +728,7 @@ function SkillGuideModal({ open, onClose }) {
 // Centered popup explaining the real-time preview and how Download JSON behaves
 // (DOWNLOAD_INFO_MD). Same look as SkillGuideModal; closes on the backdrop, the X, or Escape.
 function DownloadInfoModal({ open, onClose }) {
+  useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
