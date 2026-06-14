@@ -193,7 +193,8 @@ Settings come from two places:
 | `max_rounds`       | `40`                    | Agent turns per task before it must rate         |
 | `interval_seconds` | `3`                     | Pause between runs for the local script (Azure uses `SEED_SCHEDULE` instead) |
 | `core_url`         | `http://localhost:8000` | Core URL; env `RATEXP_CORE_URL` overrides it     |
-| `system_prompt`, `task_prompt` | -          | The agent's instructions                         |
+| `critical_ratio`   | `0.3`                   | Share of runs that take the tough-reviewer stance, so some bad ratings appear (0 = never, 1 = always) |
+| `system_prompt`, `task_prompt`, `critical_prompt` | - | The agent's instructions (`critical_prompt` is appended on tough-reviewer runs) |
 
 ## Database
 
