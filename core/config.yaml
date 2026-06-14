@@ -6,6 +6,12 @@ schema_version: ATIF-v1.7
 # Largest request body core accepts, in bytes (guards /transcript). 5 MiB.
 max_body_bytes: 5242880
 
+# Largest trajectory we actually store, in bytes (measured on the converted ATIF JSON).
+# Bigger ones are NOT written in full: their step-by-step trajectory is dropped and only
+# a light meta-only stub (token/step totals + an "oversized" note) is stored, so a few
+# huge conversations can't bloat the database or slow the dashboard. 256 KiB.
+max_transcript_bytes: 262144
+
 # Per-IP request budget per minute (token bucket). 0 disables the limiter.
 rate_limit_per_minute: 120
 

@@ -28,6 +28,36 @@ import json
 from config import SCHEMA_VERSION
 
 
+def stub_if_oversized(atif: dict, limit_bytes: int) -> dict:
+    """Keep storage cheap: if the ATIF JSON is larger than `limit_bytes`, drop its
+    bulky `steps` and return a light meta-only stub instead of the full trajectory.
+
+    The stub keeps the small, useful facts - agent, model, and the token/step totals
+    in `final_metrics` - and adds an `oversized` note carrying the original byte size
+    and a short human message. It carries no conversation text, so it needs no PII
+    redaction. Returns the original dict unchanged when it already fits.
+    """
+    size = len(json.dumps(atif).encode("utf-8"))
+    if size <= limit_bytes:
+        return atif
+    return {
+        "schema_version": atif.get("schema_version"),
+        "session_id": atif.get("session_id"),
+        "agent": atif.get("agent"),
+        "steps": [],  # the trajectory itself is what made it too big - dropped
+        "final_metrics": atif.get("final_metrics", {}),
+        "oversized": {
+            "byte_size": size,
+            "limit_bytes": limit_bytes,
+            "message": (
+                f"Trajectory too large to store ({size // 1024} KB, over the "
+                f"{limit_bytes // 1024} KB limit). The step-by-step conversation was "
+                "dropped to keep things fast; token and step totals are kept."
+            ),
+        },
+    }
+
+
 def _text_from_content(content) -> str:
     """Flatten a message `content` (string or block list) to plain text."""
     if isinstance(content, str):

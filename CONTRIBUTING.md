@@ -194,6 +194,7 @@ Settings come from two places:
 | `interval_seconds` | `3`                     | Pause between runs for the local script (Azure uses `SEED_SCHEDULE` instead) |
 | `core_url`         | `http://localhost:8000` | Core URL; env `RATEXP_CORE_URL` overrides it     |
 | `critical_ratio`   | `0.3`                   | Share of runs that take the tough-reviewer stance, so some bad ratings appear (0 = never, 1 = always) |
+| `oversized_ratio`  | `0.2`                   | Share of runs whose trajectory is bloated past core's `max_transcript_bytes`, so core stores a meta-only stub instead of full steps (0 = never, 1 = always) |
 | `system_prompt`, `task_prompt`, `critical_prompt` | - | The agent's instructions (`critical_prompt` is appended on tough-reviewer runs) |
 
 ## Database

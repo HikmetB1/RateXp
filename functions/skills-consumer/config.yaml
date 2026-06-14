@@ -7,6 +7,9 @@ interval_seconds: 3                # gap between runs for `python seeder.py` (lo
 core_url: http://localhost:8000    # RateXp core to write to (env RATEXP_CORE_URL overrides)
 critical_ratio: 0.3                # share of runs that take the tough-reviewer stance below
                                    # (0 = always lenient, 1 = always tough); keeps some bad ratings flowing
+oversized_ratio: 0.2               # share of runs whose trajectory is bloated past core's
+                                   # max_transcript_bytes, so core stores a meta-only stub
+                                   # instead of the full steps (0 = never, 1 = always)
 
 # The deployed Azure timer uses the SEED_SCHEDULE app setting instead (NCRONTAB, e.g.
 # "*/3 * * * * *" = every 3s); set it in local.settings.json locally or app settings in Azure.

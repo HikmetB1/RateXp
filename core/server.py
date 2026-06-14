@@ -15,8 +15,13 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from atif import claude_jsonl_to_atif
-from config import DEFAULT_SURVEY_EVERY, MAX_BODY_BYTES, RATE_LIMIT_PER_MINUTE
+from atif import claude_jsonl_to_atif, stub_if_oversized
+from config import (
+    DEFAULT_SURVEY_EVERY,
+    MAX_BODY_BYTES,
+    MAX_TRANSCRIPT_BYTES,
+    RATE_LIMIT_PER_MINUTE,
+)
 from fastapi import FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from models import Feedback, Transcript
@@ -238,11 +243,16 @@ async def post_transcript(request: Request) -> dict[str, str]:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, e.errors()) from e
 
     _fill_defaults(record)
-    # Mask PII before storing. Fail-closed: on a redaction error, drop the upload.
-    try:
-        record.atif = redact_atif(record.atif)
-    except Exception as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"redaction failed: {e!r}") from e
+    # Drop oversized trajectories first: only a meta-only stub remains, so a few huge
+    # conversations can't bloat the DB or slow the dashboard. The stub carries no
+    # conversation text, so it skips the (costly, fail-closed) redaction call below.
+    record.atif = stub_if_oversized(record.atif, MAX_TRANSCRIPT_BYTES)
+    if "oversized" not in record.atif:
+        # Mask PII before storing. Fail-closed: on a redaction error, drop the upload.
+        try:
+            record.atif = redact_atif(record.atif)
+        except Exception as e:
+            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"redaction failed: {e!r}") from e
     try:
         get_store().append_transcript(record)
     except Exception as e:

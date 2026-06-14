@@ -84,6 +84,32 @@ def test_transcript_redaction_applied_before_store(client, monkeypatch):
     assert captured[-1].atif.get("redacted") is True
 
 
+def test_transcript_oversized_stored_as_stub(client, monkeypatch):
+    import server
+
+    # Shrink the limit so a normal transcript counts as oversized.
+    monkeypatch.setattr(server, "MAX_TRANSCRIPT_BYTES", 10)
+    # Redaction must be skipped for the meta-only stub - blow up if it's reached.
+    monkeypatch.setattr(server, "redact_atif", lambda atif: (_ for _ in ()).throw(AssertionError("redacted")))
+    c, captured = client
+    r = c.post("/transcript", data=_form())
+    assert r.status_code == 201
+    atif = captured[-1].atif
+    assert atif["steps"] == []  # bulky trajectory dropped
+    assert atif["oversized"]["limit_bytes"] == 10
+    assert atif["oversized"]["byte_size"] > 10
+    assert "final_metrics" in atif  # token/step totals kept
+
+
+def test_transcript_small_stored_in_full(client):
+    c, captured = client
+    r = c.post("/transcript", data=_form())
+    assert r.status_code == 201
+    atif = captured[-1].atif
+    assert "oversized" not in atif  # under the limit -> full trajectory kept
+    assert [s["source"] for s in atif["steps"]] == ["user", "agent"]
+
+
 def test_transcript_redaction_failure_returns_502(client, monkeypatch):
     import server
 
