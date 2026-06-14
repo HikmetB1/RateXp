@@ -20,10 +20,15 @@ a vendor SDK.
   ingests the feedback a skill posts back.
 - **app** is the dashboard: a read-only view of the collected feedback, served
   with its own UI. The layout is responsive - on phones the feedback table
-  reflows into a stack of labelled cards. The dashboard is a **preview**: it
-  shows only the latest entries and the most-rated skills (both capped by
-  `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10
-  each). Use **Download JSON** or the SQL filter to pull the full data.
+  reflows into a stack of labelled cards. The dashboard is a real-time
+  **preview**: it shows only the latest entries and the most-rated skills (both
+  capped by `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`,
+  default 10 each). To pull more, use the SQL filter and **Download JSON**, which
+  exports: with no query, the 10 most recent rows; for a query that returns a
+  single skill, *all* of that skill's rows; for a query spanning several skills,
+  the 10 most recent. So to grab everything for one skill, query it (e.g.
+  `SELECT * FROM feedback WHERE skill_name = '...'`) then Download JSON. The (i)
+  badge next to the SQL box explains the same.
 
 ## Add it to a skill
 
