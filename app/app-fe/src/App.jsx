@@ -416,7 +416,7 @@ function ViewLimitNotice({ shown }) {
   )
 }
 
-const EXAMPLE_SQL = 'SELECT * FROM feedback WHERE score = 2'
+const EXAMPLE_SQL = "SELECT * FROM feedback WHERE skill_name = 'handoff'"
 
 // SELECT-only SQL box that filters the table in place (Clear restores it). The
 // backend enforces the guardrails (SELECT-only, read-only, timeout, row cap).
@@ -519,8 +519,9 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
         Read-only SELECT (capped & time-limited) that replaces the table below - query one
-        skill, e.g. <code>WHERE skill_name = '...'</code>, then Download JSON to export all of
-        it (<button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>).
+        skill, e.g. <code>SELECT * FROM feedback WHERE skill_name = '...'</code>, then Download
+        JSON to export all of it.{' '}
+        <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea
         value={sql}
