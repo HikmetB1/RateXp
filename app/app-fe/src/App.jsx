@@ -83,7 +83,7 @@ export default function App() {
   const [filter, setFilter] = useState(null) // { truncated } while a filter is active
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
   // Which row's transcript is shown in the slide-over trajectory drawer.
   const [openTx, setOpenTx] = useState(null)
   // Whether the "Add your skill" how-to popup is open.
