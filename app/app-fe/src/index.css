@@ -363,6 +363,7 @@ summary:hover { opacity: 0.8; }
   width: min(560px, 100%);
   max-height: 86vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 26px 28px;
   border: 5px solid var(--ink);
   background: var(--panel);
@@ -393,6 +394,9 @@ summary:hover { opacity: 0.8; }
   color: var(--btn);
   text-shadow: 2px 2px 0 var(--ink);
 }
+/* Keep the first heading clear of the absolutely-positioned close button so
+   its text wraps before reaching the ✕ (otherwise the ✕ hides letters on phones). */
+.modal-md h3:first-child { padding-right: 44px; }
 .modal-md { font-size: 14px; }
 .modal-md hr { border: none; border-top: 4px solid var(--ink); margin: 16px 0; }
 
@@ -461,7 +465,9 @@ summary:hover { opacity: 0.8; }
 }
 .drawer-close:hover:not(:disabled) { transform: none; box-shadow: 2px 2px 0 var(--ink); }
 
-.drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; }
+/* overscroll-behavior keeps scrolling inside the drawer once it hits an edge,
+   instead of chaining out to the page behind it on touch screens. */
+.drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; padding: 20px; }
 
 /* Note shown when a trajectory was too large to store (only its meta was kept). */
 .tl-oversized {
