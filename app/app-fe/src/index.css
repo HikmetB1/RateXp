@@ -578,4 +578,7 @@ summary:hover { opacity: 0.8; }
     font-size: 8px;
     color: var(--muted);
   }
+  /* Oversized trajectories wrap the chip in .tx-cell; stretch it so the button
+     stays the same proper width as a normal trajectory's chip (not tiny). */
+  .tx-cell { align-items: stretch; }
 }
