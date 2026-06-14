@@ -29,6 +29,11 @@ jobs:
         run: |
           uv sync --frozen --extra test
           uv run pytest -q
+      - name: Test skills-consumer
+        working-directory: functions/skills-consumer
+        run: |
+          uv sync --frozen --extra test
+          uv run pytest -q
 
   frontend:
     runs-on: ubuntu-latest
