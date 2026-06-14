@@ -83,6 +83,38 @@ def _jsonable(value):
     return value
 
 
+def _most_recent(
+    rows: list[dict], limit: int | None, fetched_truncated: bool
+) -> tuple[list[dict], bool]:
+    """Order newest-first by created_at, optionally trimmed to `limit` rows.
+
+    created_at is an ISO-8601 Z string here, so a plain reverse sort is newest-first;
+    rows without it sort last but keep their relative order. `truncated` stays true if the
+    fetch hit the hard cap or trimming dropped rows.
+    """
+    ordered = sorted(rows, key=lambda r: r.get("created_at") or "", reverse=True)
+    trimmed = ordered if limit is None else ordered[:limit]
+    return trimmed, fetched_truncated or len(trimmed) < len(rows)
+
+
+def _apply_download_rule(rows: list[dict], fetched_truncated: bool) -> tuple[list[dict], bool]:
+    """Decide what a full (Download) query actually returns, judged over the whole result.
+
+    A result that resolves to a single skill is exported in full (newest first); anything
+    else - more than one skill, or a shape without a usable skill_name column - is trimmed
+    to the most recent view-limit rows. Deciding here (server-side, over the full result)
+    keeps the rule authoritative instead of guessed from the small on-screen preview.
+    """
+    skills = {r.get("skill_name") for r in rows}
+    single_skill = (
+        bool(rows)
+        and "skill_name" in rows[0]
+        and skills == {rows[0]["skill_name"]}
+        and None not in skills
+    )
+    return _most_recent(rows, None if single_skill else LIST_VIEW_LIMIT, fetched_truncated)
+
+
 # Shared by the HTTP endpoints and the WebSocket snapshot, so both return the same shape.
 def _row_to_feedback(r) -> Feedback:
     return Feedback(
@@ -136,16 +168,8 @@ def _select_transcript(limit: int) -> list[tuple]:
         return cur.fetchall()
 
 
-def _select_transcripts_for(feedback_rows: list[tuple]) -> list[tuple]:
-    """Transcripts belonging to the given feedback rows, matched by request_id/session_id.
-
-    The dashboard links each feedback row to its trajectory by these keys. Fetching
-    "the newest N transcripts" instead would drift out of step with the shown feedback
-    (any rating left without a stored transcript widens the gap), so rows would show no
-    trajectory even though one exists. Selecting by the shown rows' keys keeps them aligned.
-    """
-    request_ids = [r[6] for r in feedback_rows if r[6]]
-    session_ids = [r[1] for r in feedback_rows if r[1]]
+def _select_transcripts_by_ids(request_ids: list, session_ids: list) -> list[tuple]:
+    """Transcripts matching any of the given request_id/session_id keys."""
     if not request_ids and not session_ids:
         return []
     with app.state.pool.connection() as conn, conn.cursor() as cur:
@@ -160,6 +184,19 @@ def _select_transcripts_for(feedback_rows: list[tuple]) -> list[tuple]:
             (request_ids, session_ids, LIST_MAX_LIMIT),
         )
         return cur.fetchall()
+
+
+def _select_transcripts_for(feedback_rows: list[tuple]) -> list[tuple]:
+    """Transcripts belonging to the given feedback rows, matched by request_id/session_id.
+
+    The dashboard links each feedback row to its trajectory by these keys. Fetching
+    "the newest N transcripts" instead would drift out of step with the shown feedback
+    (any rating left without a stored transcript widens the gap), so rows would show no
+    trajectory even though one exists. Selecting by the shown rows' keys keeps them aligned.
+    """
+    request_ids = [r[6] for r in feedback_rows if r[6]]
+    session_ids = [r[1] for r in feedback_rows if r[1]]
+    return _select_transcripts_by_ids(request_ids, session_ids)
 
 
 def _select_top_skills(limit: int) -> list[dict]:
@@ -279,13 +316,9 @@ def run_query(req: QueryRequest) -> dict:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "query endpoint disabled")
 
     cleaned = _validate_select(req.sql)
-    # full=true exports up to the row cap; else the small view.
-    if req.full:
-        cap = QUERY_MAX_ROWS
-    elif req.limit is None:
-        cap = min(LIST_VIEW_LIMIT, QUERY_MAX_ROWS)
-    else:
-        cap = max(1, min(req.limit, QUERY_MAX_ROWS))
+    # Always fetch up to the hard cap so we can return the *most recent* rows regardless of
+    # the query's own ordering (it may have none). Trimming to the view - and, for Download,
+    # the single-skill rule - happens newest-first in Python below.
     wrapped = f"SELECT * FROM ({cleaned}) AS _q LIMIT %s"
 
     try:
@@ -294,7 +327,7 @@ def run_query(req: QueryRequest) -> dict:
                 # SET needs a literal, not a bound param; int() keeps the inlining injection-safe.
                 cur.execute(f"SET LOCAL statement_timeout = {int(QUERY_TIMEOUT_MS)}")
                 cur.execute("SET TRANSACTION READ ONLY")
-                cur.execute(wrapped, (cap,))
+                cur.execute(wrapped, (QUERY_MAX_ROWS,))
                 columns = [d.name for d in cur.description] if cur.description else []
                 rows = cur.fetchall()
     except HTTPException:
@@ -303,11 +336,31 @@ def run_query(req: QueryRequest) -> dict:
         # Most failures here are the user's SQL, so surface them as 400, not 503.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"query error: {e!r}") from e
 
+    result = [dict(zip(columns, (_jsonable(v) for v in row), strict=False)) for row in rows]
+    fetched_truncated = len(rows) >= QUERY_MAX_ROWS
+    if req.full:
+        # Download: single skill -> all of it (newest first); else the most-recent view.
+        result, truncated = _apply_download_rule(result, fetched_truncated)
+    else:
+        # Filter view: newest first, capped to the view (or an explicit, smaller limit).
+        view_cap = LIST_VIEW_LIMIT if req.limit is None else max(1, min(req.limit, QUERY_MAX_ROWS))
+        result, truncated = _most_recent(result, view_cap, fetched_truncated)
+
+    # Carry the shown rows' own trajectories so the filtered table resolves them itself,
+    # rather than borrowing the live preview's index (which only holds the newest rows).
+    # Skipped for Download (full=true): that path fetches every transcript separately.
+    transcripts: list[dict] = []
+    if not req.full:
+        req_ids = [r["request_id"] for r in result if r.get("request_id")]
+        sess_ids = [r["session_id"] for r in result if r.get("session_id")]
+        transcripts = [_row_to_transcript(t).model_dump() for t in _select_transcripts_by_ids(req_ids, sess_ids)]
+
     return {
         "columns": columns,
-        "rows": [dict(zip(columns, (_jsonable(v) for v in row), strict=False)) for row in rows],
-        "row_count": len(rows),
-        "truncated": len(rows) >= cap,
+        "rows": result,
+        "transcripts": transcripts,
+        "row_count": len(result),
+        "truncated": truncated,
     }
 
 

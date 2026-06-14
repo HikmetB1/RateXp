@@ -271,6 +271,41 @@ summary:hover { opacity: 0.8; }
 }
 .link-btn:hover:not(:disabled) { transform: none; box-shadow: none; text-decoration: underline; }
 
+/* "i" badge next to the "Filter with SQL" heading - mirrors the heading's box
+   (font, size, padding, border) so the two read as the same size. */
+.info-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  line-height: normal;
+  color: var(--btnfg);
+  background: var(--btn);
+  border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--box);
+  padding: 7px 11px;
+}
+.info-badge:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--box); }
+
+/* Inline "click here for more details" link inside the red notes: inherits the
+   sentence's font/size/weight/colour and stays on the same line; only the bold
+   word stands out. */
+.link-inline {
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  cursor: pointer;
+  vertical-align: baseline;
+}
+.link-inline:hover:not(:disabled) { transform: none; box-shadow: none; text-decoration: underline; }
+.link-inline b { font-weight: 900; }
+
 /* "View conversation" chip. */
 .tx-chip {
   display: inline-flex;

@@ -39,6 +39,26 @@ it off to default to \`every=2\`.
 consent, every N run can collect a good / bad rating and its full trajectory
 - all visible right here on this dashboard.`
 
+// Shown in the "preview & download" info popup (the (i) badge and the "click here for
+// more details" links), rendered as Markdown (see Md).
+const DOWNLOAD_INFO_MD = `### Preview & downloads
+
+The dashboard updates in **real time**, but the table only shows the **most recent
+entries** so it stays fast and smooth. To get more than the preview, use the SQL
+filter or **Download JSON**.
+
+**What Download JSON gives you**
+
+- **No query** - just the **10 most recent** entries.
+- **A query for a single skill** - **all** entries for that skill.
+- **A query covering more than one skill** - only the **10 most recent**.
+
+**To get everything for your skill**, query that one skill, then click Download JSON:
+
+\`\`\`sql
+SELECT * FROM feedback WHERE skill_name = 'your-skill'
+\`\`\``
+
 // Outer frame bundling the inner cards into one section (the chunky "big box").
 const groupBox = {
   display: 'flex',
@@ -77,17 +97,21 @@ export default function App() {
   const [allRows, setAllRows] = useState([]) // full list from /feedback
   const [rows, setRows] = useState([]) // what the table shows (all, or filtered)
   const [stats, setStats] = useState([]) // top-rated skills from /stats/top-skills
-  const [byKey, setByKey] = useState({})
+  const [byKey, setByKey] = useState({}) // transcripts for the live preview rows
+  const [filterByKey, setFilterByKey] = useState({}) // transcripts for the filtered rows
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(null) // { truncated } while a filter is active
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
+  const [liveTick, setLiveTick] = useState(0) // bumped on every live snapshot, to re-run an active filter
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
   // Which row's transcript is shown in the slide-over trajectory drawer.
   const [openTx, setOpenTx] = useState(null)
   // Whether the "Add your skill" how-to popup is open.
   const [guideOpen, setGuideOpen] = useState(false)
+  // Whether the "preview & download" info popup is open (shared by the notes and the (i) badge).
+  const [infoOpen, setInfoOpen] = useState(false)
 
   // Mirror filter into a ref so the WS handler reads the latest value without re-subscribing.
   const filterRef = useRef(false)
@@ -137,6 +161,7 @@ export default function App() {
           const msg = JSON.parse(e.data)
           if (msg.type === 'snapshot') {
             applyData(msg.feedback ?? [], msg.transcripts ?? [], msg.stats ?? [])
+            setLiveTick((n) => n + 1) // nudge an active filter to re-run against fresh data
           }
         } catch { /* ignore malformed frames */ }
       }
@@ -154,15 +179,23 @@ export default function App() {
     }
   }, [applyData])
 
-  const transcriptFor = (r) => byKey[`r:${r.request_id}`] || byKey[`s:${r.session_id}`] || null
+  // While filtering, resolve trajectories from the filter's own index (its rows' transcripts);
+  // otherwise from the live preview index.
+  const transcriptFor = (r) => {
+    const index = filter ? filterByKey : byKey
+    return index[`r:${r.request_id}`] || index[`s:${r.session_id}`] || null
+  }
 
-  // A filter replaces the table's rows in place; Clear restores the full list.
-  const applyFilter = (resultRows, meta) => {
+  // A filter replaces the table's rows in place (with their own transcripts); Clear restores
+  // the full list.
+  const applyFilter = (resultRows, transcripts, meta) => {
     setRows(resultRows)
+    setFilterByKey(indexTranscripts(transcripts))
     setFilter(meta)
   }
   const clearFilter = () => {
     setRows(allRows)
+    setFilterByKey({})
     setFilter(null)
   }
 
@@ -228,11 +261,12 @@ export default function App() {
         </p>
       )}
       <div className="glow-edge" style={groupBox}>
-        <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} onFilter={applyFilter} onClear={clearFilter} />
+        <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} />
         {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
         {!loading && !error && (
           <section className="glow-edge" style={glassCard}>
             <h2 style={cardHeading}>Feedback</h2>
+            <PreviewNote onInfo={() => setInfoOpen(true)} />
             {/* Scrolls sideways inside the card on tight widths instead of overflowing. */}
             <div className="table-scroll">
             <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
@@ -262,7 +296,6 @@ export default function App() {
               </tbody>
             </table>
             </div>
-            {!filter && <ViewDisclaimer />}
           </section>
         )}
       </div>
@@ -273,23 +306,21 @@ export default function App() {
       )}
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
       <SkillGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   )
 }
 
-// Note under the default table: the dashboard is a preview of the latest rows (capped
-// in app-be config). Download JSON or the SQL box pull the full set. Hidden while filtering.
-function ViewDisclaimer() {
+// Short red note under the Feedback heading: the table is a real-time preview of the
+// latest rows only (capped in app-be config). The full story - including how Download
+// JSON behaves per query - lives in the shared info popup. Hidden while filtering.
+function PreviewNote({ onInfo }) {
   return (
-    <p style={{
-      margin: '12px 0 0',
-      color: 'var(--danger)',
-      fontWeight: 700,
-      fontSize: 13,
-      textAlign: 'center',
-    }}>
-      This is a preview - the table shows only the latest entries. Use{' '}
-      <strong>Download JSON</strong> or the SQL filter above to get the full data.
+    <p style={{ margin: '10px 0 0', color: 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
+      This is a real-time preview - only the most recent entries are shown to keep
+      things smooth. To see everything for your skill, query it with SQL above, then
+      click Download JSON.{' '}
+      <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
     </p>
   )
 }
@@ -389,52 +420,70 @@ const EXAMPLE_SQL = 'SELECT * FROM feedback WHERE score = 2'
 
 // SELECT-only SQL box that filters the table in place (Clear restores it). The
 // backend enforces the guardrails (SELECT-only, read-only, timeout, row cap).
-function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
-  const [sql, setSql] = useState('')
+function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo }) {
+  const [sql, setSql] = useState('') // what's in the textarea
+  const [appliedSql, setAppliedSql] = useState('') // the query currently filtering the table
   const [err, setErr] = useState(null)
   const [running, setRunning] = useState(false)
 
-  const run = () => {
-    setRunning(true)
+  // Run a query and push its rows + their transcripts into the table. `silent` skips the
+  // spinner - used by the live refresh so the filtered view keeps up without flicker.
+  const execute = useCallback((sqlToRun, { silent = false } = {}) => {
+    if (!silent) setRunning(true)
     setErr(null)
-    fetch(`${apiBase}/query`, {
+    return fetch(`${apiBase}/query`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sql }),
+      body: JSON.stringify({ sql: sqlToRun }),
     })
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
         if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`)
         return body
       })
-      .then((body) => onFilter(body.rows, { truncated: body.truncated }))
+      .then((body) => onFilter(body.rows, body.transcripts ?? [], { truncated: body.truncated }))
       .catch((e) => setErr(String(e.message || e)))
-      .finally(() => setRunning(false))
+      .finally(() => { if (!silent) setRunning(false) })
+  }, [apiBase, onFilter])
+
+  const run = () => {
+    setAppliedSql(sql)
+    execute(sql)
   }
 
   const clear = () => {
     setSql('')
+    setAppliedSql('')
     setErr(null)
     onClear()
   }
 
-  // Download the FULL set (full=true): re-run the filter unbounded, or export all
-  // feedback, then attach each row's full ATIF trajectory under `conversation`.
+  // Live refresh: when new data streams in (liveTick) and a filter is applied, re-run it
+  // silently so the filtered table updates in real time, just like the unfiltered view.
+  useEffect(() => {
+    if (appliedSql) execute(appliedSql, { silent: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveTick])
+
+  // Export feedback as JSON, attaching each row's full ATIF trajectory under `conversation`.
+  // With an active query we re-run it as a full export; the backend applies the download
+  // rule over the whole result (single skill -> all of it; otherwise the 10 most recent).
+  // With no query we just take the most recent preview rows already on screen.
   const download = async () => {
     setErr(null)
     try {
       let exportRows
-      if (active && sql.trim()) {
+      if (appliedSql.trim()) {
         const r = await fetch(`${apiBase}/query`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sql, full: true }),
+          body: JSON.stringify({ sql: appliedSql, full: true }),
         })
         const body = await r.json().catch(() => ({}))
         if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`)
         exportRows = body.rows
       } else {
-        exportRows = await fetch(`${apiBase}/feedback?full=true`).then(okJson)
+        exportRows = rows.slice(0, 10)
       }
       const index = indexTranscripts(await fetch(`${apiBase}/transcript?full=true`).then(okJson))
       const exportWithConversation = exportRows.map((r) => {
@@ -455,10 +504,28 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
 
   return (
     <section className="glow-edge" style={glassCard}>
-      <h2 style={cardHeading}>Filter with SQL</h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <h2 style={cardHeading}>Filter with SQL</h2>
+        {/* Opens the same preview & download info popup the red notes link to. */}
+        <button
+          type="button"
+          className="info-badge"
+          onClick={onInfo}
+          title="Preview & download details"
+          aria-label="Preview and download details"
+        >
+          i
+        </button>
+      </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
         Read-only SELECT against the feedback table - results replace the table below.
         Tip: <code>SELECT * FROM feedback WHERE ...</code>. Results are capped and time-limited.
+      </p>
+      <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 13, marginTop: 8 }}>
+        To get everything for your skill, query that single skill - e.g.{' '}
+        <code>SELECT * FROM feedback WHERE skill_name = '...'</code> - then click Download
+        JSON.{' '}
+        <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea
         value={sql}
@@ -628,6 +695,31 @@ function SkillGuideModal({ open, onClose }) {
         <div className="modal glow-edge" role="dialog" aria-label="Add RateXp to your skill" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
           <Md className="md modal-md">{SKILL_GUIDE_MD}</Md>
+        </div>
+      </div>
+    </>,
+    document.body,
+  )
+}
+
+// Centered popup explaining the real-time preview and how Download JSON behaves
+// (DOWNLOAD_INFO_MD). Same look as SkillGuideModal; closes on the backdrop, the X, or Escape.
+function DownloadInfoModal({ open, onClose }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
+
+  if (!open) return null
+  return createPortal(
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <div className="modal-wrap" onClick={onClose}>
+        <div className="modal glow-edge" role="dialog" aria-label="Preview and download details" onClick={(e) => e.stopPropagation()}>
+          <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
+          <Md className="md modal-md">{DOWNLOAD_INFO_MD}</Md>
         </div>
       </div>
     </>,
