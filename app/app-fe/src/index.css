@@ -455,6 +455,26 @@ summary:hover { opacity: 0.8; }
   line-height: 1.4;
 }
 .dm-item { display: inline-flex; align-items: center; }
+/* Footer credit. Light (Sunburst) theme: dark blue so it's readable on the denim
+   background. Dark (Midnight) theme: kept close to the background for a quiet sign-off. */
+.app-footer {
+  margin-top: 28px;
+  padding-bottom: 6px;
+  text-align: center;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: #14306b;
+}
+:root[data-theme='dark'] .app-footer {
+  color: color-mix(in srgb, var(--bg) 65%, var(--muted));
+}
+.app-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.12s ease;
+}
+.app-footer a:hover { color: var(--accent-2); }
 .dm-key {
   font-family: 'Press Start 2P', monospace;
   font-size: 8px;

@@ -36,8 +36,7 @@ it off to default to \`every=2\`.
 ---
 
 🎉 **Congratulations!** Your skill is now exposed to RateXp. Under the user
-consent, every N run can collect a good / bad rating and its full trajectory
-- all visible right here on this dashboard.`
+consent, every N run can collect a good / bad rating and its full trajectory.`
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
 // more details" links), rendered as Markdown (see Md).
@@ -304,6 +303,13 @@ export default function App() {
           <TopSkills skills={stats} />
         </div>
       )}
+      {/* Subtle credit: barely above the background, brightens on hover. */}
+      <footer className="app-footer">
+        developed by{' '}
+        <a href="https://www.linkedin.com/in/hikmetb/" target="_blank" rel="noopener noreferrer">
+          Hikmet B.
+        </a>
+      </footer>
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
       <SkillGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
       <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
