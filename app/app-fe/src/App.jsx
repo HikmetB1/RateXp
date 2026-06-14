@@ -416,7 +416,7 @@ function ViewLimitNotice({ shown }) {
   )
 }
 
-const EXAMPLE_SQL = "SELECT * FROM feedback WHERE skill_name = 'handoff'"
+const EXAMPLE_SQL = "SELECT * FROM feedback WHERE skill_name = '...'"
 
 // SELECT-only SQL box that filters the table in place (Clear restores it). The
 // backend enforces the guardrails (SELECT-only, read-only, timeout, row cap).
