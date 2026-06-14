@@ -326,6 +326,9 @@ summary:hover { opacity: 0.8; }
 .tx-chip:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
 .tx-chip-ico { color: #fff; flex: none; }
 .tx-chip-arrow { margin-left: 1px; color: #fff; }
+/* View (blue) and download (orange) chips sit side by side in the cell. */
+.tx-actions { display: inline-flex; align-items: center; gap: 6px; }
+.tx-chip-dl { background: var(--btn); }
 /* Oversized trajectory: chip with a short red alert stacked underneath it. */
 .tx-cell { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .tx-large-alert {
