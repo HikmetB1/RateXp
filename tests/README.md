@@ -11,7 +11,7 @@ reads it back from the same database.
 | File | Checks |
 |------|--------|
 | `test_smoke.py` | Both services answer `/healthz`; core serves the survey snippet. |
-| `test_end_to_end.py` | Feedback posted to core appears on the dashboard and in its top-skills stats. |
+| `test_end_to_end.py` | Feedback posted to core appears on the dashboard and in its top-skills stats, and a posted trajectory reads back through the dashboard. |
 | `test_azure_live.py` | Opt-in smoke test against the deployed Azure web apps (skipped by default). |
 
 ## Run against the local stack
