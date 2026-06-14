@@ -12,7 +12,9 @@ Claude Code writes one JSON object per line. The shapes we care about:
       "content":[{"type":"text","text":"..."},
                  {"type":"thinking","thinking":"..."},
                  {"type":"tool_use","id":"...","name":"Bash","input":{...}}],
-      "usage":{"input_tokens":...,"output_tokens":...}},"timestamp":"..."}
+      "usage":{"input_tokens":...,"output_tokens":...,
+               "cache_read_input_tokens":...,"cache_creation_input_tokens":...}},
+      "timestamp":"..."}
   {"type":"user","message":{"role":"user","content":[
       {"type":"tool_result","tool_use_id":"...","content":"..."}]},"timestamp":"..."}
 
@@ -167,15 +169,22 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
             if tool_calls:
                 step["tool_calls"] = tool_calls
             usage = msg.get("usage") or {}
-            prompt_tokens = usage.get("input_tokens")
-            completion_tokens = usage.get("output_tokens")
+            # Claude reports cached context separately from fresh input. Sum all
+            # input kinds so prompt_tokens reflects the tokens actually processed,
+            # not just the uncached slice (which, with prompt caching, is tiny).
+            prompt_tokens = (
+                (usage.get("input_tokens") or 0)
+                + (usage.get("cache_read_input_tokens") or 0)
+                + (usage.get("cache_creation_input_tokens") or 0)
+            )
+            completion_tokens = usage.get("output_tokens") or 0
             if prompt_tokens or completion_tokens:
                 step["metrics"] = {
-                    "prompt_tokens": prompt_tokens or 0,
-                    "completion_tokens": completion_tokens or 0,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
                 }
-                total_prompt += prompt_tokens or 0
-                total_completion += completion_tokens or 0
+                total_prompt += prompt_tokens
+                total_completion += completion_tokens
             # An assistant turn with no text and no tool calls carries nothing.
             if "message" not in step and "tool_calls" not in step:
                 continue

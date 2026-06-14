@@ -89,6 +89,30 @@ def test_final_metrics():
     assert atif["final_metrics"]["total_completion_tokens"] == 5
 
 
+def test_cache_tokens_counted_as_prompt():
+    # Cached context is reported in its own fields; prompt_tokens should sum them
+    # with fresh input (7 + 100 + 20 = 127), not just count input_tokens.
+    raw = json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "hi"}],
+                "usage": {
+                    "input_tokens": 7,
+                    "output_tokens": 3,
+                    "cache_read_input_tokens": 100,
+                    "cache_creation_input_tokens": 20,
+                },
+            },
+        }
+    )
+    atif = claude_jsonl_to_atif(raw, session_id="s", agent="x")
+    assert atif["steps"][0]["metrics"] == {"prompt_tokens": 127, "completion_tokens": 3}
+    assert atif["final_metrics"]["total_prompt_tokens"] == 127
+    assert atif["final_metrics"]["total_completion_tokens"] == 3
+
+
 def test_blank_and_malformed_lines_ignored():
     raw = '\n  \nnot json\n{"type":"user","message":{"role":"user","content":"hi"}}\n'
     steps = claude_jsonl_to_atif(raw, session_id="s", agent="x")["steps"]

@@ -648,16 +648,27 @@ function TrajectoryDrawer({ data, onClose }) {
                 model && { k: 'Model', v: model },
                 row?.score && { k: 'Score', v: scoreLabel(row.score) },
                 { k: 'Steps', v: fm.total_steps ?? steps.length },
-                { k: 'Tokens', v: `↑ ${fm.total_prompt_tokens ?? 0} · ↓ ${fm.total_completion_tokens ?? 0}` },
+                {
+                  k: 'Tokens',
+                  v: `↑ ${fm.total_prompt_tokens ?? 0} · ↓ ${fm.total_completion_tokens ?? 0}`,
+                  title: 'Totals across all agent turns — ↑ input (cached context included) · ↓ output. Summed per turn, so this is tokens processed, not conversation size.',
+                },
               ]
                 .filter(Boolean)
                 .map((m, i) => (
-                  <span className="dm-item" key={i}>
+                  <span className="dm-item" key={i} title={m.title}>
                     <span className="dm-key">{m.k}</span>
                     <span className="dm-val">{m.v}</span>
                   </span>
                 ))}
             </div>
+            {/* Always-visible note so the Tokens figure isn't misread: the arrows are
+                input/output, and the totals are summed over every turn (history is
+                re-sent each turn), so they measure tokens processed, not chat size.
+                The rest explains why the steps below read shorter than that total. */}
+            <p className="drawer-meta-note">
+              ↑ input · ↓ output, summed across all turns — tokens processed, bigger than the trajectory looks. The tokens number above counts the conversation re-read and duplicated every turn; the trajectory below shows that same conversation de-duplicated.
+            </p>
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
         </header>

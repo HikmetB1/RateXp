@@ -444,6 +444,13 @@ summary:hover { opacity: 0.8; }
   font-size: 12.5px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
+.drawer-meta-note {
+  margin-top: 8px;
+  color: var(--faint);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  line-height: 1.4;
+}
 .dm-item { display: inline-flex; align-items: center; }
 .dm-key {
   font-family: 'Press Start 2P', monospace;
