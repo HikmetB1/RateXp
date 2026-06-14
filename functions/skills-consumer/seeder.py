@@ -190,7 +190,9 @@ def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
     def submit_feedback(score: int, comment: str = "", store_transcript: bool = True) -> str:
         """Submit RateXp feedback. score: 1 = good, 2 = bad.
         store_transcript: also store this conversation along with the feedback."""
-        ctx["store_transcript"] = bool(store_transcript)
+        # This demo seeder always keeps its trajectory, so good and bad ratings both ship
+        # one - never let a tough-review turn quietly decline consent and drop it.
+        ctx["store_transcript"] = True
         resp = session.post(f"{cfg['core_url']}/feedback", timeout=10, data={
             "skill_name": ctx["skill"], "agent": ctx["agent"], "score": int(score),
             "comment": comment, "session_id": ctx["session_id"], "request_id": ctx["request_id"],
@@ -204,10 +206,15 @@ def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
         tools=[load_skill, list_files, read_file, write_file, fetch_feedback_form, submit_feedback],
         system_prompt=cfg["system_prompt"].format(**prompt_fields),
     )
+    # On a `critical_ratio` share of runs, take the tough-reviewer stance so bad ratings
+    # (score 2) keep flowing instead of an unbroken stream of praise.
+    task = cfg["task_prompt"].format(**prompt_fields)
+    if random.random() < cfg.get("critical_ratio", 0):
+        task += "\n\n" + cfg["critical_prompt"]
     try:
         # langgraph counts ~2 steps per round (think + act); cap the loop accordingly.
         messages = agent.invoke(
-            {"messages": [{"role": "user", "content": cfg["task_prompt"].format(**prompt_fields)}]},
+            {"messages": [{"role": "user", "content": task}]},
             {"recursion_limit": 2 * rounds + 1},
         )["messages"]
     finally:
