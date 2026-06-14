@@ -39,31 +39,39 @@ it off to default to \`every=2\`.
 consent, every N run can collect a good / bad rating and its full trajectory
 - all visible right here on this dashboard.`
 
-// Outer frame bundling the inner glass cards into one section (column, even spacing).
+// Outer frame bundling the inner cards into one section (the chunky "big box").
 const groupBox = {
   display: 'flex',
   flexDirection: 'column',
   gap: 14,
-  border: '1px solid var(--card-border)',
-  borderRadius: 18,
+  border: '4px solid var(--ink)',
   padding: 14,
-  marginBottom: 20,
+  marginBottom: 24,
+  background: 'var(--box)',
+  boxShadow: '5px 5px 0 var(--ink)',
 }
 
-// The frosted panel each section sits in. Shared so the cards stay identical.
+// The inner card each section sits in. Shared so the cards stay identical.
 const glassCard = {
   margin: 0,
-  border: '1px solid var(--card-border)',
-  borderRadius: 14,
-  padding: '14px 16px',
-  background: 'var(--glass-bg)',
-  backdropFilter: 'var(--blur)',
-  WebkitBackdropFilter: 'var(--blur)',
-  boxShadow: 'var(--shadow)',
+  border: '4px solid var(--ink)',
+  padding: '18px 20px',
+  background: 'var(--panel)',
+  boxShadow: '5px 5px 0 var(--ink)',
 }
 
-// Heading shared by all three glass cards (accent-coloured section title).
-const cardHeading = { margin: 0, color: 'var(--accent)', fontWeight: 600, fontSize: 16 }
+// Heading shared by all three cards: a pixel-font block in the button colour.
+const cardHeading = {
+  margin: 0,
+  display: 'inline-block',
+  fontFamily: "'Press Start 2P', monospace",
+  fontSize: 13,
+  color: 'var(--btnfg)',
+  background: 'var(--btn)',
+  padding: '7px 11px',
+  border: '3px solid var(--ink)',
+  boxShadow: '3px 3px 0 var(--box)',
+}
 
 export default function App() {
   const [allRows, setAllRows] = useState([]) // full list from /feedback
@@ -190,18 +198,32 @@ export default function App() {
           >
             Add RateXp to your skill
           </button>
-          {/* Sliding pill switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
+          {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
             className="theme-toggle"
             onClick={toggleTheme}
             role="switch"
             aria-checked={theme === 'light'}
             aria-label="Toggle light and dark theme"
-            title="Toggle light/dark"
+            title="Toggle Sunburst / Midnight"
           >
-            <span className="ico ico-moon" aria-hidden="true">🌙</span>
-            <span className="ico ico-sun" aria-hidden="true">☀</span>
-            <span className="knob" aria-hidden="true">{theme === 'dark' ? '🌙' : '☀'}</span>
+            <svg className="ico sun" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="5" fill="#ff8a1e" />
+              <g stroke="#ff8a1e" strokeWidth="2.4" strokeLinecap="round">
+                <line x1="12" y1="1.5" x2="12" y2="4" />
+                <line x1="12" y1="20" x2="12" y2="22.5" />
+                <line x1="1.5" y1="12" x2="4" y2="12" />
+                <line x1="20" y1="12" x2="22.5" y2="12" />
+                <line x1="4.2" y1="4.2" x2="6" y2="6" />
+                <line x1="18" y1="18" x2="19.8" y2="19.8" />
+                <line x1="4.2" y1="19.8" x2="6" y2="18" />
+                <line x1="18" y1="6" x2="19.8" y2="4.2" />
+              </g>
+            </svg>
+            <svg className="ico moon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 12.9A8.5 8.5 0 1 1 11.1 3 6.6 6.6 0 0 0 21 12.9Z" fill="#4aa3ff" />
+            </svg>
+            <span className="knob" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -494,7 +516,7 @@ function ToolCall({ call }) {
       : null
   if (!args) return <div className="tl-tool">⌗ {call.name}</div>
   return (
-    <details className="tl-tool">
+    <details className="tl-tool" open>
       <summary>⌗ {call.name}</summary>
       <pre className="tl-tool-args">{args}</pre>
     </details>
@@ -555,7 +577,7 @@ function TrajectoryDrawer({ data, onClose }) {
                 <div className={`tl-card tl-card-${s.source}`}>
                   <div className="tl-role" style={sourceStyle(s.source)}>{s.source}</div>
                   {s.reasoning_content && (
-                    <details className="tl-reason">
+                    <details className="tl-reason" open>
                       <summary>reasoning</summary>
                       <Md className="md md-muted">{s.reasoning_content}</Md>
                     </details>
@@ -564,7 +586,7 @@ function TrajectoryDrawer({ data, onClose }) {
                   {Array.isArray(s.tool_calls) &&
                     s.tool_calls.map((t, j) => <ToolCall key={j} call={t} />)}
                   {s.observation && (
-                    <details className="tl-obs">
+                    <details className="tl-obs" open>
                       <summary>↳ output</summary>
                       <Md className="md md-muted">{s.observation}</Md>
                     </details>

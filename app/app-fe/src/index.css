@@ -1,368 +1,233 @@
-/* RateXp dashboard theme. Palette as CSS variables so App.jsx can use var(--token) inline. */
+/* RateXp dashboard theme — retro arcade. Two palettes selected via <html
+   data-theme>: dark = "Midnight" (default), light = "Sunburst". Tokens are CSS
+   variables so App.jsx can use var(--token) inline. */
 
-/* Dark is the default theme (no data-theme attribute, or data-theme="dark"). */
-:root {
-  /* Base + text */
-  --bg: #070b14;
+/* Midnight (default / data-theme="dark"): deep navy, slate boxes, orange buttons. */
+:root,
+:root[data-theme='dark'] {
+  --bg: #04203f;
   --text: #e7eef7;
-  --muted: #93a1b5;
-  --faint: #5d6b80;
+  --muted: #a6b3c7;
+  --faint: #6f7d93;
 
-  /* Accents (aqua/teal + soft blue) */
-  --accent: #4fe3c1;
-  --accent-2: #6aa6ff;
+  --accent: #4fe3c1;   /* aqua — code / links */
+  --accent-2: #58a6ff; /* blue */
   --good: #46e0a8;
-  --bad: #ff7a93;
-  --danger: #ff7a93;
+  --bad: #ff5a4d;
+  --danger: #ff5a4d;
 
-  /* Glass surfaces */
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-bg-strong: rgba(255, 255, 255, 0.07);
-  --glass-border: rgba(255, 255, 255, 0.10);
-  /* Stronger outline on the card/group boxes so they read as framed. */
-  --card-border: rgba(255, 255, 255, 0.30);
-  --row-border: rgba(255, 255, 255, 0.06);
-  --blur: blur(16px) saturate(140%);
-  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --ink: #02060e;      /* borders + hard shadows */
+  --box: #2a3a5e;      /* big outer boxes */
+  --panel: #131f36;    /* inner cards */
+  --panel2: #1b2942;   /* table stripe / textarea */
+  --btn: #ff8a1e;      /* buttons / accents — orange */
+  --btnfg: #241200;    /* text on buttons */
+  --onbg: #e7eef7;     /* text directly on the page background */
 
-  /* Background glows (overridden per theme). */
-  --glow:
-    radial-gradient(60rem 60rem at 12% -10%, rgba(79, 227, 193, 0.14), transparent 60%),
-    radial-gradient(50rem 50rem at 100% 0%, rgba(106, 166, 255, 0.12), transparent 55%),
-    radial-gradient(70rem 70rem at 50% 120%, rgba(106, 166, 255, 0.08), transparent 60%);
+  /* Legacy token aliases kept so App.jsx inline styles render retro. */
+  --card-border: var(--ink);
+  --glass-bg: var(--panel2);
+  --row-border: rgba(255, 255, 255, 0.12);
+  --shadow: 5px 5px 0 var(--ink);
+  --blur: none;
 }
 
-/* Light theme - same glassy layout, bright surfaces. */
+/* Sunburst (data-theme="light"): denim sky, yellow boxes, red buttons. */
 :root[data-theme='light'] {
-  --bg: #eef2f8;
-  --text: #182233;
+  --bg: #3f7fcf;
+  --text: #14233a;
   --muted: #5a6678;
   --faint: #94a1b4;
 
   --accent: #0ea88c;
-  --accent-2: #2f6df0;
-  --good: #109a6b;
-  --bad: #e23a5e;
-  --danger: #e23a5e;
+  --accent-2: #2452c9;
+  --good: #0f9b67;
+  --bad: #e23a2e;
+  --danger: #e23a2e;
 
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-bg-strong: rgba(255, 255, 255, 0.78);
-  --glass-border: rgba(20, 40, 70, 0.12);
-  /* Stronger outline used only on the card/group boxes (light theme). */
-  --card-border: rgba(20, 40, 70, 0.38);
-  --row-border: rgba(20, 40, 70, 0.08);
-  --shadow: 0 12px 40px rgba(30, 55, 100, 0.12);
+  --ink: #14233a;
+  --box: #ffce33;
+  --panel: #ffffff;
+  --panel2: #fff5d4;
+  --btn: #e23a2e;
+  --btnfg: #ffffff;
+  --onbg: #ffffff;
 
-  --glow:
-    radial-gradient(60rem 60rem at 12% -10%, rgba(14, 168, 140, 0.12), transparent 60%),
-    radial-gradient(50rem 50rem at 100% 0%, rgba(47, 109, 240, 0.10), transparent 55%),
-    radial-gradient(70rem 70rem at 50% 120%, rgba(47, 109, 240, 0.07), transparent 60%);
+  --card-border: var(--ink);
+  --glass-bg: var(--panel2);
+  --row-border: rgba(20, 40, 70, 0.16);
+  --shadow: 5px 5px 0 var(--ink);
+  --blur: none;
 }
 
 * { box-sizing: border-box; }
 
-html, body {
-  margin: 0;
-  min-height: 100%;
-}
+html, body { margin: 0; min-height: 100%; }
 
 body {
   background-color: var(--bg);
-  /* Layered radial glows for depth instead of a flat fill. */
-  background-image: var(--glow);
-  background-attachment: fixed;
   color: var(--text);
-  font-family: 'Manrope', system-ui, sans-serif;
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-weight: 700;
   -webkit-font-smoothing: antialiased;
-  /* Smooth the swap when toggling themes. */
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.35s ease, color 0.35s ease;
 }
 
-#root {
-  /* One orchestrated reveal on load. */
-  animation: rise 0.5s ease both;
-}
-
+#root { animation: rise 0.5s ease both; }
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 
+/* Headings + title use the pixel font; everything else stays Nunito. */
 h1 {
-  font-family: 'Sora', system-ui, sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  /* Aqua -> blue gradient text for the title. */
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  margin: 0;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 24px;
+  color: var(--btn);
+  -webkit-text-stroke: 1px var(--ink);
+  text-shadow: 3px 3px 0 var(--ink);
 }
 
-/* PNG supplies the shape via mask; fill is the h1 gradient so the mark matches
-   the wordmark. The negative margin closes the gap from the glyph's padding. */
+/* Logo in a chunky box: red box (Sunburst) / orange box (Midnight), white mark inside. */
 .brand-logo {
   flex: none;
-  width: 38px;
-  height: 38px;
-  margin-right: -2px;
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-mask: url(/logo-white.png) center / contain no-repeat;
-  mask: url(/logo-white.png) center / contain no-repeat;
+  width: 44px;
+  height: 44px;
+  border: 4px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
+  background: var(--btn) url(/logo-white.png) center / 62% no-repeat;
 }
 
-h2 { font-family: 'Sora', system-ui, sans-serif; }
+h2 { font-family: 'Press Start 2P', monospace; }
 
 code {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.9em;
+  font-size: 0.88em;
   color: var(--accent);
-  background: var(--glass-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
-  padding: 1px 6px;
+  background: var(--panel2);
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
 /* Inputs */
 textarea {
-  background: var(--glass-bg-strong);
+  background: var(--panel2);
   color: var(--text);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
+  border: 4px solid var(--ink);
   outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 textarea::placeholder { color: var(--faint); }
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79, 227, 193, 0.15);
-}
+textarea:focus { box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.12); }
 
-/* Buttons - glass pills with an accent hover */
+/* Buttons — chunky pixel buttons with a hard shadow that presses in on click. */
 button {
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  background: var(--glass-bg-strong);
-  border: 1px solid var(--card-border);
-  border-radius: 9px;
-  padding: 7px 14px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--btnfg);
+  background: var(--btn);
+  border: 4px solid var(--ink);
+  border-radius: 0;
+  padding: 11px 14px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  box-shadow: 5px 5px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
-button:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: translateY(-1px);
-}
-button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink); }
+button:active:not(:disabled) { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Moving-light border: a conic-gradient masked to a thin ring at the edge,
-   rotated by --glow-angle. Add `glow-edge` to a box; it needs position and must
-   not clip its corners with overflow:hidden. */
-@property --glow-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes glow-spin { to { --glow-angle: 360deg; } }
+/* "Add RateXp to your skill" and the filter buttons all use .btn-edge. */
+.btn-edge { color: var(--btnfg); background: var(--btn); }
 
+/* The animated glow ring is replaced by plain chunky borders here. */
 .glow-edge { position: relative; }
-.glow-edge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px; /* ring thickness */
-  background: conic-gradient(from var(--glow-angle),
-    transparent 0deg,
-    var(--accent) 25deg,
-    var(--accent-2) 60deg,
-    transparent 120deg,
-    transparent 360deg);
-  /* Keep only the 1.5px ring: full box minus inner (content-box) area. */
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  animation: glow-spin 20s linear infinite;
-}
+.glow-edge::after { display: none; }
 
-/* Respect users who ask for less motion - show a steady accent ring instead. */
-@media (prefers-reduced-motion: reduce) {
-  .glow-edge::after { animation: none; }
-}
-
-/* Liquid-glass buttons: translucent tinted body, glossy top sheen, soft shadow
-   and blur, with a small accent "kiss" at the top-right corner of the outline. */
-.btn-edge {
-  position: relative;
-  color: var(--text);
-  border: 1px solid var(--card-border);
-  /* gloss sheen on top, accent->accent-2 colour tint underneath */
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.18) 0%,
-      rgba(255, 255, 255, 0.04) 40%,
-      rgba(255, 255, 255, 0) 62%),
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--accent) 15%, transparent),
-      color-mix(in srgb, var(--accent-2) 11%, transparent));
-  backdrop-filter: blur(10px) saturate(160%);
-  -webkit-backdrop-filter: blur(10px) saturate(160%);
-  box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 -8px 14px rgba(0, 0, 0, 0.06);
-}
-.btn-edge:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--card-border);
-  transform: translateY(-1px);
-  filter: brightness(1.12);
-  box-shadow:
-    0 9px 22px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.40),
-    inset 0 -8px 14px rgba(0, 0, 0, 0.06);
-}
-/* The shiny corner kiss - short accent arc at the top-right, normal elsewhere. */
-.btn-edge::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px; /* ring thickness */
-  background: linear-gradient(225deg,
-    var(--accent) 0%,
-    var(--accent) 6%,
-    var(--card-border) 18%,
-    var(--card-border) 100%);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* Theme switch: a glass pill whose knob slides under the active icon.
-   Position keys off <html data-theme>, so one React state keeps it in sync. */
+/* Sliding theme toggle: orange sun (Sunburst) ↔ blue moon (Midnight); a framed
+   knob slides to the active side. Sized to match the buttons next to it. */
 .theme-toggle {
   position: relative;
   flex: none;
-  width: 62px;
-  height: 32px;
+  width: 88px;
+  height: 44px;
   padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
+  background: var(--panel);
+  border: 4px solid var(--ink);
+  box-shadow: 5px 5px 0 var(--ink);
   cursor: pointer;
-  background:
-    linear-gradient(135deg,
-      color-mix(in srgb, var(--accent) 16%, transparent),
-      color-mix(in srgb, var(--accent-2) 12%, transparent)),
-    var(--glass-bg);
-  backdrop-filter: blur(10px) saturate(160%);
-  -webkit-backdrop-filter: blur(10px) saturate(160%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    inset 0 2px 8px rgba(0, 0, 0, 0.18);
-  transition: border-color 0.2s ease, filter 0.2s ease;
 }
-.theme-toggle:hover { filter: brightness(1.1); }
-.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-/* Faint end icons hint the other mode; the active icon lives in the knob so it stays centred. */
+.theme-toggle:hover, .theme-toggle:active { transform: none; box-shadow: 5px 5px 0 var(--ink); }
+.theme-toggle:focus-visible { outline: 3px solid var(--btn); outline-offset: 2px; }
 .theme-toggle .ico {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1;
-  font-size: 13px;
-  line-height: 1;
-  opacity: 0.5;
+  width: 20px;
+  height: 20px;
+  z-index: 2;
   pointer-events: none;
 }
-.theme-toggle .ico-moon { left: 8px; }
-.theme-toggle .ico-sun { right: 8px; }
-
+.theme-toggle .sun { left: 10px; }
+.theme-toggle .moon { right: 10px; }
 .theme-toggle .knob {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  font-size: 13px;
-  line-height: 1;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.5, 1);
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 40px;
+  height: 36px;
+  border: 3px solid var(--ink);
+  background: var(--box);
+  opacity: 0.6;
+  transition: transform 0.18s steps(3);
+  pointer-events: none;
+  transform: translateX(40px); /* dark/midnight: knob frames the moon */
 }
-:root[data-theme='light'] .theme-toggle .knob { transform: translateX(30px); }
+:root[data-theme='light'] .theme-toggle .knob { transform: translateX(0); }
 @media (prefers-reduced-motion: reduce) {
   .theme-toggle .knob { transition: none; }
 }
 
-/* Page shell - centred column (tightened on phones; see the responsive block below). */
+/* Page shell. */
 .app { padding: 24px; max-width: 1100px; margin: 0 auto; }
 
-/* Scrolls sideways within the card on tight widths so the table can't spill out. */
 .table-scroll { overflow-x: auto; }
 
 .th {
   text-align: left;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--card-border);
-  background: var(--glass-bg-strong);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--muted);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #fff;
+  background: var(--ink);
+  border: 2px solid var(--ink);
 }
 .td {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--row-border);
+  border: 2px solid var(--ink);
   vertical-align: top;
-  /* Wrap long tokens (session ids, timestamps) so a cell can't widen the table. */
   overflow-wrap: anywhere;
 }
-/* Show <code> values as plain monospace, no pill box (less visual noise). */
-.data-table .td code {
-  border: none;
-  background: none;
-  padding: 0;
-}
+/* Plain monospace for code in table cells (no chip box). */
+.data-table .td code { border: none; background: none; padding: 0; }
 
-/* Table rows light up on hover */
 tbody tr { transition: background 0.12s ease; }
-tbody tr:hover { background: var(--glass-bg); }
+tbody tr:nth-child(even) { background: var(--panel2); }
+tbody tr:hover { background: var(--box); color: var(--ink); }
 
-summary { transition: opacity 0.15s ease; }
+summary { transition: opacity 0.15s ease; cursor: pointer; }
 summary:hover { opacity: 0.8; }
 
-/* Rendered Markdown inside a conversation step. min-width:0 + overflow-wrap:anywhere
-   let long words/URLs wrap instead of widening the column on narrow widths. */
+/* Rendered Markdown inside a conversation step. */
 .md { font-size: 14px; line-height: 1.5; min-width: 0; overflow-wrap: anywhere; }
 .md > :first-child { margin-top: 0; }
 .md > :last-child { margin-bottom: 0; }
 .md p { margin: 0 0 8px; }
-.md h1, .md h2, .md h3, .md h4 { margin: 12px 0 6px; line-height: 1.3; }
-.md h1 { font-size: 1.25em; }
+.md h1, .md h2, .md h3, .md h4 { margin: 12px 0 6px; line-height: 1.3; font-family: 'Nunito', sans-serif; font-weight: 800; }
+.md h1 { font-size: 1.25em; -webkit-text-stroke: 0; text-shadow: none; color: var(--text); }
 .md h2 { font-size: 1.15em; }
 .md h3 { font-size: 1.05em; }
 .md ul, .md ol { margin: 0 0 8px; padding-left: 1.4em; }
@@ -371,125 +236,74 @@ summary:hover { opacity: 0.8; }
 .md blockquote {
   margin: 0 0 8px;
   padding: 2px 12px;
-  border-left: 3px solid var(--glass-border);
+  border-left: 3px solid var(--ink);
   color: var(--muted);
 }
-/* Fenced code blocks: wrap long lines instead of scrolling, so a wide command
-   can't stretch the column. Inline code reuses the global <code> pill style. */
 .md pre {
   margin: 0 0 8px;
   padding: 10px 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  background: var(--panel2);
+  border: 2px solid var(--ink);
 }
-.md pre code {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--text);
-  font-size: 0.85em;
-}
-/* display:block lets a wide table scroll within the column instead of widening it. */
+.md pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 0.85em; }
 .md table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 8px; font-size: 0.9em; }
-.md th, .md td { border: 1px solid var(--glass-border); padding: 4px 8px; text-align: left; }
-.md th { background: var(--glass-bg-strong); }
-/* Muted variant for observations. Block so it fills the card and wraps instead of spilling. */
+.md th, .md td { border: 1px solid var(--ink); padding: 4px 8px; text-align: left; }
+.md th { background: var(--panel2); }
 .md-muted { display: block; color: var(--faint); }
 
-/* Custom scrollbar to match the dark glass theme */
+/* Custom scrollbar. */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb {
-  background: var(--glass-border);
-  border-radius: 10px;
-}
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.18); }
+::-webkit-scrollbar-thumb { background: var(--ink); }
+::-webkit-scrollbar-thumb:hover { background: var(--btn); }
 
-/* Trajectory drawer: a slide-over showing one trajectory as a vertical timeline. */
-
-/* The "View (N steps)" trigger - a link, not a glass button. */
+/* Link-style button. */
 .link-btn {
   background: none;
   border: none;
+  box-shadow: none;
   padding: 0;
-  font-weight: 600;
-  color: var(--accent);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  color: var(--btn);
   cursor: pointer;
 }
-.link-btn:hover:not(:disabled) {
-  color: var(--accent);
-  border: none;
-  transform: none;
-  text-decoration: underline;
-}
+.link-btn:hover:not(:disabled) { transform: none; box-shadow: none; text-decoration: underline; }
 
-/* "View conversation" chip: chat glyph + sliding arrow, with a light sweep on hover. */
+/* "View conversation" chip. */
 .tx-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  position: relative;
-  overflow: hidden;
-  padding: 4px 11px;
-  border-radius: 999px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
   line-height: 1;
-  color: var(--muted);
-  background: var(--glass-bg);
-  border: 1px solid var(--card-border);
+  color: #fff;
+  background: var(--accent-2);
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  padding: 6px 9px;
   cursor: pointer;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
-.tx-chip:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--accent);
-  background: var(--glass-bg-strong);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28),
-    0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
-}
-.tx-chip-ico { color: var(--accent); flex: none; }
-.tx-chip-arrow {
-  margin-left: 1px;
-  color: var(--accent);
-  transition: transform 0.18s ease;
-}
-.tx-chip:hover:not(:disabled) .tx-chip-arrow { transform: translateX(3px); }
-/* Diagonal light sweep on hover - sits above the chip, clipped to its pill. */
-.tx-chip::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    110deg,
-    transparent 35%,
-    color-mix(in srgb, var(--accent) 22%, transparent) 50%,
-    transparent 65%
-  );
-  transform: translateX(-130%);
-  transition: transform 0.6s ease;
-}
-.tx-chip:hover:not(:disabled)::after { transform: translateX(130%); }
+.tx-chip:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+.tx-chip-ico { color: #fff; flex: none; }
+.tx-chip-arrow { margin-left: 1px; color: #fff; }
 @media (prefers-reduced-motion: reduce) {
-  .tx-chip, .tx-chip-arrow, .tx-chip::after { transition: none; }
+  .tx-chip { transition: none; }
 }
 
-/* Dim, slightly blurred scrim behind the panel; click it to close. */
+/* Overlays: backdrop, modal, drawer. */
 .drawer-backdrop {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(3, 6, 12, 0.55);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.7);
   animation: fadeIn 0.2s ease both;
 }
 
-/* "Add your skill" popup: a centred glass card over the backdrop (SKILL_GUIDE_MD). */
 .modal-wrap {
   position: fixed;
   inset: 0;
@@ -504,43 +318,40 @@ summary:hover { opacity: 0.8; }
   width: min(560px, 100%);
   max-height: 86vh;
   overflow-y: auto;
-  padding: 24px 26px;
-  border-radius: 18px;
-  border: 1px solid var(--card-border);
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  box-shadow: var(--shadow);
+  padding: 26px 28px;
+  border: 5px solid var(--ink);
+  background: var(--panel);
+  box-shadow: 5px 5px 0 var(--ink);
   animation: popIn 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-@keyframes popIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .modal-close {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 17px;
+  background: var(--btn);
+  border: 3px solid var(--ink);
+  color: var(--btnfg);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
   line-height: 1;
-  padding: 4px 8px;
+  padding: 6px 9px;
   cursor: pointer;
+  box-shadow: 2px 2px 0 var(--ink);
 }
-.modal-close:hover:not(:disabled) { color: var(--text); border: none; transform: none; }
-/* The popup's first heading uses the brand gradient like the page title. */
+.modal-close:hover:not(:disabled) { transform: none; box-shadow: 2px 2px 0 var(--ink); }
 .modal-md h3 {
   margin-top: 0;
-  font-family: 'Sora', system-ui, sans-serif;
-  font-size: 19px;
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--btn);
+  text-shadow: 2px 2px 0 var(--ink);
 }
 .modal-md { font-size: 14px; }
-.modal-md hr { border: none; border-top: 1px solid var(--glass-border); margin: 16px 0; }
+.modal-md hr { border: none; border-top: 4px solid var(--ink); margin: 16px 0; }
 
-/* The panel itself - glass surface anchored to the right, sliding in. */
+/* Slide-over trajectory drawer. */
 .drawer {
   position: fixed;
   top: 0;
@@ -550,11 +361,9 @@ summary:hover { opacity: 0.8; }
   width: min(560px, 92vw);
   display: flex;
   flex-direction: column;
-  background: var(--glass-bg-strong);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border-left: 1px solid var(--glass-border);
-  box-shadow: var(--shadow);
+  background: var(--panel);
+  border-left: 5px solid var(--ink);
+  box-shadow: -6px 0 0 rgba(0, 0, 0, 0.25);
   animation: slideIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes slideIn { from { transform: translateX(100%); } to { transform: none; } }
@@ -566,135 +375,115 @@ summary:hover { opacity: 0.8; }
   justify-content: space-between;
   gap: 12px;
   padding: 18px 20px;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 4px solid var(--ink);
 }
 .drawer-title {
-  font-family: 'Sora', system-ui, sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  /* Same aqua->blue gradient text as the page title. */
-  background: linear-gradient(100deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: var(--btn);
+  text-shadow: 2px 2px 0 var(--ink);
 }
 .drawer-head-main { min-width: 0; }
-/* Meta strip under the title; items wrap, a faint middot separates each. */
 .drawer-meta {
-  margin-top: 8px;
+  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 6px;
+  column-gap: 12px;
+  row-gap: 8px;
   color: var(--muted);
   font-size: 12.5px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 .dm-item { display: inline-flex; align-items: center; }
-.dm-item::before { content: '·'; color: var(--faint); margin-right: 8px; }
-.dm-item:first-child::before { content: none; }
-/* Small uppercase KEY label in front of each value (Skill, Agent, ...). */
 .dm-key {
-  text-transform: uppercase;
-  font-size: 9.5px;
-  letter-spacing: 0.07em;
-  font-weight: 600;
-  color: var(--faint);
-  margin-right: 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--accent);
+  margin-right: 5px;
 }
 .dm-val { display: inline-flex; align-items: center; gap: 4px; }
 .drawer-close {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 18px;
+  background: var(--btn);
+  border: 3px solid var(--ink);
+  color: var(--btnfg);
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
   line-height: 1;
-  padding: 4px 8px;
+  padding: 6px 9px;
   cursor: pointer;
+  box-shadow: 2px 2px 0 var(--ink);
 }
-.drawer-close:hover:not(:disabled) { color: var(--text); border: none; transform: none; }
+.drawer-close:hover:not(:disabled) { transform: none; box-shadow: 2px 2px 0 var(--ink); }
 
-/* overflow-x:hidden keeps step content inside the panel on narrow widths. */
 .drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; }
 
-/* Timeline: a connector rail with a coloured dot per step. */
+/* Timeline. */
 .timeline { list-style: none; margin: 0; padding: 0; position: relative; }
 .timeline::before {
   content: '';
   position: absolute;
-  left: 7px;
+  left: 8px;
   top: 6px;
   bottom: 6px;
-  width: 2px;
-  background: var(--row-border);
+  width: 3px;
+  background: var(--ink);
 }
-.tl-step {
-  position: relative;
-  padding: 0 0 18px 30px;
-  animation: rise 0.4s ease both;
-}
+.tl-step { position: relative; padding: 0 0 18px 32px; animation: rise 0.4s ease both; }
 .tl-step:last-child { padding-bottom: 0; }
 .tl-dot {
   position: absolute;
   left: 0;
   top: 4px;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  border: 3px solid var(--bg);
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--ink);
   background: var(--faint);
 }
-/* Dots/cards inherit the same role colours used by the role label. */
-.tl-user { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
-.tl-agent { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.tl-user { background: var(--accent-2); }
+.tl-agent { background: var(--good); }
 .tl-system { background: var(--faint); }
 
 .tl-card {
-  padding: 10px 14px;
-  border: 1px solid var(--card-border);
-  border-radius: 12px;
-  background: var(--glass-bg);
-  /* min-width:0 + overflow-wrap let the card shrink and break long tokens (path, URL). */
+  padding: 11px 14px;
+  border: 3px solid var(--ink);
+  background: var(--panel2);
+  box-shadow: 3px 3px 0 var(--ink);
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.tl-card-user { border-color: color-mix(in srgb, var(--accent-2) 35%, transparent); }
-.tl-card-agent { border-color: color-mix(in srgb, var(--good) 28%, transparent); }
 .tl-role { margin-bottom: 6px; }
 
-/* Collapsible extras: tool calls, reasoning, observations. */
-.tl-tool,
-.tl-obs,
-.tl-reason { margin-top: 8px; font-size: 12px; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.tl-tool, .tl-obs, .tl-reason {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .tl-tool { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-.tl-tool > summary,
-.tl-obs > summary,
-.tl-reason > summary {
+.tl-tool > summary, .tl-obs > summary, .tl-reason > summary {
   cursor: pointer;
   color: var(--muted);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
   overflow-wrap: anywhere;
 }
 .tl-tool-args {
   margin: 6px 0 0;
   padding: 8px 10px;
-  font-size: 11px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
+  font-size: 12px;
+  background: var(--panel);
+  border: 2px solid var(--ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-
-/* Phones (<=640px): tighten padding, shrink the title, and turn the table into a
-   stack of cards (header hidden; each cell shows its data-label, set in App.jsx). */
+/* Phones (<=640px): tighten and turn the table into a stack of cards. */
 @media (max-width: 640px) {
   .app { padding: 16px 14px; }
-  h1 { font-size: 26px; }
+  h1 { font-size: 18px; }
 
-  /* Hide the column headers - each card labels its own fields instead. */
   .data-table thead { display: none; }
   .data-table,
   .data-table tbody,
@@ -704,28 +493,26 @@ summary:hover { opacity: 0.8; }
   .data-table tr {
     margin-bottom: 12px;
     padding: 4px 6px;
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    background: var(--glass-bg);
+    border: 3px solid var(--ink);
+    background: var(--panel);
   }
-  .data-table tr:hover { background: var(--glass-bg); }
+  .data-table tr:nth-child(even) { background: var(--panel); }
+  .data-table tr:hover { background: var(--panel); color: inherit; }
 
-  /* Each cell: label above value, left-aligned so long text wraps cleanly. */
   .data-table .td {
     display: flex;
     flex-direction: column;
     gap: 4px;
     padding: 8px 10px;
-    border-bottom: 1px solid var(--row-border);
+    border: none;
+    border-bottom: 2px solid var(--row-border);
     word-break: break-word;
   }
   .data-table tr .td:last-child { border-bottom: none; }
   .data-table .td::before {
     content: attr(data-label);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .04em;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
     color: var(--muted);
   }
 }
