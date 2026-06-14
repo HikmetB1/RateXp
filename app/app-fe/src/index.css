@@ -2,8 +2,7 @@
    data-theme>: dark = "Midnight" (default), light = "Sunburst". Tokens are CSS
    variables so App.jsx can use var(--token) inline. */
 
-/* Midnight (default / data-theme="dark"): deep navy, slate boxes, orange buttons. */
-:root,
+/* Midnight (data-theme="dark"): deep navy, slate boxes, orange buttons. */
 :root[data-theme='dark'] {
   --bg: #04203f;
   --text: #e7eef7;
@@ -32,7 +31,8 @@
   --blur: none;
 }
 
-/* Sunburst (data-theme="light"): denim sky, yellow boxes, red buttons. */
+/* Sunburst (default / data-theme="light"): denim sky, yellow boxes, red buttons. */
+:root,
 :root[data-theme='light'] {
   --bg: #3f7fcf;
   --text: #14233a;

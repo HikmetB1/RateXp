@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light" />
     <!-- Tab icon flips with the browser tab-bar theme (white on dark, black on light); .ico is the fallback. -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" media="(prefers-color-scheme: dark)" href="/favicon-white.png" />
@@ -51,7 +51,7 @@
       // Apply the saved theme before render so there's no light/dark flash.
       try {
         document.documentElement.dataset.theme =
-          localStorage.getItem('ratexp-theme') || 'dark'
+          localStorage.getItem('ratexp-theme') || 'light'
       } catch (e) {}
     </script>
     <div id="root"></div>
