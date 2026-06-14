@@ -101,8 +101,9 @@ watch the results land on the dashboard and stop it when done. Its settings are 
 Real tests, no network or database needed (the database layer is stubbed).
 
 ```bash
-cd core && uv sync --extra test && uv run pytest        # core
-cd app/app-be && uv sync --extra test && uv run pytest  # dashboard API
+cd core && uv sync --extra test && uv run pytest                   # core
+cd app/app-be && uv sync --extra test && uv run pytest             # dashboard API
+cd functions/skills-consumer && uv sync --extra test && uv run pytest  # demo seeder
 ```
 
 Lint and format with [ruff](https://docs.astral.sh/ruff/):
