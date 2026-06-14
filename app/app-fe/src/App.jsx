@@ -541,36 +541,67 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
   )
 }
 
-// Each row links to its trajectory, opened in a slide-over drawer (see TrajectoryDrawer).
+// Each row links to its trajectory, opened in a slide-over drawer (see TrajectoryDrawer),
+// plus a download button that saves just this row's ATIF as a JSON file.
 function Trajectory({ transcript, onOpen }) {
   const steps = transcript?.atif?.steps ?? []
   const oversized = transcript?.atif?.oversized
   // No steps and no oversized note means there's simply no trajectory to show.
   if (steps.length === 0 && !oversized) return <Dash />
-  const chip = (
-    <button
-      className="tx-chip"
-      onClick={() => onOpen(transcript)}
-      title={oversized ? 'Trajectory too large to store - open for details' : `Open trajectory - ${steps.length} steps`}
-    >
-      {/* Chat glyph + sliding arrow; the step count lives in the drawer header. */}
-      <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-        <path
-          d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-      </svg>
-      <span className="tx-chip-arrow" aria-hidden="true">→</span>
-    </button>
+
+  // Save this single trajectory's ATIF to a JSON file (no server round-trip - we
+  // already have it). Named by session id so multiple downloads don't collide.
+  const downloadTrajectory = () => {
+    const json = JSON.stringify(transcript.atif, null, 2)
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `trajectory-${transcript.atif?.session_id ?? 'export'}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Blue chip opens the drawer; orange chip downloads the trajectory JSON.
+  const actions = (
+    <span className="tx-actions">
+      <button
+        className="tx-chip"
+        onClick={() => onOpen(transcript)}
+        title={oversized ? 'Trajectory too large to store - open for details' : `Open trajectory - ${steps.length} steps`}
+      >
+        {/* Chat glyph + sliding arrow; the step count lives in the drawer header. */}
+        <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="tx-chip-arrow" aria-hidden="true">→</span>
+      </button>
+      <button
+        className="tx-chip tx-chip-dl"
+        onClick={downloadTrajectory}
+        title="Download this trajectory as JSON"
+        aria-label="Download trajectory JSON"
+      >
+        {/* Download glyph: a down arrow dropping into a tray. */}
+        <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M8 2v7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M5.2 6.4 8 9.2l2.8-2.8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 10.6v1.4A1.4 1.4 0 0 0 4.4 13.4h7.2A1.4 1.4 0 0 0 13 12v-1.4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </span>
   )
-  if (!oversized) return chip
-  // Oversized: stack a short red alert under the chip so it's obvious at a glance.
+
+  if (!oversized) return actions
+  // Oversized: stack a short red alert under the buttons so it's obvious at a glance.
   return (
     <span className="tx-cell">
-      {chip}
+      {actions}
       <span className="tx-large-alert">! large trajectory</span>
     </span>
   )
