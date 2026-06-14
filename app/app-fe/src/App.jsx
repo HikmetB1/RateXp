@@ -111,16 +111,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    // Initial load over HTTP - works even if the WebSocket is blocked. The backend
-    // decides the row count (list_view_limit), so no ?limit here.
-    Promise.all([
-      fetch(`${API_BASE}/feedback`).then(okJson),
-      fetch(`${API_BASE}/transcript`).then(okJson),
-      fetch(`${API_BASE}/stats/top-skills`).then(okJson),
-    ])
-      .then(([feedback, transcripts, topSkills]) => {
-        applyData(feedback, transcripts, topSkills.skills ?? [])
-      })
+    // Initial load over HTTP - works even if the WebSocket is blocked. One /snapshot
+    // call returns feedback + their matching transcripts + stats, the same correlated
+    // shape the live WS pushes, so every row finds its trajectory.
+    fetch(`${API_BASE}/snapshot`).then(okJson)
+      .then((d) => applyData(d.feedback ?? [], d.transcripts ?? [], d.stats ?? []))
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false))
   }, [applyData])

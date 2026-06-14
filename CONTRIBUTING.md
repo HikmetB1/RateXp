@@ -98,6 +98,8 @@ watch the results land on the dashboard and stop it when done. Its settings are 
 
 ## Tests
 
+### Per-service (fast, mocked)
+
 Real tests, no network or database needed (the database layer is stubbed).
 
 ```bash
@@ -106,6 +108,22 @@ cd app/app-be && uv sync --extra test && uv run pytest             # dashboard A
 cd functions/skills-consumer && uv sync --extra test && uv run pytest  # demo seeder
 ```
 
+### Whole-app (integration, talks to a running stack)
+
+`tests/` checks the services working *together* over HTTP - feedback posted to
+core shows up on the dashboard. Bring the stack up first, then run them:
+
+```bash
+docker compose up --build -d                                       # core + app + DB
+uv run --no-project --with pytest --with httpx pytest tests/
+```
+
+If the stack isn't up the tests skip with a hint instead of failing. A small
+opt-in set also smokes the deployed Azure web apps when you supply their URLs -
+see [tests/README.md](./tests/README.md).
+
+### Lint and format
+
 Lint and format with [ruff](https://docs.astral.sh/ruff/):
 
 ```bash
@@ -113,8 +131,9 @@ uvx ruff check core/ app/app-be/
 uvx ruff format core/ app/app-be/
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, both test suites, the frontend build,
-and the Docker builds on every push and pull request.
+CI (`.github/workflows/ci.yml`) runs lint, every test suite (including the
+whole-app integration run against a compose stack), the frontend build, and the
+Docker builds on every push and pull request.
 
 ## Configuration reference
 
@@ -201,7 +220,8 @@ once, in order, and recorded in the `schema_version` table.
 │   └── app-fe/   React dashboard (source)
 ├── infra/        Terraform stack for Azure
 ├── examples/     Sample SKILL.md files
-└── functions/    Azure Function (Docker): timer seeding demo feedback into core
+├── functions/    Azure Function (Docker): timer seeding demo feedback into core
+└── tests/        Whole-app integration tests (run against a live/local stack)
 ```
 
 `core/` and `app/app-be/` are each self-contained - they deliberately duplicate

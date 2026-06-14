@@ -136,6 +136,32 @@ def _select_transcript(limit: int) -> list[tuple]:
         return cur.fetchall()
 
 
+def _select_transcripts_for(feedback_rows: list[tuple]) -> list[tuple]:
+    """Transcripts belonging to the given feedback rows, matched by request_id/session_id.
+
+    The dashboard links each feedback row to its trajectory by these keys. Fetching
+    "the newest N transcripts" instead would drift out of step with the shown feedback
+    (any rating left without a stored transcript widens the gap), so rows would show no
+    trajectory even though one exists. Selecting by the shown rows' keys keeps them aligned.
+    """
+    request_ids = [r[6] for r in feedback_rows if r[6]]
+    session_ids = [r[1] for r in feedback_rows if r[1]]
+    if not request_ids and not session_ids:
+        return []
+    with app.state.pool.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id
+            FROM transcript
+            WHERE request_id = ANY(%s) OR session_id = ANY(%s)
+            ORDER BY created_at DESC
+            LIMIT %s
+            """,
+            (request_ids, session_ids, LIST_MAX_LIMIT),
+        )
+        return cur.fetchall()
+
+
 def _select_top_skills(limit: int) -> list[dict]:
     with app.state.pool.connection() as conn, conn.cursor() as cur:
         cur.execute(
@@ -228,6 +254,19 @@ def top_skills(limit: int = Query(TOP_SKILLS_LIMIT, ge=1, le=LIST_MAX_LIMIT)) ->
     return {"skills": skills}
 
 
+@app.get("/snapshot")
+def snapshot() -> dict:
+    """The dashboard's whole initial view in one call: feedback + their transcripts + stats.
+
+    Same shape and correlation as the live WebSocket snapshot, so the first paint and
+    later live updates agree and every row with a trajectory shows it.
+    """
+    try:
+        return _build_snapshot()
+    except Exception as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
+
+
 @app.post("/query")
 def run_query(req: QueryRequest) -> dict:
     """Run a guarded, read-only SELECT for the dashboard's filter/CSV box.
@@ -312,13 +351,17 @@ hub = Hub()
 
 
 def _build_snapshot() -> dict:
-    """The whole live view in one message, in the same shapes the HTTP endpoints return."""
+    """The whole live view in one message, in the same shapes the HTTP endpoints return.
+
+    Transcripts are the ones belonging to the shown feedback (not just the newest),
+    so every row that has a trajectory shows it.
+    """
+    feedback_rows = _select_feedback(LIST_VIEW_LIMIT)
+    transcript_rows = _select_transcripts_for(feedback_rows)
     return {
         "type": "snapshot",
-        "feedback": [_row_to_feedback(r).model_dump() for r in _select_feedback(LIST_VIEW_LIMIT)],
-        "transcripts": [
-            _row_to_transcript(r).model_dump() for r in _select_transcript(LIST_VIEW_LIMIT)
-        ],
+        "feedback": [_row_to_feedback(r).model_dump() for r in feedback_rows],
+        "transcripts": [_row_to_transcript(r).model_dump() for r in transcript_rows],
         "stats": _select_top_skills(TOP_SKILLS_LIMIT),
     }
 
