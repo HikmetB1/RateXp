@@ -518,14 +518,9 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
         </button>
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
-        Read-only SELECT against the feedback table - results replace the table below.
-        Tip: <code>SELECT * FROM feedback WHERE ...</code>. Results are capped and time-limited.
-      </p>
-      <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 13, marginTop: 8 }}>
-        To get everything for your skill, query that single skill - e.g.{' '}
-        <code>SELECT * FROM feedback WHERE skill_name = '...'</code> - then click Download
-        JSON.{' '}
-        <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
+        Read-only SELECT (capped & time-limited) that replaces the table below - query one
+        skill, e.g. <code>WHERE skill_name = '...'</code>, then Download JSON to export all of
+        it (<button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>).
       </p>
       <textarea
         value={sql}
