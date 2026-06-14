@@ -481,12 +481,14 @@ function FilterBar({ apiBase, rows, active, onFilter, onClear }) {
 // Each row links to its trajectory, opened in a slide-over drawer (see TrajectoryDrawer).
 function Trajectory({ transcript, onOpen }) {
   const steps = transcript?.atif?.steps ?? []
-  if (steps.length === 0) return <Dash />
-  return (
+  const oversized = transcript?.atif?.oversized
+  // No steps and no oversized note means there's simply no trajectory to show.
+  if (steps.length === 0 && !oversized) return <Dash />
+  const chip = (
     <button
       className="tx-chip"
       onClick={() => onOpen(transcript)}
-      title={`Open trajectory - ${steps.length} steps`}
+      title={oversized ? 'Trajectory too large to store - open for details' : `Open trajectory - ${steps.length} steps`}
     >
       {/* Chat glyph + sliding arrow; the step count lives in the drawer header. */}
       <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -500,6 +502,14 @@ function Trajectory({ transcript, onOpen }) {
       </svg>
       <span className="tx-chip-arrow" aria-hidden="true">→</span>
     </button>
+  )
+  if (!oversized) return chip
+  // Oversized: stack a short red alert under the chip so it's obvious at a glance.
+  return (
+    <span className="tx-cell">
+      {chip}
+      <span className="tx-large-alert">! large trajectory</span>
+    </span>
   )
 }
 
@@ -565,6 +575,9 @@ function TrajectoryDrawer({ data, onClose }) {
         </header>
 
         <div className="drawer-body">
+          {atif.oversized && (
+            <p className="tl-oversized">{atif.oversized.message}</p>
+          )}
           <ol className="timeline">
             {steps.map((s, i) => (
               <li key={i} className="tl-step" style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}>

@@ -291,6 +291,16 @@ summary:hover { opacity: 0.8; }
 .tx-chip:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
 .tx-chip-ico { color: #fff; flex: none; }
 .tx-chip-arrow { margin-left: 1px; color: #fff; }
+/* Oversized trajectory: chip with a short red alert stacked underneath it. */
+.tx-cell { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.tx-large-alert {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--bad);
+  white-space: nowrap;
+}
 @media (prefers-reduced-motion: reduce) {
   .tx-chip { transition: none; }
 }
@@ -417,6 +427,18 @@ summary:hover { opacity: 0.8; }
 .drawer-close:hover:not(:disabled) { transform: none; box-shadow: 2px 2px 0 var(--ink); }
 
 .drawer-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px; }
+
+/* Note shown when a trajectory was too large to store (only its meta was kept). */
+.tl-oversized {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--row-border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--faint);
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 /* Timeline. */
 .timeline { list-style: none; margin: 0; padding: 0; position: relative; }

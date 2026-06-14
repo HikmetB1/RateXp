@@ -111,10 +111,23 @@ def _steps(messages) -> list[dict]:
     return steps
 
 
+# Bytes of filler that reliably pushes an ATIF body past core's max_transcript_bytes
+# (256 KiB), so an oversized run is stored as a meta-only stub rather than full steps.
+_OVERSIZED_PAD_BYTES = 300_000
+
+
 def _post_transcript(ctx: dict, messages, session: requests.Session) -> bool:
     steps = _steps(messages)
     prompt_tokens = sum(s["metrics"]["prompt_tokens"] for s in steps if "metrics" in s)
     completion_tokens = sum(s["metrics"]["completion_tokens"] for s in steps if "metrics" in s)
+    total_steps = len(steps)
+    # On an `oversized_ratio` share of runs, bloat the trajectory past core's size limit
+    # so we exercise the "too large -> stored as a meta-only stub" path end to end. The
+    # kept totals (above) reflect the real run; the padding step is just synthetic bulk.
+    if random.random() < config().get("oversized_ratio", 0):
+        steps.append({"step_id": len(steps) + 1, "source": "system",
+                      "observation": "synthetic oversized-trajectory padding\n"
+                                     + "x" * _OVERSIZED_PAD_BYTES})
     resp = session.post(f"{config()['core_url']}/transcript", timeout=60, json={
         "skill_name": ctx["skill"], "agent": ctx["agent"],
         "session_id": ctx["session_id"], "request_id": ctx["request_id"],
@@ -126,7 +139,7 @@ def _post_transcript(ctx: dict, messages, session: requests.Session) -> bool:
             "final_metrics": {
                 "total_prompt_tokens": prompt_tokens,
                 "total_completion_tokens": completion_tokens,
-                "total_steps": len(steps),
+                "total_steps": total_steps,
             },
         },
     })

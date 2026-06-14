@@ -2,9 +2,25 @@
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import seeder
+
+
+class _FakeResp:
+    ok = True
+
+
+class _FakeSession:
+    """Captures the posted JSON body instead of hitting the network."""
+
+    def __init__(self) -> None:
+        self.body: dict | None = None
+
+    def post(self, url, timeout, json):  # noqa: A002 - matches requests.Session.post
+        self.body = json
+        return _FakeResp()
 
 
 def _msg(kind, content="", tool_calls=None, usage=None):
@@ -61,6 +77,33 @@ def test_steps_maps_sources_calls_and_metrics():
     assert steps[1]["tool_calls"][0]["name"] == "load_skill"
     assert steps[1]["metrics"] == {"prompt_tokens": 10, "completion_tokens": 4}
     assert steps[2]["observation"] == "tool output"
+
+
+def _ctx():
+    return {"skill": "demo", "agent": "agent", "session_id": "s", "request_id": "r"}
+
+
+def _cfg(oversized_ratio):
+    return {"core_url": "http://core", "model": "openai:gpt-4o-mini",
+            "oversized_ratio": oversized_ratio}
+
+
+def test_post_transcript_pads_past_size_limit_when_oversized(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _cfg(1))  # always oversized
+    session = _FakeSession()
+    assert seeder._post_transcript(_ctx(), [], session) is True
+    atif = session.body["atif"]
+    # The ATIF body exceeds core's max_transcript_bytes (256 KiB), so core will stub it.
+    assert len(json.dumps(atif).encode()) > 262144
+    # Kept totals reflect the real run (no real steps), not the synthetic padding.
+    assert atif["final_metrics"]["total_steps"] == 0
+
+
+def test_post_transcript_no_padding_when_disabled(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _cfg(0))  # never oversized
+    session = _FakeSession()
+    assert seeder._post_transcript(_ctx(), [], session) is True
+    assert session.body["atif"]["steps"] == []
 
 
 def test_seed_once_reports_when_no_skills(monkeypatch):

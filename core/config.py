@@ -29,6 +29,7 @@ def _require_in(parent: dict, parent_name: str, key: str):
 
 SCHEMA_VERSION: str = _require("schema_version")
 MAX_BODY_BYTES: int = _require("max_body_bytes")
+MAX_TRANSCRIPT_BYTES: int = _require("max_transcript_bytes")
 RATE_LIMIT_PER_MINUTE: int = _require("rate_limit_per_minute")
 DEFAULT_SURVEY_EVERY: int = _require("default_survey_every")
 if DEFAULT_SURVEY_EVERY < 1:

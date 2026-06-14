@@ -74,6 +74,12 @@ result set (filtered or not).
 > Transcript capture currently supports Claude Code; on other runtimes the upload
 > step is skipped and the rating still works.
 
+To keep the database and dashboard fast, a trajectory larger than
+`max_transcript_bytes` (in `core/config.yaml`, default 256 KiB) is **not** stored in
+full. Its bulky step-by-step conversation is dropped and replaced with a small
+meta-only stub that keeps the token and step totals plus an *oversized* note; the
+dashboard shows that note in the trajectory drawer. The rating itself is always stored.
+
 ### PII redaction
 
 When redaction is enabled, core runs every uploaded transcript through **Azure AI
