@@ -1,175 +1,86 @@
 # Deploying RateXp to Azure
 
-One Terraform stack provisions everything: two Linux web apps (`core` and
-`app`), a PostgreSQL Flexible Server, and a container registry. Authentication to
-the database is passwordless - each web app uses its Managed Identity and a
-Microsoft Entra ID token, and password auth is disabled on the server.
-
-All resources use the cheapest working SKUs (App Service **B1**, PostgreSQL
-**Burstable B1ms**, ACR **Basic**).
+One Terraform stack builds everything: two web apps (`core` + `app`), a PostgreSQL
+server, and a container registry. The apps reach the database passwordlessly
+(each uses its Managed Identity + a Microsoft Entra token).
 
 ## Prerequisites
 
-- [Azure CLI](https://learn.microsoft.com/cli/azure/) - `az login`
-- [Terraform](https://developer.hashicorp.com/terraform) ≥ 1.5
-- Docker
+- **Azure CLI** — run `az login` first
+- **Terraform** ≥ 1.5
+- **Docker**
 
-## 1. Configure
+## Deploy (first time)
 
 ```bash
 cd infra
 cp terraform.tfvars.example terraform.tfvars   # then set subscription_id
-```
 
-## 2. (Re)create the infrastructure
-
-To wipe a previous deployment first, run `terraform destroy`. Then:
-
-```bash
+# 1. Create all Azure resources
 terraform init
 terraform apply
-```
 
-The deployer is set as the database's Entra administrator, so the next step can
-create the per-app roles.
-
-## 3. Build and push the images
-
-```bash
+# 2. Build + push the two images
 az acr login --name "$(terraform output -raw acr_name)"
-
 docker build -t "$(terraform output -raw core_image)" --build-arg EXTRAS=entra ../core
 docker push "$(terraform output -raw core_image)"
-
-# If you set enable_redaction = true, build core with the redaction extra too:
-#   --build-arg EXTRAS="entra redaction"
-
 docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app
 docker push "$(terraform output -raw app_image)"
-```
 
-## 4. Grant each identity its database role
-
-`grant-db-access.sql` has two parts: **Part A** creates the roles (run against the
-`postgres` database, where the `pgaadauth_*` functions live - roles are
-cluster-wide) and **Part B** grants privileges (run against the `ratexp`
-database). Replace the four placeholders with the matching `terraform output`
-values, split the file at the two markers, and run each part as the Entra admin
-(you) - authenticating with an Entra token as the password:
-
-```bash
-TOKEN="$(az account get-access-token \
-  --resource https://ossrdbms-aad.database.windows.net --query accessToken -o tsv)"
+# 3. Give each app its database role (run as the Entra admin)
+#    First edit grant-db-access.sql: replace CORE_NAME / CORE_OBJECT_ID / APP_NAME /
+#    APP_OBJECT_ID (see `terraform output grant_db_access_hint`), then split it at the
+#    two markers into Part A and Part B.
+TOKEN="$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken -o tsv)"
 HOST="$(terraform output -raw postgres_fqdn)"
-ADMIN="<your-entra-admin-name>"   # the principal_name from terraform.tfvars
+ADMIN="<entra_admin_principal_name from terraform.tfvars>"
+PGPASSWORD="$TOKEN" psql "host=$HOST dbname=postgres user=$ADMIN sslmode=require" -f partA.sql
+PGPASSWORD="$TOKEN" psql "host=$HOST dbname=ratexp   user=$ADMIN sslmode=require" -f partB.sql
 
-# Part A -> postgres database (create the roles)
-PGPASSWORD="$TOKEN" psql "host=$HOST port=5432 dbname=postgres user=$ADMIN sslmode=require" -f partA.sql
-# Part B -> ratexp database (grant privileges)
-PGPASSWORD="$TOKEN" psql "host=$HOST port=5432 dbname=ratexp user=$ADMIN sslmode=require" -f partB.sql
-```
-
-> Add your client IP as a firewall rule (Azure Portal -> the PostgreSQL server ->
-> Networking) so `psql` can connect, or run the command from Azure Cloud Shell.
-> No local `psql`? Run it in a container: `docker run --rm -e PGPASSWORD="$TOKEN"
-> -v "$PWD":/sql postgres:16-alpine psql "host=$HOST ..." -f /sql/partA.sql`.
-
-`core` gets read/write and owns the schema; `app` gets **read-only**.
-
-## 5. Restart the web apps
-
-```bash
+# 4. Start the apps so they pull their images (use stop/start, not restart)
 RG="$(terraform output -raw resource_group)"
-az webapp restart --name "$(terraform output -raw core_name)" --resource-group "$RG"
-az webapp restart --name "$(terraform output -raw app_name)"  --resource-group "$RG"
+for app in "$(terraform output -raw core_name)" "$(terraform output -raw app_name)"; do
+  az webapp stop  --name "$app" --resource-group "$RG"
+  az webapp start --name "$app" --resource-group "$RG"
+done
 ```
 
-Point your skills at `terraform output -raw core_url`; open the dashboard at
-`terraform output -raw app_url`.
+Dashboard: `terraform output -raw app_url`. Point your skills at `terraform output -raw core_url`.
 
-## Optional: transcript PII redaction
+> The DB firewall must allow your IP (Portal → PostgreSQL server → Networking), or
+> run the `psql` step from Azure Cloud Shell.
 
-Set `enable_redaction = true` in `terraform.tfvars` to provision an **Azure AI
-Language** account (custom subdomain, key auth disabled) and grant core's Managed
-Identity the **Cognitive Services User** role on it - so redaction is
-**passwordless**, exactly like the database. No key is stored anywhere. The
-toggle and endpoint live in `core/config.yaml` (`redaction.enabled` must be
-`true` and `redaction.endpoint` must point at this account), so consented
-transcripts are PII-masked before they reach PostgreSQL (see `core/redact.py`).
-Build the core image with the redaction extra (step 3 note above). The default
-`language_sku_name` is the free `F0` tier (one per subscription); switch to `S`
-for pay-as-you-go.
+## Ship a code change
 
-## Optional: demo feedback seeder (skills-consumer)
-
-Set `enable_seeder = true` to deploy the **skills-consumer** Azure Function - a timer that
-has a LangChain agent run a bundled skill and submit feedback to `core` (see
-`functions/skills-consumer/`). It provisions an **Azure OpenAI** (AI Foundry) account with a
-`gpt-4o-mini` deployment, a containerised **Function App** (on the same plan), and a storage
-account for the Functions runtime.
-
-The agent reaches the model **passwordlessly**: the function's Managed Identity is granted
-**Cognitive Services OpenAI User** on the account, so no API key is stored anywhere - exactly
-like the database and redaction. Build and push its image alongside the others (step 3), then
-start it:
+Rebuild + push that image, then **stop/start** the app — a plain `restart` will *not*
+re-pull `:latest`:
 
 ```bash
-docker build -t "$(terraform output -raw seeder_image)" ../functions/skills-consumer
-docker push "$(terraform output -raw seeder_image)"
-
-RG="$(terraform output -raw resource_group)"
-az functionapp stop  --name "$(terraform output -raw seeder_name)" --resource-group "$RG"
-az functionapp start --name "$(terraform output -raw seeder_name)" --resource-group "$RG"
+docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app
+docker push "$(terraform output -raw app_image)"
+RG="$(terraform output -raw resource_group)"; APP="$(terraform output -raw app_name)"
+az webapp stop --name "$APP" --resource-group "$RG"
+az webapp start --name "$APP" --resource-group "$RG"
 ```
 
-> Use **stop**/**start** (not `restart`): a containerised Function App only reads its code
-> from the image once `WEBSITES_ENABLE_APP_SERVICE_STORAGE=false` has taken effect, which
-> needs a full start.
+## Optional features
 
-Feedback from agent `langchain gpt-4o-mini` then appears on the dashboard. Tunables live in
-`infra/variables.tf` (`seed_schedule`, `seeder_model`, `aoai_*`).
+Set in `terraform.tfvars`, then `terraform apply` again:
 
-## Multiple environments (e.g. dev)
+- `enable_redaction = true` — Azure AI Language masks PII in stored transcripts.
+  Build core with `--build-arg EXTRAS="entra redaction"`.
+- `enable_seeder = true` — an Azure Function + Azure OpenAI that seeds demo
+  feedback. Push its image (`seeder_image`) and stop/start `seeder_name` too.
 
-The same stack can run a second, parallel environment alongside prod using a
-**Terraform workspace** and the `environment` variable. Prod stays in the `default`
-workspace untouched; the named environment gets its own state and clean,
-suffix-free names (e.g. `rg-ratexp-dev`, `ratexp-dev-core`,
-`https://ratexp-dev-app.azurewebsites.net`).
+## What's in this folder
 
-`infra/dev.tfvars` defines the `dev` environment. It reuses prod's Azure AI
-**Language** account for redaction (the free F0 tier is one-per-subscription), so no
-new Language resource is created - dev-core's identity is just granted access to the
-existing one.
-
-```bash
-cd infra
-terraform workspace new dev          # one-time: isolated state for dev
-terraform apply -var-file=dev.tfvars # provisions everything in rg-ratexp-dev
-```
-
-Then run steps **3-5** above exactly as written - all the `terraform output`
-commands read from the active (`dev`) workspace, so images push to the dev registry,
-the database roles use the dev app names, and the restarts target the dev web apps.
-Build the core image with the redaction extra (`--build-arg EXTRAS="entra redaction"`).
-
-Switch back with `terraform workspace select default`. Running
-`terraform plan` there should report **no changes** - proof that prod's names are
-preserved.
-
-## What gets created
-
-| Resource           | SKU              | Purpose                                  |
-|--------------------|------------------|------------------------------------------|
-| App Service Plan   | B1 (Linux)       | Shared by both web apps                   |
-| Web App `core`     | -                | Public: snippet + feedback ingestion      |
-| Web App `app`      | -                | Dashboard: read-only API + UI             |
-| PostgreSQL Flexible| Burstable B1ms   | Feedback + transcript storage             |
-| Container Registry | Basic            | Holds the `core` and `app` images         |
-| AI Language*       | F0               | PII redaction for transcripts (`enable_redaction`) |
-| Function App `seeder`† | -            | Timer: seeds demo feedback into core      |
-| Azure OpenAI†      | S0               | `gpt-4o-mini` for the seeder agent        |
-| Storage account†   | Standard LRS     | Functions runtime state for the seeder    |
-
-\* Only when `enable_redaction = true`.
-† Only when `enable_seeder = true`.
+| File | What it's for |
+|------|---------------|
+| `main.tf` | All the Azure resources |
+| `variables.tf` | Tunables — feature toggles, SKUs, region |
+| `outputs.tf` | Names, URLs, and image refs the commands above read |
+| `terraform.tfvars` / `.example` | Your settings (subscription id, toggles) |
+| `dev.tfvars` | A second, parallel `dev` environment |
+| `grant-db-access.sql` | The Part A / Part B database role grants |
+| `providers.tf`, `versions.tf` | Provider and version pins |
+| `terraform.tfstate*` | Terraform state — managed by Terraform, don't edit by hand |
