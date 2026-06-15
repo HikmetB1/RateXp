@@ -1,18 +1,33 @@
-# RateXp
+# RateXp - Comprehensive Guide
+
 <p align="center">
-  <img src="./assets/banner.png" alt="RateXp — user based skill feedback" width="720">
+  <img src="./assets/banner.png" alt="RateXp - user based skill feedback" width="720">
 </p>
-Hey, skill author 👋 — shipped a skill and wondering how it's actually being
-used? Want real user feedback, and the users' material to improve it? That's the gap
-RateXp fills.
 
-**Drop-in feedback collection for agentic skills.** Skill authors adds one line to a skill and
-it asks the skill users for feedback - the rating (and, with consent, the full
-conversation) is redacted and stored and shown on a live dashboard.
+## One-line pitch
+Hey, skill author 👋 - shipped a skill and wondering how it's actually used? RateXp is a feedback collection solution for agentic skills - add a couple of lines to your `SKILL.md` (see [Quick start](#quick-start) below) and it asks users for a rating (and, with consent, the full conversation), redacts it, and shows it on a [live dashboard](https://ratexp-app-4y6yju.azurewebsites.net/).
 
-Works with any agent runtime - Claude Code, GitHub Copilot, Cursor, Codex, and
-others - because the survey runs through plain HTTP and a small shell helper, not
-a vendor SDK.
+## The problem defintion
+Once you ship a skill, you're flying blind - there's no easy way to see how it's actually used or to hear back from the people using it. Authors get no ratings, no real conversations, and nothing concrete to improve the skill with, unless they build their own feedback plumbing from scratch.
+
+## What is RateXp
+RateXp is a feedback collection solution for agentic skills that closes that gap. A skill author adds one line to their `SKILL.md` that imports agentic instructions to ask the user for feedback; when the skill runs, the agent follows those instructions to collect a quick rating and - only with consent - upload the whole conversation. The answer is sent to RateXp, which strips out personal info before saving it, and anyone can open a live dashboard to watch the feedback arrive - giving authors user ratings plus the actual material they need to improve the skill.
+
+## Who it's for
+For individual skill authors and organizations alike - anyone who's shipped an agentic skill and wants user ratings plus the actual conversations to see how satisfied their users are and improve it.
+
+## Features
+1. **One-line setup** - add a single line to a `SKILL.md` and you're collecting feedback.
+2. **Agent-agnostic** - works with any runtime (Claude Code, Copilot, Cursor, Codex, …) over plain HTTP and a small shell helper, no vendor SDK.
+3. **Ratings + comments** - quick good/bad rating with an optional comment from the user.
+4. **Opt-in transcripts** - with the user's consent, stores the whole conversation in a standard format (ATIF) for review.
+5. **PII redaction** - personal info is masked before storage, and it's fail-closed (drops rather than saves unredacted).
+6. **Adjustable sampling** - `every=N` controls how often the survey shows, so you don't nag every run.
+7. **Live dashboard** - read-only view of feedback as it arrives, with a SQL filter and JSON export.
+8. **Responsive UI** - the table reflows into cards on phones.
+
+## Screenshots / demo
+A picture of the dashboard (and maybe a short clip) so people see it in action.
 
 ## How it works
 
@@ -33,47 +48,31 @@ sequenceDiagram
     D->>DB: reads
 ```
 
-In plain words: a skill author adds one `curl` line to their `SKILL.md` (it pulls
-in the survey instructions from **core**). When the skill runs, the agent follows
-those instructions to ask the user a quick rating (and, with consent, to share
-the conversation). The answer is posted back to core, which **redacts any
-personal info** from the conversation before storing it in the database. Anyone
-can then open the **dashboard** to see the feedback as it comes in.
+In plain words: a skill author adds one `curl` line to their `SKILL.md` that pulls
+in the survey instructions from **core**. When the skill runs, the agent follows
+those instructions to ask the user a quick rating (and, with consent, to share the
+conversation). The answer is posted back to core, which **redacts any personal
+info** before storing it in the database. Anyone can then open the **dashboard** to
+see the feedback as it comes in.
 
-- **core** is the only public service. It serves the survey *snippet* and
-  ingests the feedback a skill posts back.
-- **app** is the dashboard: a read-only view of the collected feedback, served
-  with its own UI. The layout is responsive - on phones the feedback table
-  reflows into a stack of labelled cards. The dashboard is a real-time
-  **preview**: it shows only the latest entries and the most-rated skills (both
-  capped by `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`,
-  default 10 each). To pull more, use the SQL filter and **Download JSON**, which
-  exports: with no query, the 10 most recent rows; for a query that returns a
-  single skill, *all* of that skill's rows; for a query spanning several skills,
-  the 10 most recent. So to grab everything for one skill, query it (e.g.
-  `SELECT * FROM feedback WHERE skill_name = '...'`) then Download JSON. The (i)
-  badge next to the SQL box explains the same.
+## Quick start
+There are no prerequisites - collecting feedback is just one step in your skill. Add
+the following block to your `SKILL.md` where the feedback should take place; that's
+the whole setup:
 
-## Add it to a skill
+```md
+# Feedback step
 
-There are no prerequisites - add one step to your `SKILL.md`. First ask the user
-*"Would you like to provide your feedback?"*; only if they say **yes**, run the
-command (on **no**, skip it):
+Ask: **"Would you like to provide your feedback?"** If **no**, stop here, or move on to the next steps if there is any. If **yes**,
+run the command below and follow its output.
 
-```bash
-curl -sS "https://<your-core-url>/snippet"
+curl -sS "https://<your-core-url>/snippet?every=1"
 ```
 
-The snippet returns step-by-step instructions the agent follows to ask the user
-for a rating and post it back. See [`examples/`](./examples/) for complete,
-working `SKILL.md` files (`cheerful`).
-
-### How often it asks
-
-The `every=N` parameter controls how often the survey shows: the core rolls a
-1-in-N dice on each call and shows the rating on roughly **1 in N** runs,
-silently skipping the rest. Omitting it uses the core's configured default
-(ships as ~half the runs); `every=1` always asks.
+## How often it asks
+`every=N` sets how often the survey pops up. On each run the core rolls a dice and
+asks about **1 in N** times, skipping the rest. Leave it off for the default (~half
+the runs); use `every=1` to ask every time.
 
 ```bash
 curl -sS "https://<your-core-url>/snippet?every=1"   # always ask
@@ -81,71 +80,31 @@ curl -sS "https://<your-core-url>/snippet?every=4"   # ask ~1 in 4 runs
 curl -sS "https://<your-core-url>/snippet"           # default: ~half the runs
 ```
 
-The dice is rolled on the server each call, so nothing else in the skill
-changes. It's probabilistic, not a strict counter - it averages out to 1 in N
-over many runs rather than firing on exactly every Nth run.
+## Examples
+See [`examples/cheerful/`](./examples/cheerful/) for a complete, working `SKILL.md`.
+It gives a short upbeat reply and then runs the feedback step - a good template to
+copy and adapt for your own skill.
 
-## Conversation transcripts (opt-in)
+## The dashboard
+The [dashboard](https://ratexp-app-4y6yju.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows
+only the latest entries and the most-rated skills (both capped by `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10 each). The layout is responsive. Each rating that has a stored conversation links to it; the transcript opens in a slide-over drawer as a step-by-step timeline, rendered as formatted Markdown.
 
-The survey's checklist includes *store trajectory* options - *may we store this
-whole conversation to help improve the skill?* The user is told the conversation is **PII-redacted** before
-storage. Only if the user picks **Yes** does a small helper script upload the
-local session transcript. It's converted to **ATIF** (Agent Trajectory
-Interchange Format - a standard JSON shape for an agent conversation).
-On the dashboard each rating links to its conversation, which opens in a
-slide-over drawer as a step-by-step timeline, with every message rendered as
-formatted Markdown (headings, lists, code blocks, tables) so it's easy to read.
-Saying No records just the rating, exactly as before. The dashboard's **Download
-JSON** carries each row's full ATIF transcript alongside its rating, so an export
-holds the complete trajectory - steps, tool calls and metrics - for the whole
-result set (filtered or not).
+To pull more than the preview shows, use the **SQL filter** and **Download JSON**:
 
-> Transcript capture currently supports Claude Code; on other runtimes the upload
-> step is skipped and the rating still works.
+- No query → the 10 most recent rows.
+- A query that returns a single skill → *all* of that skill's rows.
+- A query spanning several skills → the 10 most recent.
 
-To keep the database and dashboard fast, a trajectory larger than
-`max_transcript_bytes` (in `core/config.yaml`, default 256 KiB) is **not** stored in
-full. Its bulky step-by-step conversation is dropped and replaced with a small
-meta-only stub that keeps the token and step totals plus an *oversized* note; the
-dashboard shows that note in the trajectory drawer. The rating itself is always stored.
+So to grab everything for one skill, query it (e.g. `SELECT * FROM feedback WHERE
+skill_name = '...'`) then Download JSON. The export carries each row's full ATIF
+transcript alongside its rating.
 
-### PII redaction
+## Contact
+Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.com) or on [LinkedIn](https://www.linkedin.com/in/hikmetb/).
 
-When redaction is enabled, core runs every uploaded transcript through **Azure AI
-Language** PII detection before storing it: names, emails, phone numbers and
-similar personal data in the conversation text are masked, and only the redacted
-version is written to the database. Redaction is **fail-closed** - if Azure
-errors, the upload is dropped rather than stored unredacted.
 
-It's configured in `core/config.yaml` (`redaction.enabled`, `endpoint`,
-`languages`). There's **no secret** - core authenticates to Azure with its
-Managed Identity (Entra ID), the same passwordless way it reaches the database.
-Install the extra with `pip install .[redaction]` (or build the image with
-`EXTRAS="redaction"`). On Azure, set `enable_redaction = true` in Terraform to
-provision the Language resource and grant core's identity access - see
-[`infra/README.md`](./infra/README.md). To run locally without an Azure identity,
-set `redaction.enabled: false`.
-
-## Contributing & running locally
-
-For anything about contributing or running the whole stack (PostgreSQL + core +
-dashboard) locally, see [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-## Deploy to Azure
-
-Two web apps + a managed PostgreSQL database, all on the cheapest working tiers,
-with **passwordless** database access via Microsoft Entra ID. See
-[`infra/README.md`](./infra/README.md).
-
-## Layout
-
-```
-core/      Public service: serves /snippet, ingests feedback -> PostgreSQL
-app/       Dashboard: read-only API (app-be) + React UI (app-fe), one web app
-infra/     Terraform: two web apps + PostgreSQL (Entra ID auth)
-examples/  Example SKILL.md files
-functions/ Azure Function (Docker): timer that continuously seeds demo feedback into core (skills-consumer)
-```
+## Acknowledgements and citations
+We're grateful to the open-source projects that RateXp leveraged; for their formal citations see [CITATION.md](./CITATION.md).
 
 ## License
 
