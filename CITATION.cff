@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "RateXp: Drop-in feedback collection for agentic skills"
+message: "If you use RateXp, please cite it using the metadata below."
+type: software
+authors:
+  - given-names: Hikmet
+    family-names: Beyoglu
+    email: hikmet.beyoglu@hotmail.com
+repository-code: "https://github.com/HikmetB1/RateXp"
+url: "https://github.com/HikmetB1/RateXp"
+abstract: >-
+  RateXp is a feedback collection solution for agentic skills. A skill author
+  adds a couple of lines to their SKILL.md and it asks users for a rating and,
+  with consent, the full conversation, redacts personal information, and shows
+  the results on a live dashboard.
+keywords:
+  - agentic skills
+  - feedback
+  - dashboard
+  - LLM
+  - evaluation
+license: PolyForm-Shield-1.0.0
+version: 1.0.0
+date-released: "2026-06-15"

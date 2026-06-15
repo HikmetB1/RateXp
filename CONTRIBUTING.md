@@ -1,33 +1,27 @@
-# Contributing
+# Contributing to RateXp
 
-Thanks for helping improve RateXp. This guide covers running the project,
-testing it, and every setting you can change. For what RateXp *is* and how to
-embed it in a skill, see the [README](./README.md).
+## Table of contents
+- [Running locally](#running-locally)
+- [Configuration](#configuration)
+  - [Environment variables](#environment-variables)
+  - [`core/config.yaml`](#coreconfigyaml)
+  - [`app/app-be/config.yaml`](#appapp-beconfigyaml)
+  - [`functions/skills-consumer/config.yaml`](#functionsskills-consumerconfigyaml)
+- [Deploy to Azure](#deploy-to-azure)
+- [Tests](#tests)
+- [Repository layout](#repository-layout)
+- [TODO](#todo)
+- [Contributor License Agreement](#contributor-license-agreement)
 
-## Prerequisites
-
-- [Docker](https://www.docker.com/) + Docker Compose **v2** (the `docker compose`
-  command, with a space - the older hyphenated `docker-compose` v1 is not supported)
-- [uv](https://docs.astral.sh/uv/) (Python tooling) - for running a service or
-  the tests directly
-- [Node.js](https://nodejs.org/) 22+ - only for frontend work
-
-## Run it locally
-
-First, clone the repo and enter it (run all commands below from this root):
-
-```bash
-git clone <repo-url> ratexp
-cd ratexp
-```
-
-The whole stack (PostgreSQL + core + app) then comes up with one command:
+## Running locally
+You need **Docker** with Docker Compose **v2** (the `docker compose` command, with a space). The whole stack - PostgreSQL + core + dashboard - comes up with one command:
 
 ```bash
-cp .env.example .env           # optional - defaults work out of the box
-docker compose up --build -d
-docker compose logs -f core    # follow a service
-docker compose down -v         # stop and wipe data
+git clone <repo-url> ratexp && cd ratexp
+cp .env.example .env            # optional - defaults work out of the box
+docker compose up --build -d    # start everything
+docker compose logs -f core     # follow a service
+docker compose down -v          # stop and wipe data
 ```
 
 | Service | URL                     | What it is                   |
@@ -35,199 +29,182 @@ docker compose down -v         # stop and wipe data
 | core    | <http://localhost:8000> | snippet + feedback ingestion |
 | app     | <http://localhost:8001> | the dashboard                |
 
-```bash
-curl -sS "http://localhost:8000/snippet"   # what a skill fetches
+To watch ratings land on the dashboard, add the feedback block below to your `SKILL.md` and make sure it is pointed at your localhost core:
+
+```md
+# Feedback step
+
+Ask: **"Would you like to provide your feedback?"** If **no**, stop here, or move on to the next steps if there is any. If **yes**,
+run the command below and follow its output.
+
+curl -sS "http://localhost:8000/snippet?every=1"
 ```
 
-`core` mounts its source and runs with `--reload`, so backend edits there take
-effect without a rebuild (`prompt/prompt.md` is read per request - no restart
-needed). API docs (OpenAPI/Swagger) are at <http://localhost:8000/docs>.
-
-### Run a single service with live reload
-
-Handy when iterating on `app-be` or running outside Docker. Point
-`DATABASE_URL` at the compose database (or any PostgreSQL):
+To auto-fill the dashboard with realistic demo feedback, run the optional
+seeder. It needs an LLM, so set `MODEL` and the matching key (e.g. `OPENAI_API_KEY`)
+in `functions/skills-consumer/.env`, then bring it up with the `seed` profile (left
+out of a plain run because it spends API credits):
 
 ```bash
-cd app/app-be
-uv sync --extra test
-DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp \
-  uv run uvicorn server:app --reload --port 8001
-```
-
-### Frontend with hot reload
-
-The dashboard is bundled into the `app` image, so `docker compose up` already
-serves it. For live UI editing, run the Vite dev server and point it at the
-running API:
-
-```bash
-cd app/app-fe
-npm install
-VITE_API_BASE=http://localhost:8001 npm run dev   # http://localhost:5173
-```
-
-### Seed demo feedback (skills-consumer)
-
-`functions/skills-consumer/` deploys as an Azure Function (timer trigger; see
-[infra/README.md](infra/README.md#optional-demo-feedback-seeder-skills-consumer), where it
-uses Azure OpenAI passwordlessly via Managed Identity), but locally it runs as a plain script
-that continuously fills RateXp with realistic **agentic** feedback: each run a LangChain agent
-loads one bundled skill, does a small task with it, then submits a score, a comment, and (with
-consent) the transcript. With the stack already up, point it at `core` and let it run
-(`Ctrl-C` to stop):
-
-```bash
-cd functions/skills-consumer
-cp .env.example .env           # set MODEL + the matching key
-uv run --no-project --with-requirements requirements.txt seeder.py
-```
-
-Or bring it up with the rest of the stack via the opt-in `seed` profile (left out of a
-plain `docker compose up` because it spends API credits):
-
-```bash
+cp functions/skills-consumer/.env.example functions/skills-consumer/.env  # set MODEL + key
 docker compose --profile seed up --build -d
 ```
 
-Either way it logs a line per run (`seeded skill=handoff feedback=True transcript=True`);
-watch the results land on the dashboard and stop it when done. Its settings are in the
-[configuration reference](#configuration-reference) (`skills-consumer` rows, plus
-`functions/skills-consumer/config.yaml`). Add a skill by dropping a `skills/<name>/SKILL.md`
-- no code changes (credits in `skills/ATTRIBUTION.md`).
-
-## Tests
-
-### Per-service (fast, mocked)
-
-Real tests, no network or database needed (the database layer is stubbed).
-
-```bash
-cd core && uv sync --extra test && uv run pytest                   # core
-cd app/app-be && uv sync --extra test && uv run pytest             # dashboard API
-cd functions/skills-consumer && uv sync --extra test && uv run pytest  # demo seeder
-```
-
-### Whole-app (integration, talks to a running stack)
-
-`tests/` checks the services working *together* over HTTP - feedback posted to
-core shows up on the dashboard. Bring the stack up first, then run them:
-
-```bash
-docker compose up --build -d                                       # core + app + DB
-uv run --no-project --with pytest --with httpx pytest tests/
-```
-
-If the stack isn't up the tests skip with a hint instead of failing. A small
-opt-in set also smokes the deployed Azure web apps when you supply their URLs -
-see [tests/README.md](./tests/README.md).
-
-### Lint and format
-
-Lint and format with [ruff](https://docs.astral.sh/ruff/):
-
-```bash
-uvx ruff check core/ app/app-be/
-uvx ruff format core/ app/app-be/
-```
-
-CI (`.github/workflows/ci.yml`) runs lint, every test suite (including the
-whole-app integration run against a compose stack), the frontend build, and the
-Docker builds on every push and pull request.
-
-## Configuration reference
-
+## Configuration
 Settings come from two places:
-
 - **`config.yaml`** - non-secret tunables, per service. Every key is required; a
   missing key fails loudly at startup, so the file is the single source of truth.
-- **Environment variables** - secrets and per-environment wiring. Never put
-  secrets in `config.yaml` or git.
+- **Environment variables** - secrets and per-environment wiring.
 
 ### Environment variables
 
-| Variable              | Service     | Default                         | Meaning                                                            |
-|-----------------------|-------------|---------------------------------|--------------------------------------------------------------------|
-| `DATABASE_URL`        | core, app   | local compose DB                | PostgreSQL connection string (no password in `entra` mode)         |
-| `RATEXP_DB_AUTH`      | core, app   | `password`                      | `password` (local) or `entra` (Managed Identity token, cloud)      |
-| `RATEXP_SUBMIT_URL`   | core        | `http://localhost:8000/feedback`| Baked into `/snippet` so skills know where to POST feedback        |
-| `RATEXP_ENV`          | app         | `local`                         | `prod` requires `RATEXP_CORS_ORIGINS`                              |
-| `RATEXP_CORS_ORIGINS` | app         | empty (`*` locally)             | Comma-separated allowlist of browser origins                       |
-| `VITE_API_BASE`       | app-fe      | `http://localhost:8001`         | API base baked into the UI at build time (`""` = same origin)      |
-| `MODEL`               | skills-consumer | `openai:gpt-4o-mini`        | LangChain `init_chat_model` id; selects the provider               |
-| `OPENAI_API_KEY`      | skills-consumer | -                           | Key when `MODEL` starts with `openai:`                             |
-| `AZURE_OPENAI_ENDPOINT`| skills-consumer | -                          | Azure OpenAI endpoint when `MODEL` starts with `azure_openai:` (with `OPENAI_API_VERSION`) |
-| `AZURE_OPENAI_API_KEY`| skills-consumer | -                           | Optional Azure key; if unset the seeder auths passwordlessly with its Managed Identity (the deployed function's path) |
-| `RATEXP_CORE_URL`     | skills-consumer | `http://localhost:8000`     | RateXp core the seeder POSTs feedback to                           |
-| `SEED_SCHEDULE`       | skills-consumer | `*/3 * * * * *`             | Deployed Azure timer cadence (NCRONTAB); ignored by the local script |
+Locally every environmetnal variable value has a working default (the stack runs as-is); on Azure, Terraform sets them all for you.
+
+The only variables you supply by hand are for the **optional demo seeder**,
+and only if you choose to run it - it needs an LLM, so you give it a model and the
+matching key in `functions/skills-consumer/.env`:
+
+| Variable                | Required when…             | What to put                                            |
+|-------------------------|----------------------------|--------------------------------------------------------|
+| `MODEL`                 | always (for the seeder)    | LangChain model id, e.g. `openai:gpt-4o-mini`          |
+| `OPENAI_API_KEY`        | `MODEL` starts `openai:`   | your OpenAI key                                        |
+| `AZURE_OPENAI_ENDPOINT` | `MODEL` starts `azure_openai:` | your Azure OpenAI endpoint (with `OPENAI_API_VERSION`) |
+| `AZURE_OPENAI_API_KEY`  | `azure_openai:`, no Managed Identity | your Azure OpenAI key (optional if using Managed Identity) |
+
+
 
 ### `core/config.yaml`
+*Where to set:* [`core/config.yaml`](./core/config.yaml).
 
-| Key                     | Default     | Meaning                                            |
-|-------------------------|-------------|----------------------------------------------------|
-| `schema_version`        | `ATIF-v1.7` | ATIF version stamped on every stored transcript    |
-| `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)|
-| `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)   |
-| `default_survey_every`  | `2`         | Default `?every=N` sampling when a `/snippet` call omits it (`1` = always ask) |
+| Key                     | Default     | Meaning                                                          |
+|-------------------------|-------------|------------------------------------------------------------------|
+| `schema_version`        | `ATIF-v1.7` | ATIF version stamped on every stored transcript                  |
+| `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)            |
+| `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
+| `default_survey_every`  | `2`         | Default `?every=N` when a `/snippet` call omits it (`1` = always)|
+
+> Redaction keys (`redaction.enabled`, `endpoint`, `languages`)
 
 ### `app/app-be/config.yaml`
+*Where to set:* [`app/app-be/config.yaml`](./app/app-be/config.yaml).
 
-| Key                        | Default     | Meaning                                              |
-|----------------------------|-------------|------------------------------------------------------|
-| `schema_version`           | `ATIF-v1.7` | ATIF version expected on stored transcripts          |
-| `list_view_limit`          | `10`        | Rows the dashboard shows by default                  |
-| `list_max_limit`           | `1000`      | Hard ceiling on any single response                  |
-| `top_skills_limit`         | `10`        | Skills shown in the "Top skills" panel               |
-| `query_enabled`            | `true`      | Turn the read-only SQL filter box on/off             |
-| `query_timeout_ms`         | `5000`      | Per-query statement timeout                          |
-| `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns        |
-| `ws_enabled`               | `true`      | Turn the live-updates WebSocket on/off               |
-| `ws_broadcast_interval_ms` | `2000`      | How often the live feed checks for changes           |
+| Key                        | Default     | Meaning                                       |
+|----------------------------|-------------|-----------------------------------------------|
+| `schema_version`           | `ATIF-v1.7` | ATIF version expected on stored transcripts   |
+| `list_view_limit`          | `10`        | Rows the dashboard shows by default           |
+| `list_max_limit`           | `1000`      | Hard ceiling on any single response           |
+| `top_skills_limit`         | `10`        | Skills shown in the "Top skills" panel        |
+| `query_enabled`            | `true`      | Turn the read-only SQL filter box on/off      |
+| `query_timeout_ms`         | `5000`      | Per-query statement timeout                   |
+| `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns |
+| `ws_enabled`               | `true`      | Turn the live-updates WebSocket on/off        |
+| `ws_broadcast_interval_ms` | `2000`      | How often the live feed checks for changes    |
 
 ### `functions/skills-consumer/config.yaml`
+*Where to set:* [`functions/skills-consumer/config.yaml`](./functions/skills-consumer/config.yaml) (demo seeder only).
 
-| Key                | Default                 | Meaning                                          |
-|--------------------|-------------------------|--------------------------------------------------|
-| `model`            | `openai:gpt-4o-mini`    | Same id as `MODEL`; env `MODEL` overrides it     |
-| `temperature`      | `0.7`                   | Sampling temperature for the agent               |
-| `max_rounds`       | `40`                    | Agent turns per task before it must rate         |
-| `interval_seconds` | `3`                     | Pause between runs for the local script (Azure uses `SEED_SCHEDULE` instead) |
-| `core_url`         | `http://localhost:8000` | Core URL; env `RATEXP_CORE_URL` overrides it     |
-| `critical_ratio`   | `0.3`                   | Share of runs that take the tough-reviewer stance, so some bad ratings appear (0 = never, 1 = always) |
-| `oversized_ratio`  | `0.2`                   | Share of runs whose trajectory is bloated past core's `max_transcript_bytes`, so core stores a meta-only stub instead of full steps (0 = never, 1 = always) |
-| `system_prompt`, `task_prompt`, `critical_prompt` | - | The agent's instructions (`critical_prompt` is appended on tough-reviewer runs) |
+| Key                | Default                 | Meaning                                                       |
+|--------------------|-------------------------|---------------------------------------------------------------|
+| `model`            | `openai:gpt-4o-mini`    | Same id as `MODEL`; env `MODEL` overrides it                  |
+| `temperature`      | `0.7`                   | Sampling temperature for the agent                            |
+| `max_rounds`       | `40`                    | Agent turns per task before it must rate                      |
+| `interval_seconds` | `3`                     | Pause between runs for the local script                       |
+| `core_url`         | `http://localhost:8000` | Core URL; env `RATEXP_CORE_URL` overrides it                  |
+| `critical_ratio`   | `0.3`                   | Share of runs that take the tough-reviewer stance (0–1)       |
+| `oversized_ratio`  | `0.2`                   | Share of runs whose trajectory is bloated past the limit (0–1)|
+| `system_prompt`, `task_prompt`, `critical_prompt` | – | The agent's instructions               |
 
-## Database
+## Deploy to Azure
+The provided deployment is **Azure-based**. One Terraform stack builds everything -
+two web apps (`core` + `app`), a managed PostgreSQL server, and a container registry, with **passwordless** database access via Microsoft
+Entra ID (no DB secrets to manage).
 
-`core` owns the schema and applies migrations at startup; `app` only reads (in
-the cloud it runs with a read-only database role). Add a migration by dropping a
-new numbered file in `core/migrations/` (e.g. `003_add_thing.sql`) - it's applied
-once, in order, and recorded in the `schema_version` table.
+**Prerequisites:**
 
-### Auth modes
+- Azure CLI (run `az login` first)
+- Terraform
+- Docker
 
-- **`password`** (local): the password comes from `DATABASE_URL`.
-- **`entra`** (cloud): no password is stored. The web app's Managed Identity
-  fetches a Microsoft Entra ID token and uses it as the password (`db.py`). Build
-  the image with the `entra` extra (`--build-arg EXTRAS=entra`) so `azure-identity`
-  is installed. Setup is wired by [`infra/`](./infra/README.md).
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars   # set subscription_id
+terraform init && terraform apply              # create the Azure resources
+
+# build + push the two images
+az acr login --name "$(terraform output -raw acr_name)"
+docker build -t "$(terraform output -raw core_image)" --build-arg EXTRAS=entra ../core && docker push "$(terraform output -raw core_image)"
+docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app && docker push "$(terraform output -raw app_image)"
+```
+
+Then grant each app its database role and start the apps (use **stop/start**, not
+restart) - those exact commands, plus optional features (`enable_redaction`,
+`enable_seeder`), are in [`infra/README.md`](./infra/README.md). The dashboard and
+core URLs come back as Terraform outputs (`app_url`, `core_url`).
+
+## Tests
+There are two layers. **Per-service** tests are fast and mocked - no network or
+database needed:
+
+```bash
+cd core && uv sync --extra test && uv run pytest                       # core
+cd app/app-be && uv sync --extra test && uv run pytest                 # dashboard API
+cd functions/skills-consumer && uv sync --extra test && uv run pytest  # demo seeder
+```
+
+**Whole-app** tests in `tests/` check the services working together over HTTP - core
+writes feedback, the dashboard reads it back:
+
+| File | Checks |
+|------|--------|
+| `test_smoke.py` | Both services answer `/healthz`; core serves the survey snippet. |
+| `test_end_to_end.py` | Feedback posted to core appears on the dashboard and in its top-skills stats, and a posted trajectory reads back through the dashboard. |
+| `test_azure_live.py` | Opt-in smoke test against the deployed Azure web apps (skipped by default). |
+
+Bring the stack up first:
+
+```bash
+docker compose up --build -d
+uv run --no-project --with pytest --with httpx pytest tests/
+```
+
+If the stack isn't running, these skip with a hint instead of failing. They default
+to the compose ports (`8000`/`8001`); point elsewhere with `RATEXP_CORE_URL` /
+`RATEXP_APP_URL`.
+
+An opt-in smoke test can also hit the **deployed Azure apps** (skipped by default).
+Enable it by supplying their URLs:
+
+```bash
+export RATEXP_AZURE_LIVE=1
+export RATEXP_AZURE_CORE_URL=https://<your-core>.azurewebsites.net
+export RATEXP_AZURE_APP_URL=https://<your-app>.azurewebsites.net
+pytest tests/test_azure_live.py
+```
 
 ## Repository layout
 
 ```text
 .
-├── core/         Public FastAPI service: serves the snippet, writes to PostgreSQL
+├── core/                Public FastAPI service: serves the snippet, ingests feedback → PostgreSQL
 ├── app/
-│   ├── app-be/   Dashboard FastAPI service: read-only API; also serves the UI
-│   └── app-fe/   React dashboard (source)
-├── infra/        Terraform stack for Azure
-├── examples/     Sample SKILL.md files
-├── functions/    Azure Function (Docker): timer seeding demo feedback into core
-└── tests/        Whole-app integration tests (run against a live/local stack)
+│   ├── app-be/          Dashboard FastAPI service: read-only API; also serves the UI
+│   ├── app-fe/          React dashboard (source)
+│   └── Dockerfile       Builds the app image (UI bundled in)
+├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
+├── examples/            Sample SKILL.md files
+├── functions/
+│   └── skills-consumer/ Azure Function: timer that seeds demo feedback into core
+├── tests/               Whole-app integration tests (run against a live/local stack)
+├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
+├── COMPREHENSIVE.md     Full project guide
+├── CONTRIBUTING.md      This file
+├── CITATION.md          Citations for the projects RateXp builds on
+├── CLA.md / LICENSE     Contributor agreement and license
+└── pyproject.toml       Shared Python tooling config
 ```
 
-`core/` and `app/app-be/` are each self-contained - they deliberately duplicate
-small helpers (`db.py`, `config.py`) so either can be built and deployed alone.
+`core/` and `app/app-be/` are each self-contained - they deliberately duplicate small
+helpers (`db.py`, `config.py`) so either can be built and deployed on its own.
 
 ## TODO
 
