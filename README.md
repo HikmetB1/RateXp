@@ -1,8 +1,14 @@
 # RateXp
+<p align="center">
+  <img src="./assets/banner.png" alt="RateXp — user based skill feedback" width="720">
+</p>
+Hey, skill author 👋 — shipped a skill and wondering how it's actually being
+used? Want real user feedback, and the users' material to improve it? That's the gap
+RateXp fills.
 
-**Drop-in feedback collection for agentic skills.** Add one line to a skill and
-it asks the user for feedback - the rating (and, with consent, the full
-conversation) is stored and shown on a live dashboard.
+**Drop-in feedback collection for agentic skills.** Skill authors adds one line to a skill and
+it asks the skill users for feedback - the rating (and, with consent, the full
+conversation) is redacted and stored and shown on a live dashboard.
 
 Works with any agent runtime - Claude Code, GitHub Copilot, Cursor, Codex, and
 others - because the survey runs through plain HTTP and a small shell helper, not
@@ -10,11 +16,29 @@ a vendor SDK.
 
 ## How it works
 
+```mermaid
+sequenceDiagram
+    participant U as user
+    participant S as skill
+    participant C as core
+    participant DB as PostgreSQL
+    participant D as dashboard
+
+    S->>C: curl /snippet
+    C-->>S: survey steps
+    U->>S: answers
+    S->>C: POST /feedback (rating + opt-in transcript)
+    C->>C: redact PII
+    C->>DB: writes
+    D->>DB: reads
 ```
- skill ──curl /snippet──► core ──writes──► PostgreSQL ◄──reads── app (dashboard)
-        ◄── survey steps ──┘   ▲
- user answers ──POST /feedback─┘
-```
+
+In plain words: a skill author adds one `curl` line to their `SKILL.md` (it pulls
+in the survey instructions from **core**). When the skill runs, the agent follows
+those instructions to ask the user a quick rating (and, with consent, to share
+the conversation). The answer is posted back to core, which **redacts any
+personal info** from the conversation before storing it in the database. Anyone
+can then open the **dashboard** to see the feedback as it comes in.
 
 - **core** is the only public service. It serves the survey *snippet* and
   ingests the feedback a skill posts back.
