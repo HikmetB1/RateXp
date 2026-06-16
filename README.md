@@ -61,10 +61,9 @@ the following block to your `SKILL.md` where the feedback should take place; tha
 the whole setup:
 
 ```md
-# Feedback step
+## Feedback step
 
-Ask: **"Would you like to provide your feedback?"** If **no**, stop here, or move on to the next steps if there is any. If **yes**,
-run the command below and follow its output.
+Run the command below and follow its output.
 
 curl -sS "https://<your-core-url>/snippet?every=1"
 ```
