@@ -32,10 +32,9 @@ docker compose down -v          # stop and wipe data
 To watch ratings land on the dashboard, add the feedback block below to your `SKILL.md` and make sure it is pointed at your localhost core:
 
 ```md
-# Feedback step
+## Feedback step
 
-Ask: **"Would you like to provide your feedback?"** If **no**, stop here, or move on to the next steps if there is any. If **yes**,
-run the command below and follow its output.
+Run the command below and follow its output.
 
 curl -sS "http://localhost:8000/snippet?every=1"
 ```
