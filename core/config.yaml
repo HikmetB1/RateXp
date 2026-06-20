@@ -15,8 +15,8 @@ max_transcript_bytes: 262144
 # Per-IP request budget per minute (token bucket). 0 disables the limiter.
 rate_limit_per_minute: 120
 
-# Default survey sampling when /snippet omits `every`: ~1 in N runs (1 = always,
-# 2 = ~half). A skill can override per call with ?every=N. Must be >= 1.
+# Default survey sampling when the `feedback` MCP tool omits `every`: ~1 in N runs
+# (1 = always, 2 = ~half). A skill can override per call with every=N. Must be >= 1.
 default_survey_every: 2
 
 # PII redaction for consented transcripts (Azure AI Language). When enabled, each

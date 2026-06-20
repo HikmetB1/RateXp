@@ -1,59 +1,32 @@
-"""Public FastAPI service: serves the survey snippet and ingests feedback.
+"""Public service: hosts the RateXp MCP server, a health check, and transcript upload.
 
-This is the only externally reachable surface in the system. It serves the
-rating-flow snippet (skills curl it), then accepts the feedback and optional
-transcript the skill posts back, writing both straight to PostgreSQL.
+This is the only externally reachable surface in the system. Skills point their
+MCP client at /mcp; the MCP tools (see mcp_app.py) take the rating and write it to
+PostgreSQL. The consented trajectory is too large to flow through the model, so it
+is uploaded straight here over plain HTTP (POST /transcript) by a small helper
+script we serve at /upload_transcript.sh.
 """
 
 from __future__ import annotations
 
-import os
-import random
-import re
-import uuid
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
 from pathlib import Path
 
-from atif import claude_jsonl_to_atif, stub_if_oversized
-from config import (
-    DEFAULT_SURVEY_EVERY,
-    MAX_BODY_BYTES,
-    MAX_TRANSCRIPT_BYTES,
-    RATE_LIMIT_PER_MINUTE,
-)
-from fastapi import FastAPI, HTTPException, Query, Request, status
+from atif import claude_jsonl_to_atif
+from config import MAX_BODY_BYTES, RATE_LIMIT_PER_MINUTE
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import PlainTextResponse
-from models import Feedback, Transcript
+from ingest import ingest_transcript
+from mcp_app import mcp
+from models import Transcript
 from pydantic import ValidationError
 from ratelimit import RateLimiter
-from redact import redact_atif
 from starlette.middleware.base import BaseHTTPMiddleware
-from store import FeedbackStore
+from store import close_store, get_store
 
-PROMPT_FILE = Path(__file__).resolve().parent / "prompt" / "prompt.md"
-SKIP_FILE = Path(__file__).resolve().parent / "prompt" / "skip.md"
-DETECT_AGENT_FILE = Path(__file__).resolve().parent / "scripts" / "detect_agent.sh"
-SUBMIT_SH_FILE = Path(__file__).resolve().parent / "scripts" / "submit.sh"
+UPLOAD_TRANSCRIPT_SH = Path(__file__).resolve().parent / "scripts" / "upload_transcript.sh"
 
-SUBMIT_URL = os.environ.get("RATEXP_SUBMIT_URL", "http://localhost:8000/feedback")
-# Derive the other endpoints from SUBMIT_URL so one env var points them all at the same host.
-_BASE_URL = SUBMIT_URL.rsplit("/", 1)[0]
-TRANSCRIPT_SUBMIT_URL = f"{_BASE_URL}/transcript"
-SUBMIT_SH_URL = f"{_BASE_URL}/submit.sh"
-
-# Free-form runtime id (e.g. "claude-code", "cursor"), not an enum. Required so data isn't mislabeled.
-_AGENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._:\-]{0,63}$")
-
-_store: FeedbackStore | None = None
 _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
-
-
-def get_store() -> FeedbackStore:
-    global _store
-    if _store is None:
-        _store = FeedbackStore()
-    return _store
 
 
 @asynccontextmanager
@@ -64,9 +37,11 @@ async def lifespan(_: FastAPI):
         get_store()
     except Exception:  # noqa: BLE001 - DB may not be ready at boot
         pass
-    yield
-    if _store is not None:
-        _store.close()
+    # A mounted sub-app's lifespan isn't run for us, so drive the MCP session
+    # manager here for the life of the app (the mount below created it).
+    async with mcp.session_manager.run():
+        yield
+    close_store()
 
 
 app = FastAPI(title="ratexp-core", version="1.0.0", lifespan=lifespan)
@@ -93,132 +68,34 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityMiddleware)
 
+# Streamable-HTTP MCP at /mcp. This call creates the session manager that the
+# lifespan above runs; it must execute at import time (it does, here).
+app.mount("/mcp", mcp.streamable_http_app())
+
 
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/agent.sh", response_class=PlainTextResponse)
-def get_agent_sh() -> str:
-    """POSIX-shell helper that detects the local harness + model.
-
-    Runs on the consumer's machine (only it can see its own env vars and session
-    files), so SKILL.md stays free of harness-specific literals.
-    """
-    return DETECT_AGENT_FILE.read_text(encoding="utf-8")
-
-
-@app.get("/submit.sh", response_class=PlainTextResponse)
-def get_submit_sh() -> str:
-    """POSIX-shell helper that posts the rating and, on consent, the transcript.
+@app.get("/upload_transcript.sh", response_class=PlainTextResponse)
+def get_upload_transcript_sh() -> str:
+    """POSIX-shell helper that uploads the local session transcript on consent.
 
     Runs on the consumer's machine (only it can read its own transcript). The
-    prompt pipes it into `sh` in one command, so rating and transcript go up
-    behind a single approval prompt.
+    prompt pipes it into `sh` so the raw .jsonl goes up behind a single approval,
+    never through the model's context.
     """
-    return SUBMIT_SH_FILE.read_text(encoding="utf-8")
-
-
-@app.get("/snippet", response_class=PlainTextResponse)
-def get_snippet(
-    session_id: str | None = Query(None, description="Override session id."),
-    agent: str | None = Query(
-        None,
-        description=(
-            "Optional. Calling agent runtime identifier. If provided and valid,"
-            " {{AGENT}} is pre-substituted; otherwise the model fills the <AGENT>"
-            " placeholder at runtime from its own identity."
-        ),
-    ),
-    request_id: str | None = Query(None, description="Override the generated idempotency key."),
-    every: int | None = Query(
-        None,
-        ge=1,
-        description=(
-            "Survey roughly 1 in every N runs: each call returns either the"
-            " survey prompt or a short 'skip silently' message. Omit to use the"
-            " configured default (default_survey_every in config.yaml); 1 always asks."
-        ),
-    ),
-) -> str:
-    sid = session_id or str(uuid.uuid4())
-    rid = request_id or str(uuid.uuid4())
-    if agent is not None and not _AGENT_RE.match(agent):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"invalid agent {agent!r}; must match {_AGENT_RE.pattern}",
-        )
-    # randrange(N) == 0 fires ~1 in N times; every=1 always asks. Omitted = default.
-    if every is None:
-        every = DEFAULT_SURVEY_EVERY
-    if random.randrange(every) != 0:
-        return SKIP_FILE.read_text(encoding="utf-8")
-    text = (
-        PROMPT_FILE.read_text(encoding="utf-8")
-        .replace("{{SUBMIT_URL}}", SUBMIT_URL)
-        .replace("{{SUBMIT_SH_URL}}", SUBMIT_SH_URL)
-        .replace("{{TRANSCRIPT_SUBMIT_URL}}", TRANSCRIPT_SUBMIT_URL)
-        .replace("{{SESSION_ID}}", sid)
-        .replace("{{REQUEST_ID}}", rid)
-    )
-    if agent is not None:
-        text = text.replace("{{AGENT}}", agent)
-    return text
-
-
-def _now_iso() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-
-
-def _fill_defaults(record: Feedback | Transcript) -> None:
-    if not record.created_at:
-        record.created_at = _now_iso()
-    if not record.session_id:
-        record.session_id = str(uuid.uuid4())
-    if not record.request_id:
-        record.request_id = str(uuid.uuid4())
-
-
-async def _parse_feedback(request: Request) -> Feedback:
-    """Accept either JSON or form-encoded /feedback bodies.
-
-    Form encoding lets SKILL.md authors POST without literal `{...}` in the bash
-    command, which would trip Claude Code's "expansion obfuscation" prompt.
-    """
-    ct = (request.headers.get("content-type") or "").lower()
-    if ct.startswith("application/x-www-form-urlencoded") or ct.startswith("multipart/form-data"):
-        form = await request.form()
-        data: dict = {}
-        for k, v in form.items():
-            if v in ("", "null", None):
-                continue
-            data[k] = int(v) if k == "score" else v
-    else:
-        data = await request.json()
-    try:
-        return Feedback(**data)
-    except ValidationError as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, e.errors()) from e
-
-
-@app.post("/feedback", status_code=status.HTTP_201_CREATED)
-async def post_feedback(request: Request) -> dict[str, str]:
-    record = await _parse_feedback(request)
-    _fill_defaults(record)
-    try:
-        get_store().append(record)
-    except Exception as e:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"store failed: {e!r}") from e
-    return {"status": "stored"}
+    return UPLOAD_TRANSCRIPT_SH.read_text(encoding="utf-8")
 
 
 @app.post("/transcript", status_code=status.HTTP_201_CREATED)
 async def post_transcript(request: Request) -> dict[str, str]:
     """Receive a consented session transcript, convert to ATIF, persist it.
 
-    The capture script posts the raw .jsonl as form field `transcript`; we
-    convert it server-side. A JSON body with a ready-built `atif` also works (tests).
+    The helper posts the raw .jsonl as form field `transcript`; we convert it
+    server-side. A JSON body with a ready-built `atif` also works (tests / the
+    seeder's MCP path mirrors this).
     """
     ct = (request.headers.get("content-type") or "").lower()
     if ct.startswith("application/x-www-form-urlencoded") or ct.startswith("multipart/form-data"):
@@ -241,20 +118,10 @@ async def post_transcript(request: Request) -> dict[str, str]:
         record = Transcript(**data)
     except ValidationError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, e.errors()) from e
-
-    _fill_defaults(record)
-    # Drop oversized trajectories first: only a meta-only stub remains, so a few huge
-    # conversations can't bloat the DB or slow the dashboard. The stub carries no
-    # conversation text, so it skips the (costly, fail-closed) redaction call below.
-    record.atif = stub_if_oversized(record.atif, MAX_TRANSCRIPT_BYTES)
-    if "oversized" not in record.atif:
-        # Mask PII before storing. Fail-closed: on a redaction error, drop the upload.
-        try:
-            record.atif = redact_atif(record.atif)
-        except Exception as e:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"redaction failed: {e!r}") from e
+    # ingest_transcript size-limits, redacts (fail-closed), then stores. Any
+    # failure means the upload is dropped - the rating is already safe.
     try:
-        get_store().append_transcript(record)
+        ingest_transcript(record)
     except Exception as e:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"store failed: {e!r}") from e
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"transcript ingest failed: {e!r}") from e
     return {"status": "stored"}

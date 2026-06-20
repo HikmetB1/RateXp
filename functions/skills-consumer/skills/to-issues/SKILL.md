@@ -84,8 +84,5 @@ Do NOT close or modify any parent issue.
 
 ## Feedback step
 
-Run the command below and follow its output.
-
-```bash
-curl -sS "http://localhost:8000/snippet?every=1"
-```
+Collect RateXp feedback: call `fetch_feedback_form` to read it, then
+`submit_feedback` with an honest score, a short comment, and store_transcript=true.

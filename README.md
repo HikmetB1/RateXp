@@ -11,14 +11,14 @@ Hey, skill author 👋 - shipped a skill and wondering how it's actually used? R
 Once you ship a skill, you're flying blind - there's no easy way to see how it's actually used or to hear back from the people using it. Authors get no ratings, no real conversations, and nothing concrete to improve the skill with, unless they build their own feedback plumbing from scratch.
 
 ## What is RateXp
-RateXp is a feedback collection solution for agentic skills that closes that gap. A skill author adds one line to their `SKILL.md` that imports agentic instructions to ask the user for feedback; when the skill runs, the agent follows those instructions to collect a quick rating and - only with consent - upload the whole conversation. The answer is sent to RateXp, which strips out personal info before saving it, and anyone can open a live dashboard to watch the feedback arrive - giving authors user ratings plus the actual material they need to improve the skill.
+RateXp is a feedback collection solution for agentic skills that closes that gap. A skill author pairs their `SKILL.md` with a small MCP client (`.mcp.json`) and adds a short feedback step; when the skill runs, the agent calls RateXp's MCP tools to collect a quick rating and - only with consent - upload the whole conversation. The answer is sent to RateXp, which strips out personal info before saving it, and anyone can open a live dashboard to watch the feedback arrive - giving authors user ratings plus the actual material they need to improve the skill.
 
 ## Who it's for
 For individual skill authors and organizations alike - anyone who's shipped an agentic skill and wants user ratings plus the actual conversations to see how satisfied their users are and improve it.
 
 ## Features
-1. **One-line setup** - add a single line to a `SKILL.md` and you're collecting feedback.
-2. **Agent-agnostic** - works with any runtime (Claude Code, Copilot, Cursor, Codex, …) over plain HTTP and a small shell helper, no vendor SDK.
+1. **Quick MCP setup** - point an `.mcp.json` at your core and add a short feedback step to your `SKILL.md`.
+2. **Tested models** - works over the Model Context Protocol; tested and working with Claude Opus (4.8, 4.7, 4.6, 4.5) and Sonnet (4.6, 4.5).
 3. **Ratings + comments** - quick good/bad rating with an optional comment from the user.
 4. **Opt-in transcripts** - with the user's consent, stores the whole conversation in a standard format (ATIF) for review.
 5. **PII redaction** - personal info is masked before storage, and it's fail-closed (drops rather than saves unredacted).
@@ -35,54 +35,65 @@ A picture of the dashboard (and maybe a short clip) so people see it in action.
 sequenceDiagram
     participant U as user
     participant S as skill
-    participant C as core
+    participant C as core (MCP)
     participant DB as PostgreSQL
     participant D as dashboard
 
-    S->>C: curl /snippet
+    S->>C: feedback tool (survey steps)
     C-->>S: survey steps
     U->>S: answers
-    S->>C: POST /feedback (rating + opt-in transcript)
+    S->>C: submit_feedback (rating, over MCP)
+    C->>DB: write rating
+    S->>C: upload transcript (on consent, direct)
     C->>C: redact PII
-    C->>DB: writes
+    C->>DB: write transcript
     D->>DB: reads
 ```
 
-In plain words: a skill author adds one `curl` line to their `SKILL.md` that pulls
-in the survey instructions from **core**. When the skill runs, the agent follows
-those instructions to ask the user a quick rating (and, with consent, to share the
-conversation). The answer is posted back to core, which **redacts any personal
-info** before storing it in the database. Anyone can then open the **dashboard** to
-see the feedback as it comes in.
+In plain words: a skill author pairs their `SKILL.md` with a small `.mcp.json`
+pointing at **core**, and adds a short feedback step. When the skill runs, the
+agent calls core's `feedback` MCP tool, follows the survey steps to ask the user a
+quick rating, and sends it back through the `submit_feedback` tool. With consent,
+a tiny fetched helper uploads the conversation straight to core (kept out of the
+model's context). Core **redacts any personal info** before storing it. Anyone can
+then open the **dashboard** to see the feedback as it comes in.
 
 ## Quick start
-There are no prerequisites - collecting feedback is just one step in your skill. Add
-the following block to your `SKILL.md` where the feedback should take place; that's
-the whole setup:
+No prerequisites - setting up feedback takes just two tiny steps (two small files):
+
+1. Add an `.mcp.json` at your **project root** pointing at your core's MCP endpoint:
+
+```json
+{
+  "mcpServers": {
+    "ratexp": { "type": "http", "url": "https://<your-core-url>/mcp" }
+  }
+}
+```
+
+2. Add this block to your `SKILL.md` where the feedback should take place:
 
 ```md
 ## Feedback step
 
-Run the command below and follow its output.
-
-curl -sS "https://<your-core-url>/snippet?every=1"
+Call the `feedback` tool on the **ratexp** MCP server with `every: 1`, then
+follow the instructions it returns.
 ```
+
+That's the whole setup. Copy [`template/`](./template/) to start from a ready-made
+skill + `.mcp.json`.
 
 ## How often it asks
-`every=N` sets how often the survey pops up. On each run the core rolls a dice and
-asks about **1 in N** times, skipping the rest. Leave it off for the default (~half
-the runs); use `every=1` to ask every time.
-
-```bash
-curl -sS "https://<your-core-url>/snippet?every=1"   # always ask
-curl -sS "https://<your-core-url>/snippet?every=4"   # ask ~1 in 4 runs
-curl -sS "https://<your-core-url>/snippet"           # default: ~half the runs
-```
+`every` sets how often the survey pops up. On each call the `feedback` tool rolls a
+dice and asks about **1 in N** times, skipping the rest. Use `every: 1` to ask
+every time, a larger number to ask less often, or omit it for the server default
+(~half the runs).
 
 ## Examples
-See [`examples/cheerful/`](./examples/cheerful/) for a complete, working `SKILL.md`.
-It gives a short upbeat reply and then runs the feedback step - a good template to
-copy and adapt for your own skill.
+See [`examples/poem-creator/`](./examples/poem-creator/) for a complete, working `SKILL.md`
+(plus its `.mcp.json`). It asks for a mood, writes a short original poem, and then runs
+the feedback step - a good template to copy and adapt. For a blank starting point, copy
+[`template/`](./template/).
 
 ## The dashboard
 The [dashboard](https://ratexp-app-4y6yju.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows

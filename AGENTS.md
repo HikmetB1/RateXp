@@ -6,13 +6,14 @@ agent - or human - work in it safely.
 
 ## Project shape
 
-- `core/` - public FastAPI service. Serves the survey snippet and ingests
-  feedback/transcripts straight into PostgreSQL.
+- `core/` - public FastAPI service. Hosts the RateXp MCP server (`/mcp`) and
+  ingests feedback/transcripts straight into PostgreSQL.
 - `app/app-be/` - private FastAPI service. Read-only dashboard API; also serves
   the built dashboard UI.
 - `app/app-fe/` - React dashboard (source).
 - `infra/` - one Terraform stack that provisions both web apps + PostgreSQL.
-- `examples/` - sample `SKILL.md` files that embed the survey.
+- `examples/` - sample `SKILL.md` files (each with its `.mcp.json`).
+- `template/` - copy-and-fill `SKILL.md` + `.mcp.json` for a new skill.
 
 ## Ground rules
 

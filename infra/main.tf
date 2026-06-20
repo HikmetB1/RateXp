@@ -172,7 +172,7 @@ resource "azurerm_linux_web_app" "core" {
     WEBSITES_PORT     = "8000"
     RATEXP_DB_AUTH    = "entra"
     DATABASE_URL      = local.core_dsn
-    RATEXP_SUBMIT_URL = "${local.core_url}/feedback"
+    RATEXP_PUBLIC_URL = local.core_url
   }
 }
 

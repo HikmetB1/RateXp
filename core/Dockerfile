@@ -26,7 +26,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev \
       $(for e in $EXTRAS; do echo "--extra $e"; done)
 
-COPY server.py models.py migrate.py atif.py config.py config.yaml db.py store.py ratelimit.py redact.py ./
+COPY server.py mcp_app.py ingest.py models.py migrate.py atif.py config.py config.yaml db.py store.py ratelimit.py redact.py ./
 COPY prompt/ ./prompt/
 COPY scripts/ ./scripts/
 COPY migrations/ ./migrations/
@@ -37,4 +37,7 @@ USER ratexp
 
 EXPOSE 8000
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers + trust all forwarders: behind Azure's TLS-terminating proxy the
+# app must honor X-Forwarded-Proto, or the /mcp -> /mcp/ redirect goes out as http
+# and the MCP client hits a 421. Azure forwards from a non-local IP, hence "*".
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
