@@ -8,11 +8,12 @@ body:
     attributes:
       label: Feature request
       description: |
-        Thanks for the suggestion! Put everything in this one box. Please cover:
-        • The problem — what's frustrating or missing today?
-        • Proposed solution — what you'd like to happen.
-        • Alternatives — other approaches or workarounds you considered.
-        • Additional context — examples, screenshots, links, anything else.
+        Thanks for the suggestion! Put everything in this one box — please cover:
+
+        - **The problem** — what's frustrating or missing today?
+        - **Proposed solution** — what you'd like to happen.
+        - **Alternatives** — other approaches or workarounds you considered.
+        - **Additional context** — examples, screenshots, links, anything else.
       placeholder: |
         Problem: I'm always frustrated when…
         Proposed solution: It would help if…
