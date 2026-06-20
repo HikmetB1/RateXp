@@ -25,6 +25,7 @@ software-citation format is used.
 |---|
 | Python Software Foundation. *Python Programming Language* [Software]. https://www.python.org/ |
 | Encode. *Uvicorn - an ASGI web server* [Software]. https://www.uvicorn.org/ |
+| Anthropic and the Model Context Protocol contributors. *MCP Python SDK (includes FastMCP)* [Software]. https://github.com/modelcontextprotocol/python-sdk |
 | The PostgreSQL Global Development Group. *PostgreSQL* [Software]. https://www.postgresql.org/ |
 | Varrazzo, D. *Psycopg - PostgreSQL adapter for Python* [Software]. https://www.psycopg.org/ |
 | Meta Open Source. *React* [Software]. https://react.dev/ |
