@@ -1,0 +1,64 @@
+# Discussion template for the 📣 Announcements category.
+# Path/filename must match the category slug ("announcements"). GitHub shows this
+# form when a maintainer starts a new discussion in Announcements.
+title: "[Announcement] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keeping the RateXp community in the loop. Fill in what's relevant and
+        delete any section that doesn't apply.
+
+  - type: input
+    id: tldr
+    attributes:
+      label: TL;DR
+      description: One sentence — what is this about?
+      placeholder: "e.g. RateXp now redacts PII in stored transcripts (opt-in)."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Release / new version
+        - New feature
+        - Breaking change
+        - Deprecation
+        - Security notice
+        - Project / community update
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: What's new
+      description: The main details — bullet points are great.
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: action
+    attributes:
+      label: Action needed (if any)
+      description: Steps users must take — upgrade, config change, migration.
+      placeholder: "e.g. set `redaction.enabled: true` in core/config.yaml and redeploy."
+    validations:
+      required: false
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: PRs, release notes, docs, related discussions.
+      placeholder: |
+        - PR: #...
+        - Docs: ...
+    validations:
+      required: false
