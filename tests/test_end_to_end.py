@@ -1,7 +1,8 @@
-"""Full round-trip: feedback posted to core shows up on the dashboard.
+"""Full round-trip: feedback submitted via MCP shows up on the dashboard.
 
 This is the one test that proves the whole app works together - core writes to
-PostgreSQL, the dashboard reads the same database back out.
+PostgreSQL (through its MCP tools), the dashboard reads the same database back
+out.
 """
 
 from __future__ import annotations
@@ -14,21 +15,23 @@ def _find(rows: list[dict], skill_name: str) -> dict | None:
     return next((r for r in rows if r.get("skill_name") == skill_name), None)
 
 
-def test_feedback_round_trip(core_url, app_url, http):
+def test_feedback_round_trip(core_url, app_url, http, mcp_call):
     # A unique skill name so we can pick our row out of the dashboard list.
     skill = f"e2e-{uuid.uuid4().hex[:8]}"
-    payload = {
-        "session_id": str(uuid.uuid4()),
-        "skill_name": skill,
-        "agent": "claude-code",
-        "score": 2,
-        "comment": "end-to-end ok",
-    }
 
-    # 1. Core accepts and stores it.
-    posted = http.post(f"{core_url}/feedback", json=payload)
-    assert posted.status_code == 201
-    assert posted.json() == {"status": "stored"}
+    # 1. Core stores it via the submit_feedback MCP tool.
+    ok, _ = mcp_call(
+        "submit_feedback",
+        {
+            "session_id": str(uuid.uuid4()),
+            "request_id": str(uuid.uuid4()),
+            "skill_name": skill,
+            "agent": "claude-code",
+            "score": 2,
+            "comment": "end-to-end ok",
+        },
+    )
+    assert ok
 
     # 2. The dashboard reads it back (retry briefly to absorb write/read lag).
     row = None
@@ -45,12 +48,22 @@ def test_feedback_round_trip(core_url, app_url, http):
     assert row["comment"] == "end-to-end ok"
 
 
-def test_top_skills_counts_our_feedback(core_url, app_url, http):
+def test_top_skills_counts_our_feedback(core_url, app_url, http, mcp_call):
     skill = f"e2e-{uuid.uuid4().hex[:8]}"
-    base = {"skill_name": skill, "agent": "claude-code"}
+
     # One good (2) and one bad (1) rating for the same skill.
-    assert http.post(f"{core_url}/feedback", json={**base, "score": 2}).status_code == 201
-    assert http.post(f"{core_url}/feedback", json={**base, "score": 1}).status_code == 201
+    for score in (2, 1):
+        ok, _ = mcp_call(
+            "submit_feedback",
+            {
+                "session_id": str(uuid.uuid4()),
+                "request_id": str(uuid.uuid4()),
+                "skill_name": skill,
+                "agent": "claude-code",
+                "score": score,
+            },
+        )
+        assert ok
 
     entry = None
     for _ in range(5):
@@ -65,7 +78,7 @@ def test_top_skills_counts_our_feedback(core_url, app_url, http):
     assert entry["total"] >= 2  # both ratings counted
 
 
-def test_trajectory_round_trip(core_url, app_url, http):
+def test_trajectory_round_trip(core_url, app_url, http, mcp_call):
     """A feedback row and its stored transcript must stay linked on the dashboard.
 
     The dashboard's /snapshot is what the UI shows; it must return the feedback row
@@ -75,26 +88,18 @@ def test_trajectory_round_trip(core_url, app_url, http):
     session_id = str(uuid.uuid4())
     request_id = str(uuid.uuid4())
     skill = f"e2e-{uuid.uuid4().hex[:8]}"
-    shared = {"session_id": session_id, "skill_name": skill, "agent": "claude-code"}
+    shared = {"session_id": session_id, "request_id": request_id, "skill_name": skill, "agent": "claude-code"}
 
-    # Post the rating, then its consented transcript - same ids, as a real run does.
-    assert (
-        http.post(
-            f"{core_url}/feedback", json={**shared, "score": 2, "request_id": request_id}
-        ).status_code
-        == 201
-    )
+    # Submit the rating, then its consented transcript - same ids, as a real run does.
+    ok, _ = mcp_call("submit_feedback", {**shared, "score": 2})
+    assert ok
     atif = {
         "agent": {"name": "claude-code", "model_name": "test"},
         "session_id": session_id,
         "steps": [{"source": "user", "message": "do the thing", "step_id": 1}],
     }
-    assert (
-        http.post(
-            f"{core_url}/transcript", json={**shared, "atif": atif, "request_id": request_id}
-        ).status_code
-        == 201
-    )
+    ok, _ = mcp_call("submit_trajectory", {**shared, "atif": atif})
+    assert ok
 
     # The dashboard snapshot must carry our feedback AND its transcript, linked by id.
     fb = tx = None

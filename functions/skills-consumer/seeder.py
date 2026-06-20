@@ -5,10 +5,15 @@ small task, then gives RateXp feedback: an honest good/bad score, a comment, and
 consent to store the conversation transcript. A timer trigger (see seed/__init__.py)
 calls it on a schedule so feedback keeps trickling in. Everything tunable lives in
 config.yaml.
+
+Feedback reaches core over the **MCP** tools it exposes at `{core_url}/mcp`
+(`feedback`, `submit_feedback`, `submit_trajectory`) - the same surface a real
+skill uses - rather than plain HTTP.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import random
@@ -23,12 +28,13 @@ from pathlib import Path
 
 log = logging.getLogger("seeder")
 
-import requests
 import yaml
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
 HERE = Path(__file__).resolve().parent
 FRAMEWORK = "langchain"
@@ -60,6 +66,31 @@ def skills() -> tuple[dict, ...]:
 
 def _model_name() -> str:
     return config()["model"].split(":")[-1]
+
+
+def _mcp_url() -> str:
+    return f"{config()['core_url']}/mcp"
+
+
+async def _call_tool_async(name: str, arguments: dict) -> tuple[bool, str]:
+    async with streamablehttp_client(_mcp_url()) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool(name, arguments)
+            text = "\n".join(
+                getattr(b, "text", "") for b in result.content
+                if getattr(b, "type", None) == "text"
+            )
+            return (not result.isError), text
+
+
+def _mcp_call(name: str, arguments: dict) -> tuple[bool, str]:
+    """Call a core MCP tool over streamable HTTP; return (ok, text).
+
+    A fresh session per call - core is stateless, the seeder is sync, and this
+    keeps the bridge from async simple (one asyncio.run per call).
+    """
+    return asyncio.run(_call_tool_async(name, arguments))
 
 
 def _init_model():
@@ -116,7 +147,8 @@ def _steps(messages) -> list[dict]:
 _OVERSIZED_PAD_BYTES = 300_000
 
 
-def _post_transcript(ctx: dict, messages, session: requests.Session) -> bool:
+def _build_atif(ctx: dict, messages) -> dict:
+    """LangChain messages -> a complete ATIF trajectory dict (no network)."""
     steps = _steps(messages)
     prompt_tokens = sum(s["metrics"]["prompt_tokens"] for s in steps if "metrics" in s)
     completion_tokens = sum(s["metrics"]["completion_tokens"] for s in steps if "metrics" in s)
@@ -128,25 +160,30 @@ def _post_transcript(ctx: dict, messages, session: requests.Session) -> bool:
         steps.append({"step_id": len(steps) + 1, "source": "system",
                       "observation": "synthetic oversized-trajectory padding\n"
                                      + "x" * _OVERSIZED_PAD_BYTES})
-    resp = session.post(f"{config()['core_url']}/transcript", timeout=60, json={
+    return {
+        "schema_version": "ATIF-v1.7",
+        "session_id": ctx["session_id"],
+        "agent": {"name": FRAMEWORK, "model_name": _model_name()},
+        "steps": steps,
+        "final_metrics": {
+            "total_prompt_tokens": prompt_tokens,
+            "total_completion_tokens": completion_tokens,
+            "total_steps": total_steps,
+        },
+    }
+
+
+def _post_transcript(ctx: dict, messages) -> bool:
+    """Send the run's ATIF trajectory to core via the submit_trajectory MCP tool."""
+    ok, _ = _mcp_call("submit_trajectory", {
         "skill_name": ctx["skill"], "agent": ctx["agent"],
         "session_id": ctx["session_id"], "request_id": ctx["request_id"],
-        "atif": {
-            "schema_version": "ATIF-v1.7",
-            "session_id": ctx["session_id"],
-            "agent": {"name": FRAMEWORK, "model_name": _model_name()},
-            "steps": steps,
-            "final_metrics": {
-                "total_prompt_tokens": prompt_tokens,
-                "total_completion_tokens": completion_tokens,
-                "total_steps": total_steps,
-            },
-        },
+        "atif": _build_atif(ctx, messages),
     })
-    return resp.ok
+    return ok
 
 
-def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
+def _run_skill(skill: dict) -> tuple[bool, bool]:
     """Run one skill agentically. Returns (feedback_submitted, transcript_stored)."""
     cfg = config()
     rounds = cfg["max_rounds"]
@@ -196,8 +233,9 @@ def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
 
     @tool
     def fetch_feedback_form() -> str:
-        """Fetch the RateXp feedback form the skill points to."""
-        return session.get(f"{cfg['core_url']}/snippet", params={"every": 1}, timeout=10).text[:4000]
+        """Fetch the RateXp feedback form (the ratexp `feedback` MCP tool)."""
+        _ok, text = _mcp_call("feedback", {"every": 1})
+        return text[:4000]
 
     @tool
     def submit_feedback(score: int, comment: str = "", store_transcript: bool = True) -> str:
@@ -206,12 +244,13 @@ def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
         # This demo seeder always keeps its trajectory, so good and bad ratings both ship
         # one - never let a tough-review turn quietly decline consent and drop it.
         ctx["store_transcript"] = True
-        resp = session.post(f"{cfg['core_url']}/feedback", timeout=10, data={
-            "skill_name": ctx["skill"], "agent": ctx["agent"], "score": int(score),
-            "comment": comment, "session_id": ctx["session_id"], "request_id": ctx["request_id"],
-        })
-        ctx["submitted"] = ctx["submitted"] or resp.ok
-        return "stored" if resp.ok else "error"
+        args = {"skill_name": ctx["skill"], "agent": ctx["agent"], "score": int(score),
+                "session_id": ctx["session_id"], "request_id": ctx["request_id"]}
+        if comment:
+            args["comment"] = comment
+        ok, _ = _mcp_call("submit_feedback", args)
+        ctx["submitted"] = ctx["submitted"] or ok
+        return "stored" if ok else "error"
 
     prompt_fields = {"name": skill["name"], "max_rounds": rounds}
     agent = create_agent(
@@ -233,7 +272,7 @@ def _run_skill(skill: dict, session: requests.Session) -> tuple[bool, bool]:
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
 
-    stored = bool(ctx["store_transcript"]) and _post_transcript(ctx, messages, session)
+    stored = bool(ctx["store_transcript"]) and _post_transcript(ctx, messages)
     return ctx["submitted"], bool(stored)
 
 
@@ -245,8 +284,7 @@ def seed_once() -> dict:
                 "error": "no skills found under skills/*/SKILL.md"}
     skill = random.choice(pool)
     try:
-        with requests.Session() as session:
-            submitted, stored = _run_skill(skill, session)
+        submitted, stored = _run_skill(skill)
     except Exception as exc:
         return {"skill": skill["name"], "feedback_sent": False,
                 "transcript_stored": False, "error": str(exc)}
@@ -274,7 +312,7 @@ def run_local() -> None:
         scheduler.enter(interval, 1, tick)  # re-arm for the next run
 
     log.info("seeding continuously -> %s, %ss between runs (Ctrl-C to stop)",
-             config()["core_url"], interval)
+             _mcp_url(), interval)
     scheduler.enter(0, 1, tick)  # first run now
     scheduler.run()
 

@@ -14,34 +14,51 @@
 - [Contributor License Agreement](#contributor-license-agreement)
 
 ## Running locally
-You need **Docker** with Docker Compose **v2** (the `docker compose` command, with a space). The whole stack - PostgreSQL + core + dashboard - comes up with one command:
+
+**Prerequisite:** Docker with Docker Compose **v2** (the `docker compose` command, with a space).
+
+### 1. Start the stack
+The whole stack - PostgreSQL + core + dashboard - comes up with one command:
 
 ```bash
 git clone <repo-url> ratexp && cd ratexp
-cp .env.example .env            # optional - defaults work out of the box
-docker compose up --build -d    # start everything
-docker compose logs -f core     # follow a service
-docker compose down -v          # stop and wipe data
+cp .env.example .env          # optional - defaults work out of the box
+docker compose up --build -d
 ```
 
-| Service | URL                     | What it is                   |
-|---------|-------------------------|------------------------------|
-| core    | <http://localhost:8000> | snippet + feedback ingestion |
-| app     | <http://localhost:8001> | the dashboard                |
+| Service | URL                     | What it is                      |
+|---------|-------------------------|---------------------------------|
+| core    | <http://localhost:8000> | MCP server (`/mcp`) + ingestion |
+| app     | <http://localhost:8001> | the dashboard                   |
 
-To watch ratings land on the dashboard, add the feedback block below to your `SKILL.md` and make sure it is pointed at your localhost core:
+Handy commands: `docker compose logs -f core` follows a service's logs, and
+`docker compose down -v` stops everything and wipes the data.
+
+### 2. Send your own ratings (optional)
+To watch ratings land on the dashboard, point a project `.mcp.json` at your local
+core:
+
+```json
+{
+  "mcpServers": {
+    "ratexp": { "type": "http", "url": "http://localhost:8000/mcp" }
+  }
+}
+```
+
+Then add a feedback step to that skill's `SKILL.md`:
 
 ```md
 ## Feedback step
 
-Run the command below and follow its output.
-
-curl -sS "http://localhost:8000/snippet?every=1"
+Call the `feedback` tool on the **ratexp** MCP server with `every: 1`, then
+follow the instructions it returns.
 ```
 
-To auto-fill the dashboard with realistic demo feedback, run the optional
-seeder. It needs an LLM, so set `MODEL` and the matching key (e.g. `OPENAI_API_KEY`)
-in `functions/skills-consumer/.env`, then bring it up with the `seed` profile (left
+### 3. Seed demo feedback (optional)
+To auto-fill the dashboard with realistic demo feedback, run the seeder. It needs
+an LLM, so set `MODEL` and the matching key (e.g. `OPENAI_API_KEY`) in
+`functions/skills-consumer/.env`, then bring it up with the `seed` profile (kept
 out of a plain run because it spends API credits):
 
 ```bash
@@ -80,7 +97,7 @@ matching key in `functions/skills-consumer/.env`:
 | `schema_version`        | `ATIF-v1.7` | ATIF version stamped on every stored transcript                  |
 | `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)            |
 | `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
-| `default_survey_every`  | `2`         | Default `?every=N` when a `/snippet` call omits it (`1` = always)|
+| `default_survey_every`  | `2`         | Default `every` when a `feedback` MCP call omits it (`1` = always)|
 
 > Redaction keys (`redaction.enabled`, `endpoint`, `languages`)
 
@@ -155,8 +172,8 @@ writes feedback, the dashboard reads it back:
 
 | File | Checks |
 |------|--------|
-| `test_smoke.py` | Both services answer `/healthz`; core serves the survey snippet. |
-| `test_end_to_end.py` | Feedback posted to core appears on the dashboard and in its top-skills stats, and a posted trajectory reads back through the dashboard. |
+| `test_smoke.py` | Both services answer `/healthz`; core advertises its MCP tools. |
+| `test_end_to_end.py` | Feedback submitted via core's MCP tools appears on the dashboard and in its top-skills stats, and a stored trajectory reads back through the dashboard. |
 | `test_azure_live.py` | Opt-in smoke test against the deployed Azure web apps (skipped by default). |
 
 Bring the stack up first:
@@ -184,13 +201,14 @@ pytest tests/test_azure_live.py
 
 ```text
 .
-├── core/                Public FastAPI service: serves the snippet, ingests feedback → PostgreSQL
+├── core/                Public FastAPI service: hosts the MCP server (/mcp), ingests feedback → PostgreSQL
 ├── app/
 │   ├── app-be/          Dashboard FastAPI service: read-only API; also serves the UI
 │   ├── app-fe/          React dashboard (source)
 │   └── Dockerfile       Builds the app image (UI bundled in)
 ├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
-├── examples/            Sample SKILL.md files
+├── examples/            Sample SKILL.md files (each with its .mcp.json)
+├── template/            Copy-and-fill SKILL.md + .mcp.json for a new skill
 ├── functions/
 │   └── skills-consumer/ Azure Function: timer that seeds demo feedback into core
 ├── tests/               Whole-app integration tests (run against a live/local stack)
@@ -209,6 +227,7 @@ helpers (`db.py`, `config.py`) so either can be built and deployed on its own.
 
 - [ ] Flip storage into an adapter
 - [ ] Flip query into adapter-based
+- [ ] Expand to more coding agents (e.g. GitHub Copilot)
 
 ## Contributor License Agreement
 

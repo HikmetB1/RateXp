@@ -61,3 +61,23 @@ class FeedbackStore:
 
     def close(self) -> None:
         self.pool.close()
+
+
+# One store (one pool) for the process lifetime. server.py opens it at boot and
+# closes it at shutdown; ingest.py reaches it on each write. Kept here so both
+# can share it without importing each other.
+_store: FeedbackStore | None = None
+
+
+def get_store() -> FeedbackStore:
+    global _store
+    if _store is None:
+        _store = FeedbackStore()
+    return _store
+
+
+def close_store() -> None:
+    global _store
+    if _store is not None:
+        _store.close()
+        _store = None
