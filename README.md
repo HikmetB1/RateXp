@@ -5,7 +5,7 @@
 </p>
 
 ## One-line pitch
-Hey, skill author 👋 - shipped a skill and wondering how it's actually used? RateXp is a feedback collection solution for agentic skills - add a couple of lines to your `SKILL.md` (see [Quick start](#quick-start) below) and it asks users for a rating (and, with consent, the full conversation), redacts it, and shows it on a [live dashboard](https://ratexp-app-4y6yju.azurewebsites.net/).
+Hey, skill author 👋 - shipped a skill and wondering how it's actually used? RateXp is a feedback collection solution for agentic skills - add a couple of lines to your `SKILL.md` (see [Quick start](#quick-start) below) and it asks users for a rating (and, with consent, the full conversation), redacts it, and shows it on a [live dashboard](https://ratexp-app.azurewebsites.net/).
 
 ## The problem defintion
 Once you ship a skill, you're flying blind - there's no easy way to see how it's actually used or to hear back from the people using it. Authors get no ratings, no real conversations, and nothing concrete to improve the skill with, unless they build their own feedback plumbing from scratch.
@@ -96,7 +96,7 @@ the feedback step - a good template to copy and adapt. For a blank starting poin
 [`template/`](./template/).
 
 ## The dashboard
-The [dashboard](https://ratexp-app-4y6yju.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows
+The [dashboard](https://ratexp-app.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows
 only the latest entries and the most-rated skills (both capped by `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10 each). The layout is responsive. Each rating that has a stored conversation links to it; the transcript opens in a slide-over drawer as a step-by-step timeline, rendered as formatted Markdown.
 
 To pull more than the preview shows, use the **SQL filter** and **Download JSON**:
