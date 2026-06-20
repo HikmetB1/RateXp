@@ -3,7 +3,7 @@
 #
 #   docker compose up --build -d
 #   open http://localhost:8001          # dashboard
-#   curl http://localhost:8000/snippet  # what a skill fetches
+#   http://localhost:8000/mcp           # the MCP endpoint a skill connects to
 #
 # Values default to a working local setup; override via a .env file (see
 # .env.example), which compose reads automatically.
@@ -33,13 +33,15 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
-      # Baked into /snippet so skills POST feedback back to core on the host.
-      RATEXP_SUBMIT_URL: ${RATEXP_SUBMIT_URL:-http://localhost:${CORE_HOST_PORT:-8000}/feedback}
+      # Public base URL the feedback flow hands the agent for the transcript
+      # helper + upload endpoint. Must be reachable from the host running the skill.
+      RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
       # No Azure identity locally, so PII redaction would fail-closed and drop
       # every transcript. Default it off here; set true to test real redaction.
       RATEXP_REDACTION_ENABLED: ${RATEXP_REDACTION_ENABLED:-false}
     # Live-reload the API on source edits; prompt.md is read per request.
-    command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload
+    # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
+    command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"
     volumes:
       - ./core:/app
     depends_on:

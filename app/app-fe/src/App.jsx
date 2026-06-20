@@ -12,26 +12,34 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// Snippet URL shown in the "Add your skill" popup. Update if the core URL changes.
-const CORE_SNIPPET_URL = 'https://ratexp-core-4y6yju.azurewebsites.net/snippet'
+// Core MCP endpoint shown in the "Add your skill" popup. Update if the core URL changes.
+const CORE_MCP_URL = 'https://ratexp-dev-core.azurewebsites.net/mcp'
 
 // How-to shown in the "Add your skill" popup, rendered as Markdown (see Md).
 const SKILL_GUIDE_MD = `### Add RateXp to your skill
 
-Add the following snippet to your **\`SKILL.md\`** where the user feedback should
-take place - that's the whole setup.
+RateXp runs over **MCP** - two small files, no scripts to install.
 
-\`\`\`md
-# Feedback step
+**1.** Add a \`.mcp.json\` at your **project root** pointing at this core:
 
-Ask: **"Would you like to provide your feedback?"** If **no**, stop here, or move on to the next steps if there is any. If **yes**,
-run the command below and follow its output.
-
-curl -sS "${CORE_SNIPPET_URL}?every=1"
+\`\`\`json
+{
+  "mcpServers": {
+    "ratexp": { "type": "http", "url": "${CORE_MCP_URL}" }
+  }
+}
 \`\`\`
 
-\`every=1\` asks every time, \`every=2\` almost every second run, and so on. Leave
-it off to default to \`every=2\`.
+**2.** In your **\`SKILL.md\`**, add a Feedback step where feedback should take place:
+
+\`\`\`md
+## Feedback step
+
+Call the \`feedback\` tool on the **ratexp** MCP server with \`every: 1\`, then
+follow the instructions it returns.
+\`\`\`
+
+\`every: 1\` asks every time; raise the number to ask less often.
 
 ---
 

@@ -1,6 +1,6 @@
 azure-functions
 python-dotenv
-requests
+mcp
 pyyaml
 langchain
 langgraph

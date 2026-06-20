@@ -8,21 +8,6 @@ from types import SimpleNamespace
 import seeder
 
 
-class _FakeResp:
-    ok = True
-
-
-class _FakeSession:
-    """Captures the posted JSON body instead of hitting the network."""
-
-    def __init__(self) -> None:
-        self.body: dict | None = None
-
-    def post(self, url, timeout, json):  # noqa: A002 - matches requests.Session.post
-        self.body = json
-        return _FakeResp()
-
-
 def _msg(kind, content="", tool_calls=None, usage=None):
     """A minimal stand-in for a LangChain message (only the fields `_steps` reads)."""
     return SimpleNamespace(
@@ -88,22 +73,18 @@ def _cfg(oversized_ratio):
             "oversized_ratio": oversized_ratio}
 
 
-def test_post_transcript_pads_past_size_limit_when_oversized(monkeypatch):
+def test_build_atif_pads_past_size_limit_when_oversized(monkeypatch):
     monkeypatch.setattr(seeder, "config", lambda: _cfg(1))  # always oversized
-    session = _FakeSession()
-    assert seeder._post_transcript(_ctx(), [], session) is True
-    atif = session.body["atif"]
+    atif = seeder._build_atif(_ctx(), [])
     # The ATIF body exceeds core's max_transcript_bytes (256 KiB), so core will stub it.
     assert len(json.dumps(atif).encode()) > 262144
     # Kept totals reflect the real run (no real steps), not the synthetic padding.
     assert atif["final_metrics"]["total_steps"] == 0
 
 
-def test_post_transcript_no_padding_when_disabled(monkeypatch):
+def test_build_atif_no_padding_when_disabled(monkeypatch):
     monkeypatch.setattr(seeder, "config", lambda: _cfg(0))  # never oversized
-    session = _FakeSession()
-    assert seeder._post_transcript(_ctx(), [], session) is True
-    assert session.body["atif"]["steps"] == []
+    assert seeder._build_atif(_ctx(), [])["steps"] == []
 
 
 def test_seed_once_reports_when_no_skills(monkeypatch):
@@ -115,14 +96,14 @@ def test_seed_once_reports_when_no_skills(monkeypatch):
 
 def test_seed_once_returns_run_result(monkeypatch):
     monkeypatch.setattr(seeder, "skills", lambda: ({"name": "demo", "prompt": "x"},))
-    monkeypatch.setattr(seeder, "_run_skill", lambda skill, session: (True, True))
+    monkeypatch.setattr(seeder, "_run_skill", lambda skill: (True, True))
     assert seeder.seed_once() == {"skill": "demo", "feedback_sent": True, "transcript_stored": True}
 
 
 def test_seed_once_swallows_run_errors(monkeypatch):
     monkeypatch.setattr(seeder, "skills", lambda: ({"name": "demo", "prompt": "x"},))
 
-    def boom(skill, session):
+    def boom(skill):
         raise RuntimeError("nope")
 
     monkeypatch.setattr(seeder, "_run_skill", boom)

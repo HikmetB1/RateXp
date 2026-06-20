@@ -34,7 +34,7 @@ output "app_name" {
 }
 
 output "core_url" {
-  description = "Public URL of core - point your skills here (the snippet API)."
+  description = "Public URL of core - point your skills' .mcp.json here (append /mcp)."
   value       = local.core_url
 }
 

@@ -17,7 +17,7 @@ if str(_CORE_DIR) not in sys.path:
 @pytest.fixture(autouse=True)
 def _isolate_env(monkeypatch):
     """Each test starts with a clean, predictable environment."""
-    for var in ("RATEXP_SUBMIT_URL", "RATEXP_DB_AUTH", "DATABASE_URL"):
+    for var in ("RATEXP_DB_AUTH", "DATABASE_URL"):
         monkeypatch.delenv(var, raising=False)
 
 
@@ -26,7 +26,7 @@ def _disable_redaction(monkeypatch):
     """Keep redaction out of the way by default (config ships enabled: true).
 
     Tests that exercise redaction opt back in by patching `redact.REDACTION_ENABLED`
-    or `server.redact_atif` themselves.
+    or `ingest.redact_atif` themselves.
     """
     import redact
 
@@ -34,10 +34,9 @@ def _disable_redaction(monkeypatch):
 
 
 @pytest.fixture
-def client(monkeypatch):
-    """Return (TestClient, captured_records). The store is a stub list-appender."""
-    import server
-    from fastapi.testclient import TestClient
+def store_stub(monkeypatch):
+    """Swap the store singleton for a list-appender; return the captured records."""
+    import store
 
     captured: list = []
 
@@ -51,29 +50,21 @@ def client(monkeypatch):
         def close(self):
             pass
 
-    from ratelimit import RateLimiter
-
-    monkeypatch.setattr(server, "_store", StubStore(), raising=False)
-    # Keep the limiter out of the way unless a test exercises it explicitly.
-    monkeypatch.setattr(server, "_limiter", RateLimiter(1_000_000))
-    return TestClient(server.app), captured
+    monkeypatch.setattr(store, "_store", StubStore())
+    return captured
 
 
 @pytest.fixture
-def failing_client(monkeypatch):
-    """TestClient whose store raises - used for the 503 path."""
+def client(monkeypatch, store_stub):
+    """Return (TestClient, captured). The store is the stub from store_stub.
+
+    Used by the middleware tests; the store is stubbed so importing/using the
+    app needs no database.
+    """
     import server
     from fastapi.testclient import TestClient
+    from ratelimit import RateLimiter
 
-    class BoomStore:
-        def append(self, record):
-            raise RuntimeError("kaboom")
-
-        def append_transcript(self, record):
-            raise RuntimeError("kaboom")
-
-        def close(self):
-            pass
-
-    monkeypatch.setattr(server, "_store", BoomStore(), raising=False)
-    return TestClient(server.app)
+    # Keep the limiter out of the way unless a test exercises it explicitly.
+    monkeypatch.setattr(server, "_limiter", RateLimiter(1_000_000))
+    return TestClient(server.app), store_stub

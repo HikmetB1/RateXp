@@ -15,9 +15,7 @@ def test_dashboard_healthz(app_url, http):
     assert r.json() == {"status": "ok"}
 
 
-def test_core_serves_snippet(core_url, http):
-    # The snippet is what a skill fetches; every=1 forces the full survey (not
-    # the sampled-out "skip" message) so it must carry the submit URL.
-    r = http.get(f"{core_url}/snippet", params={"every": 1})
-    assert r.status_code == 200
-    assert "/feedback" in r.text
+def test_core_serves_mcp_tools(mcp_tools):
+    # The MCP server is what a skill connects to; it must advertise the three
+    # tools the feedback flow uses.
+    assert {"feedback", "submit_feedback", "submit_trajectory"} <= set(mcp_tools)

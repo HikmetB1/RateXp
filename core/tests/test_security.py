@@ -36,9 +36,10 @@ def test_oversized_body_rejected(client, monkeypatch):
     import server
 
     c, _ = client
-    # Declare a content-length above the configured cap.
+    # Declare a content-length above the configured cap. The middleware rejects
+    # it before routing, so any POST path (here the MCP endpoint) triggers it.
     monkeypatch.setattr(server, "MAX_BODY_BYTES", 10)
-    r = c.post("/feedback", json={"skill_name": "x", "agent": "y", "comment": "way too long"})
+    r = c.post("/mcp", json={"way": "too long for the cap"})
     assert r.status_code == 413
 
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 
 import pytest
+from conftest import mcp_list_tool_names
 
 AZURE_LIVE = os.environ.get("RATEXP_AZURE_LIVE") == "1"
 AZURE_CORE_URL = os.environ.get("RATEXP_AZURE_CORE_URL", "").rstrip("/")
@@ -32,12 +33,10 @@ def test_azure_core_is_up(http):
     assert r.json() == {"status": "ok"}
 
 
-def test_azure_core_serves_snippet(http):
-    r = http.get(f"{AZURE_CORE_URL}/snippet", params={"every": 1})
-    assert r.status_code == 200
-    # In Azure the snippet must point back at the deployed core, over https.
-    assert "https://" in r.text
-    assert "/feedback" in r.text
+def test_azure_core_serves_mcp_tools():
+    # The deployed core must expose its MCP tools - the only ingestion surface.
+    names = set(mcp_list_tool_names(AZURE_CORE_URL))
+    assert {"feedback", "submit_feedback", "submit_trajectory"} <= names
 
 
 def test_azure_dashboard_is_up(http):

@@ -12,10 +12,13 @@ real client would. Two modes:
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 import httpx
 import pytest
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
 # Where the local stack lives. Defaults match docker-compose.yml's published ports.
 CORE_URL = os.environ.get("RATEXP_CORE_URL", "http://localhost:8000").rstrip("/")
@@ -56,3 +59,48 @@ def http() -> httpx.Client:
     """A short-timeout HTTP client, closed automatically after each test."""
     with httpx.Client(timeout=10) as client:
         yield client
+
+
+# --- MCP client helpers (core's only ingestion surface is /mcp) ---------------
+# A fresh session per call: core is stateless, so this keeps the bridge from
+# async simple. Reused by the local fixtures below and by the Azure live tests.
+
+async def _with_session(url: str, fn):
+    async with streamablehttp_client(url) as (read, write, _):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            return await fn(session)
+
+
+def mcp_list_tool_names(core_url: str) -> list[str]:
+    async def _go(session):
+        res = await session.list_tools()
+        return [t.name for t in res.tools]
+
+    return asyncio.run(_with_session(f"{core_url}/mcp", _go))
+
+
+def mcp_tool_call(core_url: str, name: str, arguments: dict | None = None) -> tuple[bool, str]:
+    async def _go(session):
+        result = await session.call_tool(name, arguments or {})
+        text = "\n".join(
+            getattr(b, "text", "") for b in result.content if getattr(b, "type", None) == "text"
+        )
+        return (not result.isError), text
+
+    return asyncio.run(_with_session(f"{core_url}/mcp", _go))
+
+
+@pytest.fixture
+def mcp_call(core_url):
+    """Call a core MCP tool by name; returns (ok, text)."""
+    def _call(name: str, arguments: dict | None = None) -> tuple[bool, str]:
+        return mcp_tool_call(core_url, name, arguments)
+
+    return _call
+
+
+@pytest.fixture
+def mcp_tools(core_url) -> list[str]:
+    """The tool names core advertises over MCP."""
+    return mcp_list_tool_names(core_url)
