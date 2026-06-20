@@ -55,9 +55,7 @@ def test_submit_trajectory_from_prebuilt_atif(store_stub):
 
 def test_submit_trajectory_requires_transcript_or_atif(store_stub):
     with pytest.raises(ValueError):
-        mcp_app.submit_trajectory(
-            skill_name="x", agent="y", session_id="s", request_id="r"
-        )
+        mcp_app.submit_trajectory(skill_name="x", agent="y", session_id="s", request_id="r")
 
 
 def test_submit_trajectory_empty_transcript_rejected(store_stub):

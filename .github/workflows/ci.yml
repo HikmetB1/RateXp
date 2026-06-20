@@ -51,7 +51,7 @@ jobs:
             done
           done
       - name: Whole-app tests
-        run: uv run --no-project --with pytest --with httpx pytest tests/
+        run: uv run --no-project --with-requirements tests/requirements.txt pytest tests/
       - name: Stack logs on failure
         if: failure()
         run: docker compose logs

@@ -353,7 +353,10 @@ def run_query(req: QueryRequest) -> dict:
     if not req.full:
         req_ids = [r["request_id"] for r in result if r.get("request_id")]
         sess_ids = [r["session_id"] for r in result if r.get("session_id")]
-        transcripts = [_row_to_transcript(t).model_dump() for t in _select_transcripts_by_ids(req_ids, sess_ids)]
+        transcripts = [
+            _row_to_transcript(t).model_dump()
+            for t in _select_transcripts_by_ids(req_ids, sess_ids)
+        ]
 
     return {
         "columns": columns,

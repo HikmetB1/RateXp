@@ -8,6 +8,7 @@ import ingest
 import mcp_app
 import pytest
 from models import Feedback
+from pydantic import ValidationError
 
 
 def _kwargs(**overrides):
@@ -37,9 +38,9 @@ def test_submit_feedback_score_and_comment_optional(store_stub):
 
 
 def test_submit_feedback_score_out_of_range_rejected(store_stub):
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         mcp_app.submit_feedback(**_kwargs(score=0))
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         mcp_app.submit_feedback(**_kwargs(score=3))
 
 

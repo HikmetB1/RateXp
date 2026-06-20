@@ -135,9 +135,21 @@ def test_select_transcripts_for_queries_by_feedback_ids(app_with_fake_pool):
     import server
 
     # A feedback row is (created_at, session_id, ..., request_id): match on both ids.
-    feedback = [(datetime(2026, 5, 25, tzinfo=UTC), "sess-1", "demo", "claude-code", 2, "ok", "req-1")]
+    feedback = [
+        (datetime(2026, 5, 25, tzinfo=UTC), "sess-1", "demo", "claude-code", 2, "ok", "req-1")
+    ]
     pool.set_select_rows(
-        [(datetime(2026, 5, 25, tzinfo=UTC), "sess-1", "demo", "claude-code", "ATIF-v1.7", {"steps": []}, "req-1")]
+        [
+            (
+                datetime(2026, 5, 25, tzinfo=UTC),
+                "sess-1",
+                "demo",
+                "claude-code",
+                "ATIF-v1.7",
+                {"steps": []},
+                "req-1",
+            )
+        ]
     )
     rows = server._select_transcripts_for(feedback)
     assert pool.store["params"] == (["req-1"], ["sess-1"], LIST_MAX_LIMIT)
@@ -269,7 +281,17 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
 
     def fake_transcripts(req_ids, sess_ids):
         captured["req"], captured["sess"] = req_ids, sess_ids
-        return [("2026-06-10T00:00:00Z", "sess1", "handoff", "claude", "ATIF-v1.7", {"steps": []}, "req1")]
+        return [
+            (
+                "2026-06-10T00:00:00Z",
+                "sess1",
+                "handoff",
+                "claude",
+                "ATIF-v1.7",
+                {"steps": []},
+                "req1",
+            )
+        ]
 
     monkeypatch.setattr(server, "_select_transcripts_by_ids", fake_transcripts)
     body = client.post(
@@ -315,7 +337,9 @@ def test_query_full_single_skill_exports_all(app_with_fake_pool):
     pool.set_columns(["skill_name", "created_at"])
     rows = [("demo", f"2026-06-{i:02d}T00:00:00Z") for i in range(1, LIST_VIEW_LIMIT + 5)]
     pool.set_select_rows(rows)
-    r = client.post("/query", json={"sql": "SELECT skill_name, created_at FROM feedback", "full": True})
+    r = client.post(
+        "/query", json={"sql": "SELECT skill_name, created_at FROM feedback", "full": True}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["row_count"] == len(rows)  # all of the one skill, past the view limit
@@ -331,7 +355,9 @@ def test_query_full_multiple_skills_trims_to_recent(app_with_fake_pool):
     # Two skills, days 01..12 in arbitrary order; expect the newest LIST_VIEW_LIMIT back.
     rows = [(("a" if i % 2 else "b"), f"2026-06-{i:02d}T00:00:00Z") for i in range(1, 13)]
     pool.set_select_rows(rows)
-    r = client.post("/query", json={"sql": "SELECT skill_name, created_at FROM feedback", "full": True})
+    r = client.post(
+        "/query", json={"sql": "SELECT skill_name, created_at FROM feedback", "full": True}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["row_count"] == LIST_VIEW_LIMIT
