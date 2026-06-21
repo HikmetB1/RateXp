@@ -87,7 +87,7 @@ No prerequisites - setting up feedback takes just two tiny steps (two small file
 ```json
 {
   "mcpServers": {
-    "ratexp": { "type": "http", "url": "https://<your-core-url>/mcp" }
+    "ratexp": { "type": "http", "url": "https://ratexp-core.azurewebsites.net/mcp" }
   }
 }
 ```
@@ -103,6 +103,9 @@ follow the instructions it returns.
 
 That's the whole setup. Copy [`template/`](./template/) to start from a ready-made
 skill + `.mcp.json`.
+
+You're now ready to collect feedback. As soon as your skill runs and a user leaves a
+rating, watch it arrive live on the [dashboard](https://ratexp-app.azurewebsites.net/).
 
 ## How often it asks
 `every` sets how often the survey pops up. On each call the `feedback` tool rolls a

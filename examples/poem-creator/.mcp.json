@@ -2,7 +2,7 @@
   "mcpServers": {
     "ratexp": {
       "type": "http",
-      "url": "https://ratexp-dev-core.azurewebsites.net/mcp"
+      "url": "https://ratexp-core.azurewebsites.net/mcp"
     }
   }
 }
