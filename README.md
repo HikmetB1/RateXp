@@ -34,29 +34,49 @@ A picture of the dashboard (and maybe a short clip) so people see it in action.
 ```mermaid
 sequenceDiagram
     participant U as user
-    participant S as skill
-    participant C as core (MCP)
+    participant S as skill (agent)
+    participant H as upload helper<br/>(user's machine)
+    participant C as core (MCP + HTTP)
+    participant R as redaction<br/>(Presidio / Azure AI Language)
     participant DB as PostgreSQL
-    participant D as dashboard
+    participant A as dashboard API<br/>(read-only)
+    participant D as dashboard UI
 
-    S->>C: feedback tool (survey steps)
-    C-->>S: survey steps
-    U->>S: answers
+    S->>C: feedback tool
+    C-->>S: survey steps (~1 in N) or "skip"
+    S->>U: ask survey (AskUserQuestion)
+    U->>S: answers (rating, consent, comment)
     S->>C: submit_feedback (rating, over MCP)
     C->>DB: write rating
-    S->>C: upload transcript (on consent, direct)
-    C->>C: redact PII
+
+    Note over S,H: only on consent
+    S->>H: run curl|sh (one local command, single approval)
+    H->>C: GET /upload_transcript.sh
+    C-->>H: helper script
+    H->>C: POST /transcript (raw .jsonl, plain HTTP)
+    C->>R: redact PII (fail-closed)
+    R-->>C: masked text
     C->>DB: write transcript
-    D->>DB: reads
+    Note over DB: rating + transcript linked by request_id
+
+    D->>A: GET /snapshot (initial load, HTTP)
+    A->>DB: read
+    A-->>D: snapshot
+    D->>A: subscribe /ws (WebSocket)
+    A-->>D: live snapshots (on connect, then on change)
 ```
 
 In plain words: a skill author pairs their `SKILL.md` with a small `.mcp.json`
 pointing at **core**, and adds a short feedback step. When the skill runs, the
 agent calls core's `feedback` MCP tool, follows the survey steps to ask the user a
-quick rating, and sends it back through the `submit_feedback` tool. With consent,
-a tiny fetched helper uploads the conversation straight to core (kept out of the
-model's context). Core **redacts any personal info** before storing it. Anyone can
-then open the **dashboard** to see the feedback as it comes in.
+quick rating (only ~1 in N runs - the rest are skipped), and sends it back through
+the `submit_feedback` tool. With consent, the agent runs one command that fetches a
+tiny helper from core; the helper runs **on the user's machine** and uploads the raw
+conversation straight to core over plain HTTP - never through the model's context.
+Core **redacts any personal info** (via Presidio or Azure AI Language, fail-closed -
+it drops rather than stores anything unredacted) before saving. The **dashboard** is
+a separate read-only service that reads the database and pushes live updates, so
+anyone can watch the feedback arrive.
 
 ## Quick start - ship your skill with RateXp
 No prerequisites - setting up feedback takes just two tiny steps (two small files):
