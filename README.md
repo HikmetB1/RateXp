@@ -5,13 +5,13 @@
 </p>
 
 ## One-line pitch
-Hey, skill author 👋 - shipped a skill and wondering how it's actually used? RateXp is a feedback collection solution for agentic skills - add a couple of lines to your `SKILL.md` (see [Quick start](#quick-start) below) and it asks users for a rating (and, with consent, the full conversation), redacts it, and shows it on a [live dashboard](https://ratexp-app.azurewebsites.net/).
+Hey, skill author 👋 - shipped a skill and wondering how it's actually used? RateXp is a feedback collection solution for agentic skills - ship your skill with RateXp by pairing your `SKILL.md` with an MCP client pointing to our core (see [Quick start](#quick-start---ship-your-skill-with-ratexp) below) and it asks users for a rating (and, with consent, the full conversation), redacts it, and shows it on a [live dashboard](https://ratexp-app.azurewebsites.net/).
 
 ## The problem defintion
 Once you ship a skill, you're flying blind - there's no easy way to see how it's actually used or to hear back from the people using it. Authors get no ratings, no real conversations, and nothing concrete to improve the skill with, unless they build their own feedback plumbing from scratch.
 
 ## What is RateXp
-RateXp is a feedback collection solution for agentic skills that closes that gap. A skill author pairs their `SKILL.md` with a small MCP client (`.mcp.json`) and adds a short feedback step; when the skill runs, the agent calls RateXp's MCP tools to collect a quick rating and - only with consent - upload the whole conversation. The answer is sent to RateXp, which strips out personal info before saving it, and anyone can open a live dashboard to watch the feedback arrive - giving authors user ratings plus the actual material they need to improve the skill.
+RateXp is a feedback collection solution for agentic skills that closes that gap. A skill author pairs their `SKILL.md` with an MCP client pointing to our core (`.mcp.json`) and adds a short feedback step; when the skill runs, the agent calls RateXp's MCP tools to collect a quick rating and - only with consent - upload the whole conversation. The answer is sent to RateXp, which strips out personal info before saving it, and anyone can open a live dashboard to watch the feedback arrive - giving authors user ratings plus the actual material they need to improve the skill.
 
 ## Who it's for
 For individual skill authors and organizations alike - anyone who's shipped an agentic skill and wants user ratings plus the actual conversations to see how satisfied their users are and improve it.
@@ -58,7 +58,7 @@ a tiny fetched helper uploads the conversation straight to core (kept out of the
 model's context). Core **redacts any personal info** before storing it. Anyone can
 then open the **dashboard** to see the feedback as it comes in.
 
-## Quick start
+## Quick start - ship your skill with RateXp
 No prerequisites - setting up feedback takes just two tiny steps (two small files):
 
 1. Add an `.mcp.json` at your **project root** pointing at your core's MCP endpoint:

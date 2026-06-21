@@ -139,7 +139,7 @@ button:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 7px 
 button:active:not(:disabled) { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* "Add RateXp to your skill" and the filter buttons all use .btn-edge. */
+/* "Ship your skill with RateXp" and the filter buttons all use .btn-edge. */
 .btn-edge { color: var(--btnfg); background: var(--btn); }
 
 /* The animated glow ring is replaced by plain chunky borders here. */

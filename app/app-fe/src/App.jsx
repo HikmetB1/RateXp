@@ -12,11 +12,11 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// Core MCP endpoint shown in the "Add your skill" popup. Update if the core URL changes.
+// Core MCP endpoint shown in the "Ship your skill" popup. Update if the core URL changes.
 const CORE_MCP_URL = 'https://ratexp-core.azurewebsites.net/mcp'
 
-// How-to shown in the "Add your skill" popup, rendered as Markdown (see Md).
-const SKILL_GUIDE_MD = `### Add RateXp to your skill
+// How-to shown in the "Ship your skill" popup, rendered as Markdown (see Md).
+const SKILL_GUIDE_MD = `### Ship your skill with RateXp
 
 RateXp runs over **MCP** - two small files, no scripts to install.
 
@@ -115,7 +115,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
   // Which row's transcript is shown in the slide-over trajectory drawer.
   const [openTx, setOpenTx] = useState(null)
-  // Whether the "Add your skill" how-to popup is open.
+  // Whether the "Ship your skill" how-to popup is open.
   const [guideOpen, setGuideOpen] = useState(false)
   // Whether the "preview & download" info popup is open (shared by the notes and the (i) badge).
   const [infoOpen, setInfoOpen] = useState(false)
@@ -231,7 +231,7 @@ export default function App() {
               lineHeight: 1.2,
             }}
           >
-            Add RateXp to your skill
+            Ship your skill with RateXp
           </button>
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
@@ -771,7 +771,7 @@ function SkillGuideModal({ open, onClose }) {
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="modal-wrap" onClick={onClose}>
-        <div className="modal glow-edge" role="dialog" aria-label="Add RateXp to your skill" onClick={(e) => e.stopPropagation()}>
+        <div className="modal glow-edge" role="dialog" aria-label="Ship your skill with RateXp" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
           <Md className="md modal-md">{SKILL_GUIDE_MD}</Md>
         </div>
