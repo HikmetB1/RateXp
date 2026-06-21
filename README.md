@@ -1,5 +1,4 @@
-# RateXp - Comprehensive Guide
-
+# RateXp
 <p align="center">
   <img src="./assets/banner.png" alt="RateXp - user based skill feedback" width="720">
 </p>
