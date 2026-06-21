@@ -51,10 +51,14 @@ REDACTION_ENABLED: bool = (
 # without a rebuild (both adapters' deps ship in the image).
 _REDACTION_PROVIDER_ENV = os.getenv("RATEXP_REDACTION_PROVIDER")
 REDACTION_PROVIDER: str = (
-    _REDACTION_PROVIDER_ENV
-    if _REDACTION_PROVIDER_ENV is not None
-    else str(_require_in(_REDACTION, "redaction", "provider"))
-).strip().lower()
+    (
+        _REDACTION_PROVIDER_ENV
+        if _REDACTION_PROVIDER_ENV is not None
+        else str(_require_in(_REDACTION, "redaction", "provider"))
+    )
+    .strip()
+    .lower()
+)
 if REDACTION_PROVIDER not in ("presidio", "azure"):
     raise RuntimeError(
         f"redaction provider must be 'presidio' or 'azure', got {REDACTION_PROVIDER!r}"
