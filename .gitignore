@@ -20,6 +20,7 @@ dist/
 *.tfstate
 *.tfstate.*
 *.tfplan
+tfplan
 
 # OS / editor
 .DS_Store
