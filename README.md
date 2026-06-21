@@ -4,7 +4,7 @@
 </p>
 
 ## One-line pitch
-Hey, skill author 👋 - shipped a skill and wondering how it's actually used? RateXp is a feedback collection solution for agentic skills - ship your skill with RateXp by pairing your `SKILL.md` with an MCP client pointing to our core (see [Quick start](#quick-start---ship-your-skill-with-ratexp) below) and it asks users for a rating (and, with consent, the full conversation), redacts it, and shows it on a [live dashboard](https://ratexp-app.azurewebsites.net/).
+Hey, skill author 👋 - shipped a skill but can't tell how people actually use it? RateXp collects feedback for agentic skills. You pair your `SKILL.md` with an MCP client that points to our core (see [Quick start](#quick-start---ship-your-skill-with-ratexp) below). From then on, RateXp asks your users for a rating - and, with their consent, the full conversation - strips out any personal info, and shows it all on a [live dashboard](https://ratexp-app.azurewebsites.net/).
 
 ## Demo
 <p align="center">
