@@ -10,22 +10,24 @@
 # Images are pulled from an ACR provisioned here using the web apps' identities.
 
 locals {
-  # Default (prod) uses random-suffixed global names; a named env (e.g. "dev")
-  # gets clean deterministic names like ratexp-dev-app.azurewebsites.net.
+  # Deterministic, suffix-free resource names. The default (prod) env is just the
+  # project name (so the dashboard is ratexp-app.azurewebsites.net); a named env
+  # (e.g. "dev") prefixes it (ratexp-dev-app). Names that must be globally unique
+  # (web apps, ACR, storage, PostgreSQL, cognitive subdomains) therefore have to be
+  # free across all of Azure for the chosen project/environment.
   is_default_env = var.environment == ""
   name_base      = local.is_default_env ? var.project : "${var.project}-${var.environment}"
 
-  suffix      = random_string.suffix.result
-  acr_name    = local.is_default_env ? "${replace(var.project, "-", "")}acr${local.suffix}" : "${replace(local.name_base, "-", "")}acr"
-  core_name   = local.is_default_env ? "${var.project}-core-${local.suffix}" : "${local.name_base}-core"
-  app_name    = local.is_default_env ? "${var.project}-app-${local.suffix}" : "${local.name_base}-app"
-  seeder_name = local.is_default_env ? "${var.project}-seeder-${local.suffix}" : "${local.name_base}-seeder"
+  acr_name    = "${replace(local.name_base, "-", "")}acr"
+  core_name   = "${local.name_base}-core"
+  app_name    = "${local.name_base}-app"
+  seeder_name = "${local.name_base}-seeder"
 
   # Storage account names: lowercase alphanumeric only, <=24 chars, globally unique.
-  seeder_sa_name = local.is_default_env ? "${replace(var.project, "-", "")}seed${local.suffix}" : "${replace(local.name_base, "-", "")}seed"
+  seeder_sa_name = "${replace(local.name_base, "-", "")}seed"
 
   # Azure OpenAI (AI Foundry) account the seeder's agent calls - one per environment.
-  aoai_name     = local.is_default_env ? "${var.project}-aoai-${local.suffix}" : "${local.name_base}-aoai"
+  aoai_name     = "${local.name_base}-aoai"
   aoai_endpoint = var.enable_seeder ? azurerm_cognitive_account.aoai[0].endpoint : ""
 
   core_url = "https://${local.core_name}.azurewebsites.net"
@@ -44,12 +46,6 @@ locals {
   language_id = var.enable_redaction ? (local.is_default_env ? azurerm_cognitive_account.language[0].id : data.azurerm_cognitive_account.shared_language[0].id) : null
 }
 
-resource "random_string" "suffix" {
-  length  = 6
-  upper   = false
-  special = false
-}
-
 resource "azurerm_resource_group" "this" {
   name     = "rg-${local.name_base}"
   location = var.location
@@ -65,7 +61,7 @@ resource "azurerm_container_registry" "this" {
 
 # --- PostgreSQL (Entra-only authentication) ---
 resource "azurerm_postgresql_flexible_server" "this" {
-  name                          = local.is_default_env ? "pg-${var.project}-${local.suffix}" : "pg-${local.name_base}"
+  name                          = "pg-${local.name_base}"
   resource_group_name           = azurerm_resource_group.this.name
   location                      = azurerm_resource_group.this.location
   version                       = var.pg_version
@@ -123,12 +119,12 @@ resource "azurerm_service_plan" "this" {
 # gets "Cognitive Services User" below. A custom subdomain is required for Entra auth.
 resource "azurerm_cognitive_account" "language" {
   count                 = var.enable_redaction && local.is_default_env ? 1 : 0
-  name                  = "${var.project}-lang-${local.suffix}"
+  name                  = "${local.name_base}-lang"
   resource_group_name   = azurerm_resource_group.this.name
   location              = azurerm_resource_group.this.location
   kind                  = "TextAnalytics"
   sku_name              = var.language_sku_name
-  custom_subdomain_name = "${var.project}-lang-${local.suffix}"
+  custom_subdomain_name = "${local.name_base}-lang"
   local_auth_enabled    = false # Entra ID only - no access keys
 }
 

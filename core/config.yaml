@@ -26,7 +26,7 @@ default_survey_every: 2
 redaction:
   enabled: true
   # Azure AI Language endpoint (custom subdomain so Entra ID token auth works).
-  endpoint: "https://ratexp-lang-4y6yju.cognitiveservices.azure.com/"
+  endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
   # PII model languages; each message is auto-detected, falling back to the first.
   # The 10 most-spoken languages (BCP-47 codes).
   languages:

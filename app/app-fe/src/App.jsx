@@ -13,7 +13,7 @@ const WS_BASE =
     : window.location.origin.replace(/^http/i, 'ws'))
 
 // Core MCP endpoint shown in the "Add your skill" popup. Update if the core URL changes.
-const CORE_MCP_URL = 'https://ratexp-dev-core.azurewebsites.net/mcp'
+const CORE_MCP_URL = 'https://ratexp-core.azurewebsites.net/mcp'
 
 // How-to shown in the "Add your skill" popup, rendered as Markdown (see Md).
 const SKILL_GUIDE_MD = `### Add RateXp to your skill
