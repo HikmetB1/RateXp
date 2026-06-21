@@ -3,6 +3,30 @@
   <img src="./assets/banner.png" alt="RateXp - user based skill feedback" width="720">
 </p>
 
+<p align="center">
+  <a href="https://github.com/HikmetB1/RateXp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HikmetB1/RateXp/ci.yml?branch=main&style=flat-square&label=CI&labelColor=30363d&logo=github&logoColor=white" alt="CI status"></a>
+  <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/demo-dashboard-8957e5?style=flat-square&labelColor=30363d" alt="Live demo dashboard"></a>
+  <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/status-live-3fb950?style=flat-square&labelColor=30363d" alt="Service status: live"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Shield-1f6feb?style=flat-square&labelColor=30363d" alt="License: PolyForm Shield 1.0.0"></a>
+</p>
+
+<p align="center">
+  <a href="#what-is-ratexp">What it is</a> ·
+  <a href="#the-problem-defintion">The problem</a> ·
+  <a href="#who-its-for">Who it's for</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#how-it-works">How it works</a>
+</p>
+<p align="center">
+  <a href="#quick-start---ship-your-skill-with-ratexp">Quick start</a> ·
+  <a href="#how-often-it-asks">How often it asks</a> ·
+  <a href="#examples">Examples</a> ·
+  <a href="#the-dashboard">Dashboard</a> ·
+  <a href="#contact">Contact</a> ·
+  <a href="#acknowledgements-and-citations">Acknowledgements</a> ·
+  <a href="#license">License</a>
+</p>
+
 ## One-line pitch
 Hey, skill author 👋 - shipped a skill but can't tell how people actually use it? RateXp collects feedback for agentic skills. You pair your `SKILL.md` with an MCP client that points to our core (see [Quick start](#quick-start---ship-your-skill-with-ratexp) below). From then on, RateXp asks your users for a rating - and, with their consent, the full conversation - strips out any personal info, and shows it all on a [live dashboard](https://ratexp-app.azurewebsites.net/).
 
