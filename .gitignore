@@ -30,3 +30,6 @@ tfplan
 
 # Archive (local UI style mockups, not tracked)
 archive/
+
+# Local agent working note (deployment runbook) - never committed
+AGENTS.md
