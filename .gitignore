@@ -33,3 +33,6 @@ archive/
 
 # Local agent working note (deployment runbook) - never committed
 AGENTS.md
+
+# Local video recordings - not tracked
+*.mp4
