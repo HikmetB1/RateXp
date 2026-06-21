@@ -134,7 +134,7 @@ Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.c
 
 
 ## Acknowledgements and citations
-We're grateful to the open-source projects that RateXp leveraged; for their formal citations see [CITATION.md](./CITATION.md).
+We're grateful to the open-source projects that RateXp leveraged; for their licenses and formal citations see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
 ## License
 

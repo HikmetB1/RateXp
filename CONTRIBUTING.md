@@ -215,7 +215,7 @@ pytest tests/test_azure_live.py
 ├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
 ├── COMPREHENSIVE.md     Full project guide
 ├── CONTRIBUTING.md      This file
-├── CITATION.md          Citations for the projects RateXp builds on
+├── THIRD_PARTY_NOTICES.md  Licenses and citations for projects RateXp builds on
 ├── CLA.md / LICENSE     Contributor agreement and license
 └── pyproject.toml       Shared Python tooling config
 ```
