@@ -8,7 +8,7 @@ Hey, skill author 👋 - shipped a skill and wondering how it's actually used? R
 
 ## Demo
 <p align="center">
-  <img src="./demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
+  <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
 </p>
 
 ## The problem defintion
