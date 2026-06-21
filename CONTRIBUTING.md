@@ -99,7 +99,7 @@ matching key in `functions/skills-consumer/.env`:
 | `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
 | `default_survey_every`  | `2`         | Default `every` when a `feedback` MCP call omits it (`1` = always)|
 
-> Redaction keys (`redaction.enabled`, `endpoint`, `languages`)
+> Redaction keys (`redaction.enabled`, `redaction.provider` — `presidio` or `azure`, `redaction.languages`, and `redaction.azure_endpoint` for the azure provider). See [`core/redaction_adapters/`](./core/redaction_adapters/). `redaction.enabled` here is the default; the `RATEXP_REDACTION_ENABLED` env var overrides it per environment — the local stack sets it `false`, while the cloud sets nothing and so uses this file's `true`. Likewise `RATEXP_REDACTION_PROVIDER` overrides `redaction.provider` (the cloud sets it from Terraform's `redaction_provider`), so you can flip provider by changing one setting and restarting core — no rebuild, since the cloud image ships both adapters.
 
 ### `app/app-be/config.yaml`
 *Where to set:* [`app/app-be/config.yaml`](./app/app-be/config.yaml).

@@ -3,8 +3,8 @@
 # Build with the Entra extra for cloud (Managed Identity DB auth):
 #   docker build --build-arg EXTRAS=entra -t ratexp-core .
 # Without it, core uses password auth from DATABASE_URL (local dev).
-# EXTRAS is space-separated; add the redaction extra to enable transcript PII
-# redaction: --build-arg EXTRAS="entra redaction".
+# EXTRAS is space-separated; add a redaction adapter to enable transcript PII
+# redaction: --build-arg EXTRAS="entra redaction-presidio" (or redaction-azure).
 
 FROM ghcr.io/astral-sh/uv:0.5 AS uv
 
@@ -26,7 +26,18 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev \
       $(for e in $EXTRAS; do echo "--extra $e"; done)
 
+# The Presidio adapter needs per-language spaCy models at runtime; fetch the ones
+# it supports, only when that adapter is built in (keeps the image small otherwise).
+RUN if echo " $EXTRAS " | grep -q " redaction-presidio "; then \
+      python -m spacy download en_core_web_sm && \
+      python -m spacy download es_core_news_sm && \
+      python -m spacy download fr_core_news_sm && \
+      python -m spacy download pt_core_news_sm && \
+      python -m spacy download ru_core_news_sm; \
+    fi
+
 COPY server.py mcp_app.py ingest.py models.py migrate.py atif.py config.py config.yaml db.py store.py ratelimit.py redact.py ./
+COPY redaction_adapters/ ./redaction_adapters/
 COPY prompt/ ./prompt/
 COPY scripts/ ./scripts/
 COPY migrations/ ./migrations/

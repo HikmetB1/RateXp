@@ -21,7 +21,7 @@ For individual skill authors and organizations alike - anyone who's shipped an a
 2. **Tested models** - works over the Model Context Protocol; tested and working with Claude Opus (4.8, 4.7, 4.6, 4.5) and Sonnet (4.6, 4.5).
 3. **Ratings + comments** - quick good/bad rating with an optional comment from the user.
 4. **Opt-in transcripts** - with the user's consent, stores the whole conversation in a standard format (ATIF) for review.
-5. **PII redaction** - personal info is masked before storage, and it's fail-closed (drops rather than saves unredacted).
+5. **PII redaction** - personal info is masked before storage via a pluggable adapter (self-hosted Presidio or Azure AI Language), fail-closed (drops rather than saves unredacted).
 6. **Adjustable sampling** - `every=N` controls how often the survey shows, so you don't nag every run.
 7. **Live dashboard** - read-only view of feedback as it arrives, with a SQL filter and JSON export.
 8. **Responsive UI** - the table reflows into cards on phones.

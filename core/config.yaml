@@ -19,15 +19,21 @@ rate_limit_per_minute: 120
 # (1 = always, 2 = ~half). A skill can override per call with every=N. Must be >= 1.
 default_survey_every: 2
 
-# PII redaction for consented transcripts (Azure AI Language). When enabled, each
-# transcript's conversation text is sent to Azure to mask personal data before
-# storage; on error the upload is dropped (fail-closed). No secret - core uses its
-# Managed Identity, like the database. Set enabled: false to run locally.
+# PII redaction for consented transcripts. The conversation text is masked before
+# storage; on error the upload is dropped (fail-closed). Set enabled: false to run
+# locally without redaction.
 redaction:
   enabled: true
-  # Azure AI Language endpoint (custom subdomain so Entra ID token auth works).
-  endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
+  # Which adapter masks the text (see core/redaction_adapters/):
+  #   presidio - self-hosted, runs inside core, no per-call cost (default).
+  #   azure    - Azure AI Language; needs azure_endpoint + the Managed Identity,
+  #              and is billed per 1,000 text records.
+  # Overridable per deployment by the RATEXP_REDACTION_PROVIDER env var (flip without
+  # a rebuild - both adapters ship in the cloud image).
+  provider: presidio
   # PII model languages; each message is auto-detected, falling back to the first.
+  # Azure uses the whole list; Presidio covers the subset spaCy has plain models
+  # for (en, es, fr, pt, ru) and detects each message's language.
   # The 10 most-spoken languages (BCP-47 codes).
   languages:
     - en       # English
@@ -40,3 +46,6 @@ redaction:
     - pt       # Portuguese
     - ru       # Russian
     - ur       # Urdu
+  # Only used when provider is "azure": the Language account endpoint (custom
+  # subdomain so Entra ID token auth works).
+  azure_endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"

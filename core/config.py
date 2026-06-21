@@ -35,7 +35,7 @@ DEFAULT_SURVEY_EVERY: int = _require("default_survey_every")
 if DEFAULT_SURVEY_EVERY < 1:
     raise RuntimeError(f"default_survey_every must be >= 1, got {DEFAULT_SURVEY_EVERY}")
 
-# PII redaction config (see redact.py).
+# PII redaction config (see redact.py + redaction_adapters/).
 _REDACTION: dict = _require("redaction")
 # RATEXP_REDACTION_ENABLED overrides config.yaml, so a local stack (no Azure
 # identity) can disable redaction without editing the cloud-bound file. Truthy: 1/true/yes/on.
@@ -46,7 +46,23 @@ REDACTION_ENABLED: bool = (
     if _REDACTION_ENABLED_ENV is not None
     else _REDACTION_ENABLED_DEFAULT
 )
-REDACTION_ENDPOINT: str = str(_require_in(_REDACTION, "redaction", "endpoint") or "")
+# Which adapter handles redaction: "presidio" (self-hosted) or "azure" (AI Language).
+# RATEXP_REDACTION_PROVIDER overrides config.yaml so a deployment can flip provider
+# without a rebuild (both adapters' deps ship in the image).
+_REDACTION_PROVIDER_ENV = os.getenv("RATEXP_REDACTION_PROVIDER")
+REDACTION_PROVIDER: str = (
+    _REDACTION_PROVIDER_ENV
+    if _REDACTION_PROVIDER_ENV is not None
+    else str(_require_in(_REDACTION, "redaction", "provider"))
+).strip().lower()
+if REDACTION_PROVIDER not in ("presidio", "azure"):
+    raise RuntimeError(
+        f"redaction provider must be 'presidio' or 'azure', got {REDACTION_PROVIDER!r}"
+    )
+# Azure AI Language endpoint - required only when provider is "azure".
+REDACTION_ENDPOINT: str = str(_REDACTION.get("azure_endpoint") or "")
+if REDACTION_ENABLED and REDACTION_PROVIDER == "azure" and not REDACTION_ENDPOINT:
+    raise RuntimeError("redaction.provider is 'azure' but redaction.azure_endpoint is empty")
 _REDACTION_LANGUAGES = _require_in(_REDACTION, "redaction", "languages")
 if not isinstance(_REDACTION_LANGUAGES, list) or not _REDACTION_LANGUAGES:
     raise RuntimeError("config.yaml redaction.languages must be a non-empty list")

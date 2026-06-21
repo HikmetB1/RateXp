@@ -41,8 +41,9 @@ locals {
   core_dsn = "postgresql://${local.core_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
   app_dsn  = "postgresql://${local.app_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
 
-  # The Language account core authenticates against: its own in the default env, or a
-  # reused (shared) one elsewhere. Null when redaction is off.
+  # The Language account is always provisioned when enable_redaction (whichever provider
+  # core actively uses), so flipping to the azure adapter needs no re-provisioning. Null
+  # only when redaction is off.
   language_id = var.enable_redaction ? (local.is_default_env ? azurerm_cognitive_account.language[0].id : data.azurerm_cognitive_account.shared_language[0].id) : null
 }
 
@@ -169,6 +170,9 @@ resource "azurerm_linux_web_app" "core" {
     RATEXP_DB_AUTH    = "entra"
     DATABASE_URL      = local.core_dsn
     RATEXP_PUBLIC_URL = local.core_url
+    # Active redaction adapter; flip to "azure" (the Language account is always
+    # provisioned) and restart core - no rebuild needed (both adapters ship in the image).
+    RATEXP_REDACTION_PROVIDER = var.redaction_provider
   }
 }
 

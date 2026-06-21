@@ -36,8 +36,8 @@ services:
       # Public base URL the feedback flow hands the agent for the transcript
       # helper + upload endpoint. Must be reachable from the host running the skill.
       RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
-      # No Azure identity locally, so PII redaction would fail-closed and drop
-      # every transcript. Default it off here; set true to test real redaction.
+      # Redaction's adapter deps aren't in the local core image, so keep it off
+      # here; set true only when core is built with a redaction adapter.
       RATEXP_REDACTION_ENABLED: ${RATEXP_REDACTION_ENABLED:-false}
     # Live-reload the API on source edits; prompt.md is read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).

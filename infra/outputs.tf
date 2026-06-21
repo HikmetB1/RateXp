@@ -79,6 +79,6 @@ output "aoai_endpoint" {
 }
 
 output "language_endpoint" {
-  description = "Azure AI Language endpoint wired into core for PII redaction (empty when enable_redaction is false). Reuses the shared account in non-default environments."
+  description = "Azure AI Language endpoint wired into core for PII redaction (empty unless redaction_provider = \"azure\"). Reuses the shared account in non-default environments."
   value       = var.enable_redaction ? (local.is_default_env ? azurerm_cognitive_account.language[0].endpoint : data.azurerm_cognitive_account.shared_language[0].endpoint) : ""
 }

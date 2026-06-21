@@ -82,9 +82,9 @@ variable "enable_seeder" {
 }
 
 variable "seed_schedule" {
-  description = "NCRONTAB cadence (with seconds) for the seeder timer trigger. Default fires every 3s."
+  description = "NCRONTAB cadence (with seconds) for the seeder timer trigger. Default fires every 30s (each run is a multi-call agent; faster overlaps runs and hits the model's rate limit)."
   type        = string
-  default     = "*/3 * * * * *"
+  default     = "*/30 * * * * *"
 }
 
 variable "seeder_model" {
@@ -136,9 +136,19 @@ variable "openai_api_version" {
 }
 
 variable "enable_redaction" {
-  description = "Provision an Azure AI Language account and wire transcript PII redaction into core (see core/redact.py). Off by default."
+  description = "Provision the Azure AI Language account + core's access to it, so the azure redaction adapter is always ready to flip to (an idle account bills nothing - it's per-request). Off by default."
   type        = bool
   default     = false
+}
+
+variable "redaction_provider" {
+  description = "Which redaction adapter core actively uses, set on core as RATEXP_REDACTION_PROVIDER. \"presidio\" runs in-process (no per-call cost); \"azure\" uses the Language account (billed per text record). The Language account is provisioned whenever enable_redaction, so flipping to azure is just changing this + restarting core - no rebuild or re-provision."
+  type        = string
+  default     = "presidio"
+  validation {
+    condition     = contains(["presidio", "azure"], var.redaction_provider)
+    error_message = "redaction_provider must be \"presidio\" or \"azure\"."
+  }
 }
 
 variable "language_sku_name" {

@@ -37,6 +37,9 @@ software-citation format is used.
 | HashiCorp. *Terraform* [Software]. https://www.terraform.io/ |
 | Microsoft. *Microsoft Entra ID* [Service]. https://www.microsoft.com/security/business/identity-access/microsoft-entra-id |
 | Microsoft. *Azure AI Language* [Service]. https://azure.microsoft.com/products/ai-services/ai-language |
+| Microsoft. *Presidio - PII detection and anonymization* [Software]. https://github.com/microsoft/presidio |
+| Explosion. *spaCy - Industrial-strength NLP in Python* [Software]. https://spacy.io/ |
+| Danelljan, M. and langdetect contributors. *langdetect - language detection* [Software]. https://github.com/Mimino666/langdetect |
 | Krekel, H. and the pytest-dev team. *pytest* [Software]. https://pytest.org/ |
 | Astral. *Ruff - an extremely fast Python linter and formatter* [Software]. https://docs.astral.sh/ruff/ |
 | Astral. *uv - Python package and project manager* [Software]. https://docs.astral.sh/uv/ |
