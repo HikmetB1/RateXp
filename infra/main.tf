@@ -158,6 +158,7 @@ resource "azurerm_linux_web_app" "core" {
   }
 
   site_config {
+    always_on = true # keep the container warm so the first request after idle has no cold-start delay
     application_stack {
       docker_image_name   = "core:${var.image_tag}"
       docker_registry_url = "https://${azurerm_container_registry.this.login_server}"
@@ -188,6 +189,7 @@ resource "azurerm_linux_web_app" "app" {
   }
 
   site_config {
+    always_on = true # keep the dashboard warm so the table loads fast on open (no ~60s cold start)
     application_stack {
       docker_image_name   = "app:${var.image_tag}"
       docker_registry_url = "https://${azurerm_container_registry.this.login_server}"
