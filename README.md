@@ -18,7 +18,7 @@
   <a href="#how-it-works">How it works</a>
 </p>
 <p align="center">
-  <a href="#quick-start---ship-your-skill-with-ratexp">Quick start</a> ·
+  <a href="#quick-start---ship-ratexp-with-your-skill">Quick start</a> ·
   <a href="#how-often-it-asks">How often it asks</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#the-dashboard">Dashboard</a> ·
@@ -28,7 +28,7 @@
 </p>
 
 ## One-line pitch
-Hey, skill author 👋 - shipped a skill but can't tell how people actually use it? RateXp collects feedback for agentic skills. You pair your `SKILL.md` with an MCP client that points to our core (see [Quick start](#quick-start---ship-your-skill-with-ratexp) below). From then on, RateXp asks your users for a rating - and, with their consent, the full conversation - strips out any personal info, and shows it all on a [live dashboard](https://ratexp-app.azurewebsites.net/).
+Hey, skill author 👋 - shipped a skill but can't tell how people actually use it? RateXp collects feedback for agentic skills. You pair your `SKILL.md` with an MCP client that points to our core (see [Quick start](#quick-start---ship-ratexp-with-your-skill) below). From then on, RateXp asks your users for a rating - and, with their consent, the full conversation - strips out any personal info, and shows it all on a [live dashboard](https://ratexp-app.azurewebsites.net/).
 
 ## Demo
 <p align="center">
@@ -103,7 +103,7 @@ it drops rather than stores anything unredacted) before saving. The **dashboard*
 a separate read-only service that reads the database and pushes live updates, so
 anyone can watch the feedback arrive.
 
-## Quick start - ship your skill with RateXp
+## Quick start - ship RateXp with your skill
 No prerequisites - setting up feedback takes just two tiny steps (two small files):
 
 1. Add an `.mcp.json` at your **project root** pointing at your core's MCP endpoint:
