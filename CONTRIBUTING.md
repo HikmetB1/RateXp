@@ -272,6 +272,7 @@ helpers (`db.py`, `config.py`) so either can be built and deployed on its own.
 - [ ] Flip query into adapter-based
 - [ ] Expand to more coding agents (e.g. GitHub Copilot)
 - [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif` exceeds Dynatrace's per-attribute storage cap, so it's truncated on ingest → invalid JSON → the read adapter returns an empty stub (`dynatrace_truncated`) → the trajectory viewer shows nothing (PostgreSQL still shows it in full). Fix by shipping transcripts to Dynatrace as **one log line per step** (each step's text fits the content field, avoiding the single-attribute cap), and/or surface `dynatrace_truncated` in the UI ("full copy in PostgreSQL"). Normal-sized transcripts are unaffected.
+- [ ] Build a Dynatrace dashboard (over the fanned-out `ratexp.*` logs) so ratings and trajectories can be viewed natively in Dynatrace — not just through RateXp's own dashboard reading via DQL. Open question from earlier: dashboard vs. a Dynatrace App.
 
 ## Contributor License Agreement
 
