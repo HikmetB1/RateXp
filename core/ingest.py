@@ -12,9 +12,9 @@ from datetime import UTC, datetime
 
 from atif import stub_if_oversized
 from config import MAX_TRANSCRIPT_BYTES
+from dispatch import write_feedback, write_transcript
 from models import Feedback, Transcript
 from redact import redact_atif
-from store import get_store
 
 
 def _now_iso() -> str:
@@ -31,9 +31,13 @@ def _fill_defaults(record: Feedback | Transcript) -> None:
 
 
 def ingest_feedback(record: Feedback) -> None:
-    """Fill defaults and persist a rating (the store dedups by request_id)."""
+    """Fill defaults and fan the rating out to every enabled destination.
+
+    Each destination is independent and best-effort (see dispatch.py): a failing
+    one is logged, never blocking the others or this call.
+    """
     _fill_defaults(record)
-    get_store().append(record)
+    write_feedback(record)
 
 
 def ingest_transcript(record: Transcript) -> None:
@@ -47,4 +51,4 @@ def ingest_transcript(record: Transcript) -> None:
     record.atif = stub_if_oversized(record.atif, MAX_TRANSCRIPT_BYTES)
     if "oversized" not in record.atif:
         record.atif = redact_atif(record.atif)
-    get_store().append_transcript(record)
+    write_transcript(record)

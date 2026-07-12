@@ -14,6 +14,7 @@ from pathlib import Path
 
 from atif import claude_jsonl_to_atif
 from config import MAX_BODY_BYTES, RATE_LIMIT_PER_MINUTE
+from dispatch import close_adapters, get_adapters
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import PlainTextResponse
 from ingest import ingest_transcript
@@ -22,7 +23,6 @@ from models import Transcript
 from pydantic import ValidationError
 from ratelimit import RateLimiter
 from starlette.middleware.base import BaseHTTPMiddleware
-from store import close_store, get_store
 
 UPLOAD_TRANSCRIPT_SH = Path(__file__).resolve().parent / "scripts" / "upload_transcript.sh"
 
@@ -31,17 +31,18 @@ _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Open the store now so migrations run before the dashboard reads. If the DB
-    # isn't ready, open lazily on first write instead of crash-looping at boot.
+    # Build the enabled destination adapters now so PostgreSQL migrations run
+    # before the dashboard reads. Adapter build is best-effort (a bad one is
+    # skipped), so this never crash-loops at boot.
     try:
-        get_store()
-    except Exception:  # noqa: BLE001 - DB may not be ready at boot
+        get_adapters()
+    except Exception:  # noqa: BLE001 - a destination may not be ready at boot
         pass
     # A mounted sub-app's lifespan isn't run for us, so drive the MCP session
     # manager here for the life of the app (the mount below created it).
     async with mcp.session_manager.run():
         yield
-    close_store()
+    close_adapters()
 
 
 app = FastAPI(title="ratexp-core", version="1.0.0", lifespan=lifespan)

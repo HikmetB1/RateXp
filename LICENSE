@@ -1,91 +1,236 @@
-# PolyForm Shield License 1.0.0
+# RateXp Source Available License 1.0
 
-<https://polyformproject.org/licenses/shield/1.0.0>
+Copyright © 2026 Hikmet Beyoglu. All rights reserved.
 
-Required Notice: Copyright 2026 Hikmet Beyoglu (hikmet.beyoglu@hotmail.com)
+## 1. License Parameters
 
-## Acceptance
+**Licensed Software:** RateXp, including its source code, binaries, documentation, and modifications distributed under this License.
 
-In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
+**Licensor:** Hikmet Beyoglu
 
-## Copyright License
+This License applies to versions of the Licensed Software distributed under it. The trial permissions granted in Sections 4.1 and 4.2 expire at the end of the Trial Period defined below, which does not restart for a new version. The Hosted Service permissions in Section 5 are separate from those trial permissions.
 
-The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
+## 2. Definitions
 
-## Distribution License
+**You** means the individual or legal entity exercising rights under this License.
 
-The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
+**Organization** means a company, partnership, institution, government body, nonprofit organization, or other legal or organizational entity on whose behalf You exercise rights under this License. Personal activity is not activity on behalf of an Organization solely because You are employed by or affiliated with it.
 
-## Notices
+**Trial Use** means exercising the source inspection permissions in Section 4.1 or compiling, running, modifying, or deploying the Licensed Software under Section 4.2 for Your own personal use or an Organization's internal use, including evaluation, testing, and actual internal workflows. All Trial Use is subject to the applicable Trial Period.
 
-You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
+**Trial Period** means a single period of 30 consecutive calendar days. For personal use, it begins on the date You first exercise a permission granted by Section 4.1 or Section 4.2, including source inspection or copying under Section 4.1. For use on behalf of an Organization, one shared period begins on the date the first person does so on its behalf and applies to all of that Organization's users, copies, and instances. Sections 4.1 and 4.2 share this period; inspecting the source and later deploying it do not provide separate trials. Hosted Service use under Section 5 does not start this period. A new version, copy, fork, installation, account, device, deployment, or user does not restart or extend it.
 
-> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
+**Production Use** means any use of the Licensed Software for an actual business, organizational, operational, customer-facing, revenue-generating, monitoring, analytics, development workflow, or other ongoing purpose beyond Trial Use.
 
-## Changes and New Works License
+Production Use includes internal use that provides operational or business value even when the Licensed Software is not exposed to external customers.
 
-The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
+**Client Components** means the hook scripts, skill files, and settings snippets that the Licensor provides for installation on a user's machine or inside a skill to send ratings, comments, and session data to a RateXp service. They also include browser code delivered by the Hosted Service as needed to access and use that service. Client Components do not include the RateXp server software.
 
-## Patent License
+**Hosted Service** means a RateXp service operated by the Licensor, such as https://ratexp-app.azurewebsites.net and https://ratexp-core.azurewebsites.net.
 
-The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
+**Commercial License** means a separate written license agreement issued by the Licensor permitting uses not allowed by this License.
 
-## Noncompete
+## 3. License Grant
 
-Any purpose is a permitted purpose, except for providing any product that competes with the software or any product the licensor or any of its affiliates provides using the software.
+Subject to the terms of this License, the Licensor grants You a limited, worldwide, royalty-free, non-exclusive, non-transferable license to:
 
-## Competition
+1. access and inspect the source code;
+2. make private copies of the Licensed Software for permitted uses;
+3. compile and run the Licensed Software; and
+4. modify the Licensed Software and create private derivative works for permitted uses.
 
-Goods and services compete even when they provide functionality through different kinds of interfaces or for different technical platforms.  Applications can compete with services, libraries with plugins, frameworks with development tools, and so on, even if they're written in different programming languages or for different computer architectures.  Goods and services compete even when provided free of charge.  If you market a product as a practical substitute for the software or another product, it definitely competes.
+These rights may only be exercised within the permissions in Sections 4 and 5. This License itself grants the limited trial permissions in Sections 4.1 and 4.2 and the Hosted Service permissions in Section 5. Continued exercise of the trial permissions after the Trial Period requires a separate Commercial License already in effect, subject to the independent rights preserved in Section 18.
 
-## New Products
+No general right to redistribute, publish, mirror, sublicense, or provide the Licensed Software or its source code to third parties is granted. All permissions are subject to the restrictions in Sections 7 and 8 and the independent rights preserved in Section 18.
 
-If you are using the software to provide a product that does not compete, but the licensor or any of its affiliates brings your product into competition by providing a new version of the software or another product using the software, you may continue using versions of the software available under these terms beforehand to provide your competing product, but not any later versions.
+## 4. Permitted Use
 
-## Discontinued Products
+### 4.1 Source Inspection Trial License
 
-You may begin using the software to compete with a product or service that the licensor or any of its affiliates has stopped providing, unless the licensor includes a plain-text line beginning with `Licensor Line of Business:` with the software that mentions that line of business.  For example:
+Under this License, You receive a limited, royalty-free license to access, inspect, review, and make private copies of the source code for inspection and review only during the applicable Trial Period, subject to Sections 7 and 8. Copies must remain on devices or private infrastructure controlled by You or the Organization on whose behalf You act. These permissions are part of the 30-day trial license and do not grant continuing source access or use rights after that period.
 
-> Licensor Line of Business: YoyodyneCMS Content Management System (http://example.com/cms)
+When the Trial Period ends, the permissions granted by this Section expire. You must obtain a Commercial License from the Licensor before continuing to exercise them. This expiry is subject to the independent rights preserved in Section 18.
 
-## Sales of Business
+You may not publish or mirror the source code, or provide it to third parties, without the Licensor's prior written permission, except for the limited internal access allowed by Section 8 and the independent rights preserved in Section 18. Compiling, executing, or modifying the Licensed Software, or operating a RateXp service, requires permission under Section 4.2, Section 5, or a Commercial License.
 
-If the licensor or any of its affiliates sells a line of business developing the software or using the software to provide a product, the buyer can also enforce [Noncompete](#noncompete) for that product.
+### 4.2 Local and Organizational Trial
 
-## Fair Use
+Under the trial license granted by this License, You may compile, run, modify, and deploy the Licensed Software only if all of the following conditions are satisfied:
 
-You may have "fair use" rights for the software under the law. These terms do not limit them.
+1. These activities are solely Trial Use within the applicable Trial Period. Personal use and actual internal organizational workflows, including data ingestion, are permitted during that period.
+2. The Licensed Software runs on infrastructure controlled by You or the Organization on whose behalf You act. Local devices, virtual machines, containers, company servers, shared internal environments, and cloud deployments are permitted.
+3. Access to the running software is limited to You for personal use or to the Organization's employees and contractors acting on its behalf for internal use. Multiple users and devices may participate, and network access between them is permitted.
+4. All users and instances acting on behalf of the same Organization share its single Trial Period. Adding users, moving to another server, or creating another instance does not provide another trial.
+5. The Licensed Software is not offered to third parties as a product or service, or incorporated into a product or service supplied to third parties.
+6. Copies and modifications remain private, and all access and use comply with Sections 7 and 8. The trial does not grant permission for public redistribution, competitive use, or AI model training prohibited by those Sections.
 
-## No Other Rights
+When the Trial Period ends, You and the Organization must stop compiling, running, modifying, and deploying the Licensed Software under this Section, including ingesting data into those instances and using its Client Components with them, unless a Commercial License permitting continued use is already in effect. The source inspection permissions in Section 4.1 expire at the same time. Use of the Licensor's Hosted Service under Section 5 remains permitted, and the independent rights preserved in Section 18 remain unaffected.
 
-These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+## 5. Hosted Service and Clients
 
-## Patent Defense
+The trial limits in Sections 4.1, 4.2, and 6 do not apply to the permissions expressly granted in this Section. Under this License, without a trial time limit and for any number of people within any Organization, You may:
 
-If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+1. access and use the Hosted Service, including its dashboard, and submit ratings, comments, session data, and other supported data for personal or organizational purposes, subject to the service terms described below;
+2. download, install, privately copy, and run the Client Components as needed to access and use the Hosted Service, including during normal organizational workflows; and
+3. make private changes to the Client Components needed for installation or configuration for Your own use or the Organization's internal use, subject to Sections 7 and 8.
 
-## Violations
+The Client Components must retain applicable copyright and license notices. Publishing, redistributing, or bundling them in packages supplied to third parties requires the Licensor's prior written permission under Section 8. You may instead share links to the Licensor's official downloads. Internal installation for authorized users under this Section remains permitted.
 
-The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
+Client Components used under this Section may connect only to the Hosted Service. Using them to connect to another RateXp service requires permission under Section 4.2 or a Commercial License.
 
-## No Liability
+Data submission to the Hosted Service is free of charge and has no data-volume limit or trial time limit under this License. This permission applies to both individuals and Organizations, including normal organizational workflows. Access to and use of the Hosted Service, including data submission, are subject to its available capacity.
 
-***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+The Licensor's [Terms of Service](./TERMS.md) govern account requirements, privacy, acceptable use, and service operation. They do not change the free data-submission permission granted by this Section. This License does not guarantee continuous service availability.
 
-## Definitions
+Deploying or operating another instance of the RateXp server software is governed by Section 4.2 or a Commercial License. Using the Hosted Service does not start, extend, or restart the period permitted for that separate instance.
 
-The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+## 6. Uses Requiring a Commercial License
 
-A **product** can be a good or service, or a combination of them.
+Except for activities expressly permitted by Sections 4.1, 4.2, and 5, or expressly covered by the Licensor's written permission under Section 7 or 8, a Commercial License from the Licensor is required before You may:
 
-**You** refers to the individual or entity agreeing to these terms.
+- use the Licensed Software in production;
+- deploy the Licensed Software for internal organizational use;
+- operate the Licensed Software as a hosted service, SaaS offering, managed service, API, or other service for third parties;
+- incorporate the Licensed Software into a commercial product or service;
+- use the Licensed Software to provide services to customers or other third parties;
+- use the Licensed Software as part of an ongoing corporate development, engineering, analytics, monitoring, evaluation, or operational workflow;
+- continue exercising the source inspection or private copying permissions in Section 4.1 after the applicable Trial Period;
+- continue running or using any local or organizational instance after the applicable Trial Period; or
+- otherwise use the Licensed Software outside the permissions in Sections 4 and 5.
 
-**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all its affiliates.
+A Commercial License may grant any or all of these rights under separately agreed terms.
 
-**Affiliates** means the other organizations than an organization has control over, is under the control of, or is under common control with.
+Written permission under Section 7 or 8 authorizes only the activities it expressly covers. It does not extend the Trial Period or grant other rights unless it expressly says so.
 
-**Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
+## 7. Use Restrictions
 
-**Your licenses** are all the licenses granted to you for the software under these terms.
+The restrictions in this Section apply to the permissions in Sections 4 and 5, including during the Trial Period, subject to the independent rights preserved in Section 18.
 
-**Use** means anything you do with the software requiring one of your licenses.
+### 7.1 No Circumvention
+
+You may not divide an Organization into teams, departments, subsidiaries, accounts, environments, machines, or individual users for the purpose of avoiding the limitations of this License.
+
+Affiliated entities under common control will be treated as one Organization where they coordinate their use of the Licensed Software. Control means the power to direct an entity's management or policies, directly or indirectly, through ownership, voting rights, contract, or otherwise.
+
+### 7.2 Competitive Use
+
+Without the Licensor's prior written permission, You may not use the Licensed Software, its source code, or modified versions to develop, train, improve, operate, or provide a product or service that substantially reproduces RateXp's core functionality or competes with RateXp.
+
+Private modifications and internal instances used solely as permitted by Section 4 are allowed and are not, by themselves, prohibited competitive use. This allowance does not authorize using them to develop or support a separate competing product or service. This restriction concerns use of the Licensed Software or its source code; it does not prohibit independent development without such use, subject to any intellectual property rights that apply independently of this License.
+
+### 7.3 AI and Machine Learning Training
+
+Without the Licensor's prior written permission, You may not use the source code of the Licensed Software, including modified versions or portions of that source code, as training data for machine learning or artificial intelligence models. This restriction includes pretraining, fine-tuning, and further training of existing models, as well as supplying the source code for those purposes or authorizing others to use it for those purposes.
+
+To the extent applicable law permits a rights reservation, the Licensor expressly reserves rights to reproduce or extract that source code for text and data mining for such training purposes. No such permission is granted by this License. Mandatory exceptions preserved by Section 18 remain unaffected.
+
+## 8. Private Modifications and Restrictions on Redistribution
+
+You may make private copies and modifications only for uses permitted by this License.
+
+Except for the limited internal access described below, or as independently permitted under Section 18, You may not redistribute, publish, mirror, sublicense, or otherwise provide the Licensed Software, its source code, binaries, or modified versions to any third party without the Licensor's prior written permission. This restriction includes public repositories, mirrors, downloadable packages, and public contributions containing the Licensed Software or modifications to it.
+
+Private copying and access by an Organization's employees and contractors acting solely on its behalf are permitted only as necessary for the uses expressly allowed by Sections 4 and 5. The Organization must ensure that those persons are bound to comply with this License, keep the copies under its control, and do not use or disclose them for independent or third-party purposes. This limited internal permission does not grant sublicensing rights or restart the Trial Period.
+
+Any private copy or modified version must retain applicable copyright and license notices. Unless the Licensor's written permission expressly provides otherwise, any copy or modified version whose redistribution the Licensor authorizes must also:
+
+- retain this License;
+- retain applicable copyright notices;
+- clearly identify material modifications made by You; and
+- remain subject to the same use restrictions contained in this License.
+
+Preserving notices does not itself authorize redistribution. An authorized recipient receives only the rights expressly granted by this License or a separate written license from the Licensor. Authorized redistribution does not restart or extend a Trial Period that has already begun for that recipient or its Organization.
+
+You may not represent a modified version as an official RateXp release.
+
+## 9. Contributions
+
+Contributions to RateXp are governed by the Contributor License Agreement in [CLA.md](./CLA.md).
+
+You may propose contribution ideas privately to the Licensor. Changes may be submitted only after the Licensor agrees in writing. The Contributor License Agreement does not itself grant permission to publish source code or modifications in public pull requests, issues, or other public submissions; such publication requires the written permission described in Section 8, subject to Section 18.
+
+## 10. Commercial Licensing
+
+If Your intended use requires a Commercial License under Section 6, You must obtain that license from the Licensor before beginning that use. Contact: hikmet.beyoglu@hotmail.com.
+
+Contacting the Licensor, requesting permission, or discussing terms does not grant additional rights. The separate written license agreement must be in effect before the additional use begins.
+
+Nothing in this License obligates the Licensor to offer a Commercial License or to offer one under any particular pricing or terms.
+
+Commercial licenses may provide broader rights than this License, including an extended trial, and may be granted free of charge or for a fee on separately agreed terms.
+
+## 11. Ownership and Reservation of Intellectual Property
+
+The Licensed Software is licensed, not sold.
+
+Except for the limited rights expressly granted by this License, the Licensor and applicable contributors retain all right, title, and interest in the Licensed Software.
+
+Except for the limited permissions expressly granted by this License, no rights are granted under the Licensor's copyrights, patents, patent applications, trade secrets, know-how, trademarks, designs, or other intellectual property, including any such rights in algorithms, methods, techniques, documentation, or architecture, to the extent those rights exist and are owned or controlled by the Licensor.
+
+No rights are granted by implication, estoppel, or otherwise.
+
+This reservation preserves existing rights; it does not create exclusive rights in unprotected ideas, methods, or functionality, or make publicly available information a trade secret.
+
+## 12. Trademarks
+
+This License does not grant permission to use the RateXp name, logos, trademarks, service marks, branding, or other identifiers except as reasonably necessary to identify the Licensed Software and comply with attribution requirements.
+
+## 13. Termination
+
+If You violate this License, Your rights under it terminate automatically when the violation occurs.
+
+After You receive Your first written notice of a violation from the Licensor, Your rights are automatically reinstated once You are in full compliance and have taken practical steps to correct past violations, provided both conditions are met no later than 30 calendar days after receiving that notice. If both conditions are already met when You receive that notice, reinstatement takes effect on receipt. Your rights remain terminated until reinstatement. A later notice of a violation does not give You another automatic right to reinstatement.
+
+Upon termination, You must cease exercising the rights granted by this License, including running the Licensed Software under it, unless and until those rights are reinstated or separately granted in writing by the Licensor.
+
+Reinstatement does not restart or extend a Trial Period, authorize a use requiring a Commercial License, or waive any claim arising from a past violation. Access to the Hosted Service itself remains governed by its [Terms of Service](./TERMS.md).
+
+Termination under this License does not prevent the Licensor from granting You rights under a separate Commercial License.
+
+## 14. Disclaimer of Warranty
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER EXPRESS, IMPLIED, OR STATUTORY.
+
+THE LICENSOR DISCLAIMS, TO THE EXTENT PERMITTED BY LAW, WARRANTIES INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, RELIABILITY, AND FITNESS FOR PRODUCTION USE.
+
+YOU USE THE LICENSED SOFTWARE AT YOUR OWN RISK.
+
+## 15. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR AND CONTRIBUTORS WILL NOT BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR FOR LOSS OF PROFITS, REVENUE, DATA, BUSINESS, GOODWILL, OR BUSINESS OPPORTUNITIES ARISING FROM OR RELATED TO THE LICENSED SOFTWARE OR THIS LICENSE.
+
+WHERE LIABILITY CANNOT LEGALLY BE EXCLUDED, LIABILITY WILL BE LIMITED TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
+
+## 16. Third-Party Components
+
+Third-party software included with or used by RateXp remains subject to its respective license terms, listed in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+
+This License does not override the license applicable to any third-party component.
+
+## 17. Governing Law
+
+Unless a separate written agreement with the Licensor provides otherwise, this License is governed by the laws of Austria, excluding its conflict of law rules.
+
+To the extent legally permissible, disputes arising from this License will be subject to the jurisdiction of the competent courts in Linz, Austria.
+
+## 18. Entire License
+
+This License constitutes the terms governing use of the Licensed Software unless You and the Licensor enter into a separate written agreement.
+
+A Commercial License or other written agreement between You and the Licensor may supersede this License for the uses covered by that agreement.
+
+Nothing in this License excludes, restricts, or requires You to waive rights that applicable law does not allow to be excluded, restricted, or waived. This includes applicable mandatory copyright exceptions and consumer protections.
+
+The time limits and restrictions in this License apply to permissions granted by this License. They do not revoke permissions independently granted by the Licensor under the terms of a source hosting platform, including rights to view and fork a public repository within that platform as permitted by its terms and functionality.
+
+For example, if RateXp is publicly hosted on GitHub, Section 8 does not prohibit viewing or forking that repository within GitHub to the extent GitHub's terms independently permit those activities. However, creating or possessing a fork does not, by itself, grant broader rights to use, modify, deploy, redistribute, sublicense, or commercially exploit the Licensed Software beyond the scope of those platform permissions. Activities outside that scope require permission under this License, the Licensor's separate written permission, or applicable law. A fork does not restart or extend an existing Trial Period or remove restrictions that apply to activities outside the platform permissions.
+
+## 19. Severability
+
+If any provision of this License is held invalid or unenforceable, that provision will be excluded to the extent required by applicable law. The remaining provisions will remain in effect, provided this License can continue without the affected provision and applicable law permits. This Section does not authorize rewriting or partial enforcement of an invalid provision where applicable law prohibits it.
+
+---
+
+RateXp Source Available License 1.0
+
+This is a source-available license, not an open-source license.

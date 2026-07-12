@@ -99,7 +99,34 @@ matching key in `functions/skills-consumer/.env`:
 | `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
 | `default_survey_every`  | `2`         | Default `every` when a `feedback` MCP call omits it (`1` = always)|
 
-> Redaction keys (`redaction.enabled`, `redaction.provider` — `presidio` or `azure`, `redaction.languages`, and `redaction.azure_endpoint` for the azure provider). See [`core/redaction_adapters/`](./core/redaction_adapters/). `redaction.enabled` here is the default; the `RATEXP_REDACTION_ENABLED` env var overrides it per environment — the local stack sets it `false`, while the cloud sets nothing and so uses this file's `true`. Likewise `RATEXP_REDACTION_PROVIDER` overrides `redaction.provider` (the cloud sets it from Terraform's `redaction_provider`), so you can flip provider by changing one setting and restarting core — no rebuild, since the cloud image ships both adapters.
+#### Redaction
+
+Masks PII before storage (see [`core/redaction_adapters/`](./core/redaction_adapters/)).
+
+| Key                       | Meaning                                                                 |
+|---------------------------|-------------------------------------------------------------------------|
+| `redaction.enabled`       | Turn redaction on. `RATEXP_REDACTION_ENABLED` overrides — local `false`, cloud uses this file's `true`. |
+| `redaction.provider`      | `presidio` (in-process, free) or `azure` (Language account). `RATEXP_REDACTION_PROVIDER` overrides — cloud sets it from Terraform's `redaction_provider`. |
+| `redaction.languages`     | PII model languages; the first is the fallback.                         |
+| `redaction.azure_endpoint`| Language account endpoint — only for the `azure` provider.              |
+
+The cloud image ships both adapters, so flipping provider is one setting + a restart (no rebuild).
+
+#### Destinations (`adapters.*`)
+
+Each submission is written to **every** adapter whose `enabled` is true — best-effort and independent (one failing is logged, never blocks the others or the request). See [`core/adapters/`](./core/adapters/) + [`core/dispatch.py`](./core/dispatch.py).
+
+| Adapter            | Where it writes                              | Connection (env var named in config)          |
+|--------------------|----------------------------------------------|-----------------------------------------------|
+| `app_be_psql`      | RateXp's DB — the live dashboard reads it     | `DATABASE_URL` / `RATEXP_DB_AUTH`             |
+| `custom_psql`      | An adopter's own PostgreSQL                   | DSN from `dsn_env`                            |
+| `app_be_dynatrace` | RateXp's Dynatrace tenant (OTLP)              | URL from `tenant_url_env`, token from `token_env` |
+| `custom_dynatrace` | An adopter's own Dynatrace tenant (OTLP)      | URL from `tenant_url_env`, token from `token_env` |
+
+- **No secrets or URLs in this file** — only the *names* of the env vars that hold them.
+- **Missing values are safe** — an adapter enabled but without its tenant/token/DSN is skipped with a warning.
+- **Dynatrace needs the extra** — build core with `dynatrace-otlp` (local `CORE_EXTRAS=dynatrace-otlp`; cloud `--build-arg EXTRAS="… dynatrace-otlp"`).
+- **Cloud values** — `app_be_dynatrace` gets `DT_TENANT_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_tenant_url` / `dynatrace_access_token`.
 
 ### `app/app-be/config.yaml`
 *Where to set:* [`app/app-be/config.yaml`](./app/app-be/config.yaml).

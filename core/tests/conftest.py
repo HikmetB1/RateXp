@@ -35,30 +35,37 @@ def _disable_redaction(monkeypatch):
 
 @pytest.fixture
 def store_stub(monkeypatch):
-    """Swap the store singleton for a list-appender; return the captured records."""
-    import store
+    """Swap the dispatch fan-out for one capturing adapter; return the captured records.
+
+    Every submission is written to the enabled adapters (see dispatch.py); here a
+    single in-memory adapter stands in for all of them, so tests need no database
+    and can assert on exactly what would be sent.
+    """
+    import dispatch
 
     captured: list = []
 
-    class StubStore:
-        def append(self, record):
+    class CapturingAdapter:
+        name = "capture"
+
+        def write_feedback(self, record):
             captured.append(record)
 
-        def append_transcript(self, record):
+        def write_transcript(self, record):
             captured.append(record)
 
         def close(self):
             pass
 
-    monkeypatch.setattr(store, "_store", StubStore())
+    monkeypatch.setattr(dispatch, "_adapters", [CapturingAdapter()])
     return captured
 
 
 @pytest.fixture
 def client(monkeypatch, store_stub):
-    """Return (TestClient, captured). The store is the stub from store_stub.
+    """Return (TestClient, captured). Destinations are the capturing adapter.
 
-    Used by the middleware tests; the store is stubbed so importing/using the
+    Used by the middleware tests; the fan-out is stubbed so importing/using the
     app needs no database.
     """
     import server

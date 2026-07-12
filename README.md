@@ -53,6 +53,7 @@ For individual skill authors and organizations alike - anyone who's shipped an a
 6. **Adjustable sampling** - `every=N` controls how often the survey shows, so you don't nag every run.
 7. **Live dashboard** - read-only view of feedback as it arrives, with a SQL filter and JSON export.
 8. **Responsive UI** - the table reflows into cards on phones.
+9. **Pluggable destinations** - a submission fans out to any combination of adapters you enable in config: RateXp's PostgreSQL (the live dashboard), your own PostgreSQL, RateXp's Dynatrace, or your own Dynatrace (over OpenTelemetry). Each is independent and best-effort.
 
 ## How it works
 
@@ -72,7 +73,7 @@ sequenceDiagram
     S->>U: ask survey (AskUserQuestion)
     U->>S: answers (rating, consent, comment)
     S->>C: submit_feedback (rating, over MCP)
-    C->>DB: write rating
+    C->>DB: write rating to enabled destinations
 
     Note over S,H: only on consent
     S->>H: run curl|sh (one local command, single approval)
@@ -81,7 +82,7 @@ sequenceDiagram
     H->>C: POST /transcript (raw .jsonl, plain HTTP)
     C->>R: redact PII (fail-closed)
     R-->>C: masked text
-    C->>DB: write transcript
+    C->>DB: write transcript to enabled destinations
     Note over DB: rating + transcript linked by request_id
 
     D->>A: GET /snapshot (initial load, HTTP)
@@ -102,6 +103,21 @@ Core **redacts any personal info** (via Presidio or Azure AI Language, fail-clos
 it drops rather than stores anything unredacted) before saving. The **dashboard** is
 a separate read-only service that reads the database and pushes live updates, so
 anyone can watch the feedback arrive.
+
+### Where your data goes
+core validates and redacts each submission once, then writes it to **every
+destination adapter you enable** in `core/config.yaml` (the `adapters` block). The
+four destinations are a 2×2 - PostgreSQL or Dynatrace, RateXp's own or your own:
+
+| | PostgreSQL | Dynatrace (OpenTelemetry) |
+|--|--|--|
+| **RateXp's** | `app_be_psql` - RateXp's DB, the live dashboard reads it | `app_be_dynatrace` - RateXp's Dynatrace tenant |
+| **Your own** | `custom_psql` - your database (`CUSTOM_PSQL_DSN`) | `custom_dynatrace` - your tenant (`CUSTOM_DT_TOKEN`) |
+
+Enable any combination - the adapters are **independent and best-effort**, so one
+failing (or a Dynatrace token being absent) is logged and never blocks the others
+or the request. Secrets (DB strings, tokens) come from env vars named in the
+config, never from the file itself. See [`core/adapters/`](./core/adapters/) and [`core/dispatch.py`](./core/dispatch.py).
 
 ## Quick start - ship RateXp with your skill
 No prerequisites - setting up feedback takes just two tiny steps (two small files):

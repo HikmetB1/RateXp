@@ -174,6 +174,11 @@ resource "azurerm_linux_web_app" "core" {
     # Active redaction adapter; flip to "azure" (the Language account is always
     # provisioned) and restart core - no rebuild needed (both adapters ship in the image).
     RATEXP_REDACTION_PROVIDER = var.redaction_provider
+    # Tenant URL + token for the app_be_dynatrace destination adapter (see
+    # core/adapters/); the adapter's enabled flag lives in core/config.yaml. Supply
+    # the token via TF_VAR_dynatrace_access_token.
+    DT_TENANT_URL   = var.dynatrace_tenant_url
+    DT_ACCESS_TOKEN = var.dynatrace_access_token
   }
 }
 

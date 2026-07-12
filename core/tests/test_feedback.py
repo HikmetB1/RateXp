@@ -65,19 +65,23 @@ def test_ingest_feedback_created_at_preserved(store_stub):
     assert store_stub[-1].created_at == "2026-01-01T00:00:00Z"
 
 
-def test_ingest_feedback_store_failure_propagates(monkeypatch):
-    import store
+def test_ingest_feedback_adapter_failure_is_swallowed(monkeypatch):
+    # Destinations are independent and best-effort: a failing one is logged, not
+    # raised, so ingestion still succeeds (see dispatch.py).
+    import dispatch
 
     class Boom:
-        def append(self, record):
+        name = "boom"
+
+        def write_feedback(self, record):
             raise RuntimeError("kaboom")
 
-        def append_transcript(self, record):
+        def write_transcript(self, record):
             raise RuntimeError("kaboom")
 
         def close(self):
             pass
 
-    monkeypatch.setattr(store, "_store", Boom())
-    with pytest.raises(RuntimeError):
-        ingest.ingest_feedback(Feedback(skill_name="demo", agent="claude-code"))
+    monkeypatch.setattr(dispatch, "_adapters", [Boom()])
+    # Must not raise even though the only destination blows up.
+    ingest.ingest_feedback(Feedback(skill_name="demo", agent="claude-code"))

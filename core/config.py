@@ -73,3 +73,15 @@ if not isinstance(_REDACTION_LANGUAGES, list) or not _REDACTION_LANGUAGES:
 # Accepted PII languages; the first is the fallback when detection misses.
 REDACTION_LANGUAGES: list[str] = [str(x) for x in _REDACTION_LANGUAGES]
 REDACTION_LANGUAGE: str = REDACTION_LANGUAGES[0]
+
+# Destination adapters (see core/adapters/ + core/dispatch.py). Each of the four
+# named destinations must be present with an `enabled` flag; a submission is
+# written to every one whose flag is true.
+_ADAPTERS_RAW = _require("adapters")
+_ADAPTER_NAMES = ("app_be_psql", "custom_psql", "app_be_dynatrace", "custom_dynatrace")
+ADAPTERS: dict[str, dict] = {}
+for _name in _ADAPTER_NAMES:
+    _cfg = _require_in(_ADAPTERS_RAW, "adapters", _name)
+    if not isinstance(_cfg, dict) or "enabled" not in _cfg:
+        raise RuntimeError(f"config.yaml adapters.{_name} must be a mapping with an 'enabled' key")
+    ADAPTERS[_name] = dict(_cfg)

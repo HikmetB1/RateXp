@@ -171,3 +171,20 @@ variable "shared_language_resource_group" {
   type        = string
   default     = ""
 }
+
+# Dynatrace destination adapter (see core/adapters/dynatrace.py). Whether the
+# app_be_dynatrace adapter runs is in core/config.yaml; its tenant URL and token are
+# per-environment, set on core as the DT_TENANT_URL / DT_ACCESS_TOKEN app settings.
+# Empty = the adapter is enabled in config.yaml but inert (no tenant/token), which is fine.
+variable "dynatrace_tenant_url" {
+  description = "Dynatrace environment (tenant) base URL for the app_be_dynatrace adapter, e.g. https://xxxx.live.dynatrace.com. Sets DT_TENANT_URL on core."
+  type        = string
+  default     = ""
+}
+
+variable "dynatrace_access_token" {
+  description = "Dynatrace token for the app_be_dynatrace adapter's OTLP ingest. Secret - pass via TF_VAR_dynatrace_access_token or a gitignored *.tfvars, never commit it. Sets DT_ACCESS_TOKEN on core."
+  type        = string
+  default     = ""
+  sensitive   = true
+}

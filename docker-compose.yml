@@ -28,7 +28,12 @@ services:
       retries: 10
 
   core:
-    build: ./core
+    build:
+      context: ./core
+      # Build extras into the image's venv. Set CORE_EXTRAS=dynatrace-otlp in .env
+      # to run the Dynatrace destination adapters locally; empty = lean image.
+      args:
+        EXTRAS: ${CORE_EXTRAS:-}
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
@@ -39,6 +44,12 @@ services:
       # Redaction's adapter deps aren't in the local core image, so keep it off
       # here; set true only when core is built with a redaction adapter.
       RATEXP_REDACTION_ENABLED: ${RATEXP_REDACTION_ENABLED:-false}
+      # Destination adapter values (which adapters run is set in core/config.yaml).
+      DT_TENANT_URL: ${DT_TENANT_URL:-}
+      DT_ACCESS_TOKEN: ${DT_ACCESS_TOKEN:-}
+      CUSTOM_PSQL_DSN: ${CUSTOM_PSQL_DSN:-}
+      CUSTOM_DT_TENANT_URL: ${CUSTOM_DT_TENANT_URL:-}
+      CUSTOM_DT_TOKEN: ${CUSTOM_DT_TOKEN:-}
     # Live-reload the API on source edits; prompt.md is read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
     command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"

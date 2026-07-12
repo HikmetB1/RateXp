@@ -36,8 +36,9 @@ RUN if echo " $EXTRAS " | grep -q " redaction-presidio "; then \
       python -m spacy download ru_core_news_sm; \
     fi
 
-COPY server.py mcp_app.py ingest.py models.py migrate.py atif.py config.py config.yaml db.py store.py ratelimit.py redact.py ./
+COPY server.py mcp_app.py ingest.py models.py migrate.py atif.py config.py config.yaml db.py dispatch.py ratelimit.py redact.py ./
 COPY redaction_adapters/ ./redaction_adapters/
+COPY adapters/ ./adapters/
 COPY prompt/ ./prompt/
 COPY scripts/ ./scripts/
 COPY migrations/ ./migrations/

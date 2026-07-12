@@ -49,3 +49,30 @@ redaction:
   # Only used when provider is "azure": the Language account endpoint (custom
   # subdomain so Entra ID token auth works).
   azure_endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
+
+# Destinations. Every submission is validated + redacted once, then written to
+# every adapter whose `enabled` is true (see core/adapters/ + core/dispatch.py).
+# Adapters are independent and best-effort: one failing is logged, never blocking
+# the others or the request. Enable any combination. Secrets (DB passwords, tokens)
+# are never in this file - each adapter names the env var to read them from.
+adapters:
+  # RateXp's own PostgreSQL - the one the live dashboard reads. Uses core's
+  # DATABASE_URL / RATEXP_DB_AUTH.
+  app_be_psql:
+    enabled: true
+  # An adopter's own PostgreSQL. Connection string read from this env var.
+  custom_psql:
+    enabled: false
+    dsn_env: CUSTOM_PSQL_DSN
+  # RateXp's own Dynatrace tenant, over OpenTelemetry (OTLP). Tenant URL and token
+  # both come from the env vars named here (nothing environment-specific in this
+  # file). Needs core built with the `dynatrace-otlp` extra; inert without the token.
+  app_be_dynatrace:
+    enabled: true
+    tenant_url_env: DT_TENANT_URL
+    token_env: DT_ACCESS_TOKEN
+  # An adopter's own Dynatrace tenant, over OpenTelemetry (OTLP).
+  custom_dynatrace:
+    enabled: false
+    tenant_url_env: CUSTOM_DT_TENANT_URL
+    token_env: CUSTOM_DT_TOKEN

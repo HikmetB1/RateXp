@@ -17,9 +17,14 @@ CREATE TABLE IF NOT EXISTS schema_version (
 """
 
 
-def apply_migrations() -> None:
-    """Apply any migration files not yet recorded in schema_version."""
-    with connect() as conn, conn.cursor() as cur:
+def apply_migrations(dsn: str | None = None, auth: str | None = None) -> None:
+    """Apply any migration files not yet recorded in schema_version.
+
+    With no arguments, targets RateXp's own database (env defaults). A destination
+    adapter passes dsn/auth to migrate another PostgreSQL (see adapters/postgres.py).
+    """
+    conn_ctx = connect() if dsn is None else connect(dsn, auth or "password")
+    with conn_ctx as conn, conn.cursor() as cur:
         cur.execute(_SCHEMA_VERSION_DDL)
         cur.execute("SELECT version FROM schema_version")
         applied = {row[0] for row in cur.fetchall()}
