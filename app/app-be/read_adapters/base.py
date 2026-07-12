@@ -42,7 +42,9 @@ class ReadAdapter(Protocol):
         """Most-rated skills with good/bad tallies, as dicts."""
         ...
 
-    def run_query(self, query: str, max_rows: int, timeout_ms: int) -> tuple[list[str], list[tuple]]:
+    def run_query(
+        self, query: str, max_rows: int, timeout_ms: int
+    ) -> tuple[list[str], list[tuple]]:
         """Validate + cap + run a read-only query in this source's language (SQL or DQL).
 
         Returns (columns, rows). Raises ValueError for a rejected/invalid query, which

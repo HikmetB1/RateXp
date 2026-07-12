@@ -47,8 +47,12 @@ follow the instructions it returns.
 consent, every N run can collect a good / bad rating and its full trajectory.`
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
-// more details" links), rendered as Markdown (see Md).
-const DOWNLOAD_INFO_MD = `### Preview & downloads
+// more details" links), rendered as Markdown (see Md). The example query + its code-fence
+// language track the active read source (SQL for PostgreSQL, DQL for Dynatrace), from /meta.
+function downloadInfoMd(queryLanguage = 'SQL', queryExample = EXAMPLE_SQL) {
+  const lang = String(queryLanguage || 'SQL')
+  const example = queryExample || EXAMPLE_SQL
+  return `### Preview & downloads
 
 The dashboard updates in **real time**, but the table only shows the **most recent
 entries** so it stays fast and smooth. To get more than the preview, use the filter
@@ -60,11 +64,12 @@ box or **Download JSON**.
 - **A query for a single skill** - **all** entries for that skill.
 - **A query covering more than one skill** - only the **10 most recent**.
 
-**To get everything for your skill**, query that one skill, then click Download JSON:
+**To get everything for your skill**, query that one skill in ${lang}, then click Download JSON:
 
-\`\`\`sql
-SELECT * FROM feedback WHERE skill_name = 'your-skill'
+\`\`\`${lang.toLowerCase()}
+${example}
 \`\`\``
+}
 
 // Outer frame bundling the inner cards into one section (the chunky "big box").
 const groupBox = {
@@ -323,7 +328,7 @@ export default function App() {
       </footer>
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
       <SkillGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
+      <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
     </div>
   )
 }
@@ -786,8 +791,8 @@ function SkillGuideModal({ open, onClose }) {
 }
 
 // Centered popup explaining the real-time preview and how Download JSON behaves
-// (DOWNLOAD_INFO_MD). Same look as SkillGuideModal; closes on the backdrop, the X, or Escape.
-function DownloadInfoModal({ open, onClose }) {
+// (downloadInfoMd). Same look as SkillGuideModal; closes on the backdrop, the X, or Escape.
+function DownloadInfoModal({ open, onClose, queryLanguage = 'SQL', queryExample }) {
   useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
@@ -803,7 +808,7 @@ function DownloadInfoModal({ open, onClose }) {
       <div className="modal-wrap" onClick={onClose}>
         <div className="modal glow-edge" role="dialog" aria-label="Preview and download details" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-          <Md className="md modal-md">{DOWNLOAD_INFO_MD}</Md>
+          <Md className="md modal-md">{downloadInfoMd(queryLanguage, queryExample)}</Md>
         </div>
       </div>
     </>,

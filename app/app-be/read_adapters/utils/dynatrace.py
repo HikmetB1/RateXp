@@ -66,7 +66,9 @@ def _norm_col(name: str) -> str:
 
 class DynatraceReadAdapter:
     query_language = "DQL"
-    query_example = 'fetch logs | filter ratexp.record_type == "feedback" and ratexp.skill_name == "..."'
+    query_example = (
+        'fetch logs | filter ratexp.record_type == "feedback" and ratexp.skill_name == "..."'
+    )
 
     def __init__(self, name: str, query_url: str, token: str) -> None:
         if not query_url:
@@ -136,9 +138,13 @@ class DynatraceReadAdapter:
             return []
         clauses = []
         if request_ids:
-            clauses.append("in(ratexp.request_id, " + ", ".join(_dql_str(x) for x in request_ids) + ")")
+            clauses.append(
+                "in(ratexp.request_id, " + ", ".join(_dql_str(x) for x in request_ids) + ")"
+            )
         if session_ids:
-            clauses.append("in(ratexp.session_id, " + ", ".join(_dql_str(x) for x in session_ids) + ")")
+            clauses.append(
+                "in(ratexp.session_id, " + ", ".join(_dql_str(x) for x in session_ids) + ")"
+            )
         where = " or ".join(clauses)
         recs = self._dql(
             f'fetch logs, from:{_LOOKBACK} | filter ratexp.record_type == "transcript" '
@@ -186,13 +192,17 @@ class DynatraceReadAdapter:
             for r in recs
         ]
 
-    def run_query(self, query: str, max_rows: int, timeout_ms: int) -> tuple[list[str], list[tuple]]:
+    def run_query(
+        self, query: str, max_rows: int, timeout_ms: int
+    ) -> tuple[list[str], list[tuple]]:
         # DQL is read-only by nature; guard it starts with a fetch/read verb, then cap rows.
         cleaned = query.strip()
         if not cleaned:
             raise ValueError("empty query")
         if not re.match(r"(?i)^(fetch|data|timeseries|describe)\b", cleaned):
-            raise ValueError("only DQL read queries are allowed (start with fetch / data / timeseries)")
+            raise ValueError(
+                "only DQL read queries are allowed (start with fetch / data / timeseries)"
+            )
         records = self._dql(f"{cleaned} | limit {int(max_rows)}")
         if not records:
             return [], []

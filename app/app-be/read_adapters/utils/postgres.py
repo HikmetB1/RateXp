@@ -110,7 +110,9 @@ class PostgresReadAdapter:
             rows = cur.fetchall()
         return [{"skill_name": r[0], "total": r[1], "good": r[2], "bad": r[3]} for r in rows]
 
-    def run_query(self, query: str, max_rows: int, timeout_ms: int) -> tuple[list[str], list[tuple]]:
+    def run_query(
+        self, query: str, max_rows: int, timeout_ms: int
+    ) -> tuple[list[str], list[tuple]]:
         # Validate SELECT-only, wrap in a row-capping subquery, run read-only + timed.
         wrapped = f"SELECT * FROM ({_validate_select(query)}) AS _q LIMIT %s"
         with self._ensure_pool().connection() as conn, conn.transaction(), conn.cursor() as cur:

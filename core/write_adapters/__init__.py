@@ -26,7 +26,9 @@ def build_write_adapters() -> list[WriteAdapter]:
         try:
             built.append(_build_one(name, cfg))
         except Exception:  # noqa: BLE001 - one bad destination mustn't stop the rest
-            logger.warning("adapter %s is enabled but could not be built; skipping", name, exc_info=True)
+            logger.warning(
+                "adapter %s is enabled but could not be built; skipping", name, exc_info=True
+            )
     return built
 
 
