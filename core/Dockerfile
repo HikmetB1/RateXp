@@ -38,7 +38,7 @@ RUN if echo " $EXTRAS " | grep -q " redaction-presidio "; then \
 
 COPY server.py mcp_app.py ingest.py models.py migrate.py atif.py config.py config.yaml db.py dispatch.py ratelimit.py redact.py ./
 COPY redaction_adapters/ ./redaction_adapters/
-COPY adapters/ ./adapters/
+COPY write_adapters/ ./write_adapters/
 COPY prompt/ ./prompt/
 COPY scripts/ ./scripts/
 COPY migrations/ ./migrations/

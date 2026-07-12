@@ -50,12 +50,12 @@ redaction:
   # subdomain so Entra ID token auth works).
   azure_endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
 
-# Destinations. Every submission is validated + redacted once, then written to
-# every adapter whose `enabled` is true (see core/adapters/ + core/dispatch.py).
+# Write destinations. Every submission is validated + redacted once, then written to
+# every adapter whose `enabled` is true (see core/write_adapters/ + core/dispatch.py).
 # Adapters are independent and best-effort: one failing is logged, never blocking
 # the others or the request. Enable any combination. Secrets (DB passwords, tokens)
 # are never in this file - each adapter names the env var to read them from.
-adapters:
+write_adapters:
   # RateXp's own PostgreSQL - the one the live dashboard reads. Uses core's
   # DATABASE_URL / RATEXP_DB_AUTH.
   app_be_psql:

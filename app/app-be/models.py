@@ -29,9 +29,10 @@ class Transcript(BaseModel):
 
 
 class QueryRequest(BaseModel):
-    """A read-only SQL query from the dashboard's filter box. SELECT-only; the
-    server validates and runs it in a read-only, timed, row-capped transaction."""
+    """A read-only query from the dashboard's filter box, in the active read source's
+    language (SQL for PostgreSQL, DQL for Dynatrace). The read adapter validates it and
+    runs it read-only, timed and row-capped."""
 
-    sql: str  # a single SELECT (or WITH ... SELECT) statement
+    query: str  # a read-only query in the source's language
     limit: int | None = None  # optional row cap; clamped to query_max_rows
     full: bool = False  # true = full export (up to query_max_rows); else the view

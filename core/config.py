@@ -74,14 +74,16 @@ if not isinstance(_REDACTION_LANGUAGES, list) or not _REDACTION_LANGUAGES:
 REDACTION_LANGUAGES: list[str] = [str(x) for x in _REDACTION_LANGUAGES]
 REDACTION_LANGUAGE: str = REDACTION_LANGUAGES[0]
 
-# Destination adapters (see core/adapters/ + core/dispatch.py). Each of the four
+# Write adapters (see core/write_adapters/ + core/dispatch.py). Each of the four
 # named destinations must be present with an `enabled` flag; a submission is
 # written to every one whose flag is true.
-_ADAPTERS_RAW = _require("adapters")
-_ADAPTER_NAMES = ("app_be_psql", "custom_psql", "app_be_dynatrace", "custom_dynatrace")
-ADAPTERS: dict[str, dict] = {}
-for _name in _ADAPTER_NAMES:
-    _cfg = _require_in(_ADAPTERS_RAW, "adapters", _name)
+_WRITE_ADAPTERS_RAW = _require("write_adapters")
+_WRITE_ADAPTER_NAMES = ("app_be_psql", "custom_psql", "app_be_dynatrace", "custom_dynatrace")
+WRITE_ADAPTERS: dict[str, dict] = {}
+for _name in _WRITE_ADAPTER_NAMES:
+    _cfg = _require_in(_WRITE_ADAPTERS_RAW, "write_adapters", _name)
     if not isinstance(_cfg, dict) or "enabled" not in _cfg:
-        raise RuntimeError(f"config.yaml adapters.{_name} must be a mapping with an 'enabled' key")
-    ADAPTERS[_name] = dict(_cfg)
+        raise RuntimeError(
+            f"config.yaml write_adapters.{_name} must be a mapping with an 'enabled' key"
+        )
+    WRITE_ADAPTERS[_name] = dict(_cfg)

@@ -38,6 +38,7 @@ RUN uv sync --frozen --no-install-project --no-dev \
       $( [ -n "$EXTRAS" ] && echo "--extra $EXTRAS" )
 
 COPY app-be/server.py app-be/models.py app-be/config.py app-be/config.yaml app-be/db.py ./
+COPY app-be/read_adapters/ ./read_adapters/
 # The built dashboard, served by app-be at "/" (see server.py).
 COPY --from=frontend /fe/dist ./static
 

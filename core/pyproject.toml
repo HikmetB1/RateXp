@@ -33,4 +33,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = ["server", "mcp_app", "ingest", "models", "migrate", "atif", "config", "db", "dispatch", "ratelimit", "redact"]
-packages = ["redaction_adapters", "adapters"]
+packages = ["redaction_adapters", "write_adapters", "write_adapters.utils"]

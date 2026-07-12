@@ -21,3 +21,27 @@ query_max_rows: 1000      # hard cap on rows returned (also caps the CSV export)
 # WebSocket /ws live updates: one broadcaster checks on this interval and pushes to all clients.
 ws_enabled: true                # set false to turn the /ws endpoint off entirely
 ws_broadcast_interval_ms: 2000  # how often to check for changes and push (ms)
+
+# Where the dashboard reads from (see app-be/read_adapters/). Mirrors the write side's
+# 2×2 (app_be/custom × psql/dynatrace) but is single-select: enable EXACTLY ONE - the
+# dashboard reads back from that destination. Its filter box speaks that source's own
+# query language (SQL for psql, DQL for dynatrace). RATEXP_READ_ADAPTER overrides which.
+read_adapters:
+  # RateXp's own database (the dashboard's DATABASE_URL), queried with SQL.
+  app_be_psql:
+    enabled: true
+  # An adopter's own PostgreSQL (a DSN other than DATABASE_URL), queried with SQL.
+  custom_psql:
+    enabled: false
+    dsn_env: CUSTOM_PSQL_DSN
+  # RateXp's own Dynatrace tenant, queried with DQL (transcripts come back truncated).
+  # The DQL/apps query URL + a token with storage:logs:read scope come from these env vars.
+  app_be_dynatrace:
+    enabled: false
+    query_url_env: DT_QUERY_URL
+    token_env: DT_ACCESS_TOKEN
+  # An adopter's own Dynatrace tenant, queried with DQL.
+  custom_dynatrace:
+    enabled: false
+    query_url_env: CUSTOM_DT_QUERY_URL
+    token_env: CUSTOM_DT_TOKEN

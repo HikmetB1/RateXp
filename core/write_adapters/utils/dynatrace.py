@@ -1,12 +1,12 @@
 """Shared Dynatrace write logic (OpenTelemetry OTLP/HTTP protobuf).
 
-``DynatraceAdapter`` turns a rating/transcript into an OTLP log record and exports
+``DynatraceWriteAdapter`` turns a rating/transcript into an OTLP log record and exports
 it via the OpenTelemetry SDK to ``<tenant_url>/api/v2/otlp/v1/logs`` (Dynatrace
 accepts protobuf there, not JSON). The concrete adapters that use it live in their
 own files and differ only in which tenant + token they carry:
 
-- ``app_be_dynatrace.py`` -> ``AppBeDynatraceAdapter`` (RateXp's own tenant).
-- ``custom_dynatrace.py`` -> ``CustomDynatraceAdapter`` (an adopter's own tenant).
+- ``app_be_dynatrace.py`` -> ``AppBeDynatraceWriteAdapter`` (RateXp's own tenant).
+- ``custom_dynatrace.py`` -> ``CustomDynatraceWriteAdapter`` (an adopter's own tenant).
 
 Needs the ``dynatrace-otlp`` extra (opentelemetry-sdk + otlp-proto-http),
 imported lazily so core runs without it unless a Dynatrace adapter is enabled.
@@ -41,7 +41,7 @@ def _compact(record: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in record.items() if v is not None}
 
 
-class DynatraceAdapter:
+class DynatraceWriteAdapter:
     def __init__(self, name: str, tenant_url: str, token: str, *, timeout: float = 10.0) -> None:
         if not tenant_url:
             raise RuntimeError(f"{name} needs a tenant_url")

@@ -112,9 +112,9 @@ Masks PII before storage (see [`core/redaction_adapters/`](./core/redaction_adap
 
 The cloud image ships both adapters, so flipping provider is one setting + a restart (no rebuild).
 
-#### Destinations (`adapters.*`)
+#### Write destinations (`write_adapters.*`)
 
-Each submission is written to **every** adapter whose `enabled` is true — best-effort and independent (one failing is logged, never blocks the others or the request). See [`core/adapters/`](./core/adapters/) + [`core/dispatch.py`](./core/dispatch.py).
+Each submission is written to **every** adapter whose `enabled` is true — best-effort and independent (one failing is logged, never blocks the others or the request). See [`core/write_adapters/`](./core/write_adapters/) + [`core/dispatch.py`](./core/dispatch.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/app-be/config.yaml`](#appapp-beconfigyaml) below.
 
 | Adapter            | Where it writes                              | Connection (env var named in config)          |
 |--------------------|----------------------------------------------|-----------------------------------------------|
@@ -142,6 +142,22 @@ Each submission is written to **every** adapter whose `enabled` is true — best
 | `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns |
 | `ws_enabled`               | `true`      | Turn the live-updates WebSocket on/off        |
 | `ws_broadcast_interval_ms` | `2000`      | How often the live feed checks for changes    |
+
+#### Read source (`read_adapters`)
+
+The dashboard reads from **one** source ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) — the one with `enabled: true` in `read_adapters` (like the write side's `enabled` flags, but **exactly one** may be on). It **mirrors the write side's 2×2** (RateXp's own vs. a custom adopter store × PostgreSQL vs. Dynatrace). `RATEXP_READ_ADAPTER` overrides which. The dashboard's **filter box speaks that source's own query language** — SQL for PostgreSQL, DQL for Dynatrace — which the adapter validates + row-caps + runs read-only. The UI learns the language from `GET /meta`.
+
+| Source             | Query lang. | Reads from                               | Settings (env var named in config)                          |
+|--------------------|-------------|------------------------------------------|-------------------------------------------------------------|
+| `app_be_psql`      | **SQL**     | RateXp's own database                    | uses the dashboard's `DATABASE_URL` / `RATEXP_DB_AUTH`      |
+| `custom_psql`      | **SQL**     | An adopter's own PostgreSQL              | `dsn_env` (their connection string)                        |
+| `app_be_dynatrace` | **DQL**     | RateXp's Dynatrace tenant (fanned-out logs) | `query_url_env` (apps/DQL host), `token_env` (needs `storage:logs:read`) |
+| `custom_dynatrace` | **DQL**     | An adopter's Dynatrace tenant            | `query_url_env` (apps/DQL host), `token_env`               |
+
+- **The `*_psql` sources are the full experience** — transcripts, top-skills, the live feed, and a SQL filter box.
+- **The `*_dynatrace` sources** read the fanned-out logs; the filter box then accepts DQL. Transcripts come back **truncated** (the `ratexp.atif` attribute is capped on ingest), and each read is an async DQL query (slower/costlier than SQL). See [`read_adapters/utils/dynatrace.py`](./app/app-be/read_adapters/utils/dynatrace.py).
+- **No secrets or URLs in this file** — only env var *names*. For the Dynatrace sources, `query_url_env` must point at the **apps/DQL** host (e.g. `…apps.dynatrace.com`), not the ingest host.
+- **Cloud values** — the app gets `RATEXP_READ_ADAPTER` / `DT_QUERY_URL` / `DT_ACCESS_TOKEN` from Terraform's `dashboard_read_adapter` / `dynatrace_query_url` / `dynatrace_access_token` (RateXp's deployment reads its own store — `app_be_psql` or `app_be_dynatrace`; the `custom_*` sources are for adopters wiring their own).
 
 ### `functions/skills-consumer/config.yaml`
 *Where to set:* [`functions/skills-consumer/config.yaml`](./functions/skills-consumer/config.yaml) (demo seeder only).
@@ -255,6 +271,7 @@ helpers (`db.py`, `config.py`) so either can be built and deployed on its own.
 - [ ] Flip storage into an adapter
 - [ ] Flip query into adapter-based
 - [ ] Expand to more coding agents (e.g. GitHub Copilot)
+- [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif` exceeds Dynatrace's per-attribute storage cap, so it's truncated on ingest → invalid JSON → the read adapter returns an empty stub (`dynatrace_truncated`) → the trajectory viewer shows nothing (PostgreSQL still shows it in full). Fix by shipping transcripts to Dynatrace as **one log line per step** (each step's text fits the content field, avoiding the single-attribute cap), and/or surface `dynatrace_truncated` in the UI ("full copy in PostgreSQL"). Normal-sized transcripts are unaffected.
 
 ## Contributor License Agreement
 

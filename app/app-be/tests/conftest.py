@@ -98,15 +98,21 @@ class FakePool:
 
 @pytest.fixture
 def app_with_fake_pool(monkeypatch):
-    """Boot the FastAPI app with a fake pool installed (no real database)."""
+    """Boot the FastAPI app with a fake-pool-backed read adapter (no real database)."""
     import importlib
 
     import server
 
     importlib.reload(server)
 
+    from read_adapters.app_be_psql import AppBePostgresReadAdapter
+
     fake_pool = FakePool()
-    monkeypatch.setattr(server, "make_pool", lambda *_a, **_k: fake_pool)
+    # The read adapter runs the same SQL against the fake pool (injected, skipping the
+    # real make_pool), so tests can still inspect pool.store["sql"] / ["params"].
+    adapter = AppBePostgresReadAdapter()
+    adapter._pool = fake_pool
+    monkeypatch.setattr(server, "get_read_adapter", lambda: adapter)
 
     from fastapi.testclient import TestClient
 

@@ -11,16 +11,16 @@ from __future__ import annotations
 import logging
 import os
 
-from .base import Adapter
+from .base import WriteAdapter
 
 logger = logging.getLogger(__name__)
 
 
-def build_adapters() -> list[Adapter]:
-    from config import ADAPTERS
+def build_write_adapters() -> list[WriteAdapter]:
+    from config import WRITE_ADAPTERS
 
-    built: list[Adapter] = []
-    for name, cfg in ADAPTERS.items():
+    built: list[WriteAdapter] = []
+    for name, cfg in WRITE_ADAPTERS.items():
         if not cfg.get("enabled"):
             continue
         try:
@@ -30,30 +30,30 @@ def build_adapters() -> list[Adapter]:
     return built
 
 
-def _build_one(name: str, cfg: dict) -> Adapter:
+def _build_one(name: str, cfg: dict) -> WriteAdapter:
     if name == "app_be_psql":
-        from .app_be_psql import AppBePostgresAdapter
+        from .app_be_psql import AppBePostgresWriteAdapter
 
-        return AppBePostgresAdapter()
+        return AppBePostgresWriteAdapter()
     if name == "custom_psql":
-        from .custom_psql import CustomPostgresAdapter
+        from .custom_psql import CustomPostgresWriteAdapter
 
-        return CustomPostgresAdapter(cfg["dsn_env"])
+        return CustomPostgresWriteAdapter(cfg["dsn_env"])
     if name == "app_be_dynatrace":
-        from .app_be_dynatrace import AppBeDynatraceAdapter
+        from .app_be_dynatrace import AppBeDynatraceWriteAdapter
 
-        return AppBeDynatraceAdapter(
+        return AppBeDynatraceWriteAdapter(
             os.environ.get(cfg["tenant_url_env"], "").strip(),
             os.environ.get(cfg["token_env"], "").strip(),
         )
     if name == "custom_dynatrace":
-        from .custom_dynatrace import CustomDynatraceAdapter
+        from .custom_dynatrace import CustomDynatraceWriteAdapter
 
-        return CustomDynatraceAdapter(
+        return CustomDynatraceWriteAdapter(
             os.environ.get(cfg["tenant_url_env"], "").strip(),
             os.environ.get(cfg["token_env"], "").strip(),
         )
     raise RuntimeError(f"unknown adapter {name!r}")
 
 
-__all__ = ["Adapter", "build_adapters"]
+__all__ = ["WriteAdapter", "build_write_adapters"]

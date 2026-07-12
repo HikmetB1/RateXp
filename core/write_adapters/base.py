@@ -1,19 +1,19 @@
 """The interface every destination adapter implements.
 
-An adapter is one place a submission can be sent. core validates and redacts a
-record once, then hands it to every enabled adapter (see dispatch.py). Adapters
-are independent and best-effort: one failing never stops the others or the
-request. Each concrete destination lives in its own file:
+A write adapter is one place a submission can be sent. core validates and redacts
+a record once, then hands it to every enabled adapter (see dispatch.py). Write
+adapters are independent and best-effort: one failing never stops the others or
+the request. Each concrete destination lives in its own file:
 
 - ``app_be_psql.py`` - RateXp's own DB (the one the live dashboard reads).
 - ``custom_psql.py`` - an adopter's own PostgreSQL.
 - ``app_be_dynatrace.py`` - RateXp's Dynatrace tenant (OpenTelemetry/OTLP).
 - ``custom_dynatrace.py`` - an adopter's own Dynatrace tenant (OTLP).
 
-The two shared bases they build on are ``postgres.py`` (``PostgresAdapter``) and
-``dynatrace.py`` (``DynatraceAdapter``). To add a destination: implement this
-interface and register it in ``build_adapters`` (``__init__.py``), keyed by a name
-in config.yaml ``adapters``.
+The two shared bases they build on live in ``utils/`` (``utils/postgres.py`` ->
+``PostgresWriteAdapter``, ``utils/dynatrace.py`` -> ``DynatraceWriteAdapter``). To add
+a destination: implement this interface and register it in ``build_write_adapters``
+(``__init__.py``), keyed by a name in config.yaml ``write_adapters``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class Adapter(Protocol):
+class WriteAdapter(Protocol):
     # Stable identifier used in logs and config (e.g. "app_be_psql").
     name: str
 

@@ -6,10 +6,10 @@ postgres.py for the shared write logic.
 
 from __future__ import annotations
 
-from .postgres import PostgresAdapter
+from .utils.postgres import PostgresWriteAdapter
 
 
-class AppBePostgresAdapter(PostgresAdapter):
+class AppBePostgresWriteAdapter(PostgresWriteAdapter):
     def __init__(self) -> None:
         from db import DATABASE_URL, DB_AUTH
 

@@ -1,17 +1,17 @@
 """custom_psql - an adopter's own PostgreSQL.
 
 The connection string is read from the env var named in config (``dsn_env``), so
-the secret never lives in config.yaml. See postgres.py for the shared write logic.
+the secret never lives in config.yaml. See utils/postgres.py for the shared write logic.
 """
 
 from __future__ import annotations
 
 import os
 
-from .postgres import PostgresAdapter
+from .utils.postgres import PostgresWriteAdapter
 
 
-class CustomPostgresAdapter(PostgresAdapter):
+class CustomPostgresWriteAdapter(PostgresWriteAdapter):
     def __init__(self, dsn_env: str) -> None:
         dsn = os.environ.get(dsn_env, "").strip()
         if not dsn:

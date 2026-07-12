@@ -51,8 +51,8 @@ consent, every N run can collect a good / bad rating and its full trajectory.`
 const DOWNLOAD_INFO_MD = `### Preview & downloads
 
 The dashboard updates in **real time**, but the table only shows the **most recent
-entries** so it stays fast and smooth. To get more than the preview, use the SQL
-filter or **Download JSON**.
+entries** so it stays fast and smooth. To get more than the preview, use the filter
+box or **Download JSON**.
 
 **What Download JSON gives you**
 
@@ -110,6 +110,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(null) // { truncated } while a filter is active
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
+  const [meta, setMeta] = useState({ query_language: 'SQL', query_example: EXAMPLE_SQL }) // filter-box language, from /meta
   const [liveTick, setLiveTick] = useState(0) // bumped on every live snapshot, to re-run an active filter
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
@@ -142,6 +143,8 @@ export default function App() {
   }
 
   useEffect(() => {
+    // Which query language the filter box speaks, for the active read source (SQL/DQL).
+    fetch(`${API_BASE}/meta`).then(okJson).then(setMeta).catch(() => {})
     // Initial load over HTTP - works even if the WebSocket is blocked. One /snapshot
     // call returns feedback + their matching transcripts + stats, the same correlated
     // shape the live WS pushes, so every row finds its trajectory.
@@ -268,7 +271,7 @@ export default function App() {
         </p>
       )}
       <div className="glow-edge" style={groupBox}>
-        <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} />
+        <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
         {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
         {!loading && !error && (
           <section className="glow-edge" style={glassCard}>
@@ -332,7 +335,7 @@ function PreviewNote({ onInfo }) {
   return (
     <p style={{ margin: '10px 0 0', color: 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
       This is a real-time preview - only the most recent entries are shown to keep
-      things smooth. To see everything for your skill, query it with SQL above, then
+      things smooth. To see everything for your skill, query it in the filter above, then
       click Download JSON.{' '}
       <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
     </p>
@@ -432,10 +435,12 @@ function ViewLimitNotice({ shown }) {
 
 const EXAMPLE_SQL = "SELECT * FROM feedback WHERE skill_name = '...'"
 
-// SELECT-only SQL box that filters the table in place (Clear restores it). The
-// backend enforces the guardrails (SELECT-only, read-only, timeout, row cap).
-function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo }) {
-  const [sql, setSql] = useState('') // what's in the textarea
+// Filter box in the read source's own query language (SQL for PostgreSQL, DQL for
+// Dynatrace - from /meta). The backend read adapter validates it and enforces the
+// guardrails (read-only, timeout, row cap).
+function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo, queryLanguage = 'SQL', queryExample }) {
+  const example = queryExample || EXAMPLE_SQL
+  const [sql, setSql] = useState('') // what's in the textarea (SQL or DQL)
   const [appliedSql, setAppliedSql] = useState('') // the query currently filtering the table
   const [err, setErr] = useState(null)
   const [running, setRunning] = useState(false)
@@ -448,7 +453,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
     return fetch(`${apiBase}/query`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sql: sqlToRun }),
+      body: JSON.stringify({ query: sqlToRun }),
     })
       .then(async (r) => {
         const body = await r.json().catch(() => ({}))
@@ -491,7 +496,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
         const r = await fetch(`${apiBase}/query`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sql: appliedSql, full: true }),
+          body: JSON.stringify({ query: appliedSql, full: true }),
         })
         const body = await r.json().catch(() => ({}))
         if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`)
@@ -519,7 +524,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
   return (
     <section className="glow-edge" style={glassCard}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <h2 style={cardHeading}>Filter with SQL</h2>
+        <h2 style={cardHeading}>Filter with {queryLanguage}</h2>
         {/* Opens the same preview & download info popup the red notes link to. */}
         <button
           type="button"
@@ -532,15 +537,14 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo 
         </button>
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
-        Read-only SELECT (capped & time-limited) that replaces the table below - query one
-        skill, e.g. <code>SELECT * FROM feedback WHERE skill_name = '...'</code>, then Download
-        JSON to export all of it.{' '}
+        Read-only {queryLanguage} query (capped & time-limited) that replaces the table below -
+        query one skill, e.g. <code>{example}</code>, then Download JSON to export all of it.{' '}
         <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea
         value={sql}
         onChange={(e) => setSql(e.target.value)}
-        placeholder={EXAMPLE_SQL}
+        placeholder={example}
         rows={3}
         spellCheck={false}
         style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 10, boxSizing: 'border-box' }}

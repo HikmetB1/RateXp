@@ -64,7 +64,8 @@ sequenceDiagram
     participant H as upload helper<br/>(user's machine)
     participant C as core (MCP + HTTP)
     participant R as redaction<br/>(Presidio / Azure AI Language)
-    participant DB as PostgreSQL
+    participant DB as write + read destination
+    participant DT as write + read destination<br/>(optional)
     participant A as dashboard API<br/>(read-only)
     participant D as dashboard UI
 
@@ -73,7 +74,8 @@ sequenceDiagram
     S->>U: ask survey (AskUserQuestion)
     U->>S: answers (rating, consent, comment)
     S->>C: submit_feedback (rating, over MCP)
-    C->>DB: write rating to enabled destinations
+    C->>DB: write rating (best-effort)
+    C->>DT: write rating (best-effort)
 
     Note over S,H: only on consent
     S->>H: run curl|sh (one local command, single approval)
@@ -82,14 +84,17 @@ sequenceDiagram
     H->>C: POST /transcript (raw .jsonl, plain HTTP)
     C->>R: redact PII (fail-closed)
     R-->>C: masked text
-    C->>DB: write transcript to enabled destinations
+    C->>DB: write transcript (best-effort)
+    C->>DT: write transcript (best-effort)
+    Note over C,DT: destinations are pluggable adapters (today PostgreSQL & Dynatrace over OTLP) — core fans out to every enabled one as equal, independent, best-effort peers
     Note over DB: rating + transcript linked by request_id
 
     D->>A: GET /snapshot (initial load, HTTP)
-    A->>DB: read
+    A->>DB: read (filter box: SQL)
     A-->>D: snapshot
     D->>A: subscribe /ws (WebSocket)
     A-->>D: live snapshots (on connect, then on change)
+    Note over DB,A: read from one source you pick — PostgreSQL (SQL box) or Dynatrace (DQL box)
 ```
 
 In plain words: a skill author pairs their `SKILL.md` with a small `.mcp.json`
@@ -106,8 +111,8 @@ anyone can watch the feedback arrive.
 
 ### Where your data goes
 core validates and redacts each submission once, then writes it to **every
-destination adapter you enable** in `core/config.yaml` (the `adapters` block). The
-four destinations are a 2×2 - PostgreSQL or Dynatrace, RateXp's own or your own:
+destination you enable** in `core/config.yaml` (the `write_adapters` block). The
+four write destinations are a 2×2 - PostgreSQL or Dynatrace, RateXp's own or your own:
 
 | | PostgreSQL | Dynatrace (OpenTelemetry) |
 |--|--|--|
@@ -117,7 +122,14 @@ four destinations are a 2×2 - PostgreSQL or Dynatrace, RateXp's own or your own
 Enable any combination - the adapters are **independent and best-effort**, so one
 failing (or a Dynatrace token being absent) is logged and never blocks the others
 or the request. Secrets (DB strings, tokens) come from env vars named in the
-config, never from the file itself. See [`core/adapters/`](./core/adapters/) and [`core/dispatch.py`](./core/dispatch.py).
+config, never from the file itself. See [`core/write_adapters/`](./core/write_adapters/) and [`core/dispatch.py`](./core/dispatch.py).
+
+The read side is a single source you pick: the live dashboard reads from **one** read
+adapter ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) - **PostgreSQL**
+(queried with SQL) or **Dynatrace** (the fanned-out logs, queried with DQL). The
+dashboard's **filter box speaks that source's own language** - SQL when reading
+PostgreSQL, DQL when reading Dynatrace - so the box works either way. So writes fan
+out to many destinations; reads come from one source you pick.
 
 ## Quick start - ship RateXp with your skill
 No prerequisites - setting up feedback takes just two tiny steps (two small files):

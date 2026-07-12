@@ -12,7 +12,6 @@ import asyncio
 import contextlib
 import json
 import os
-import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -27,11 +26,11 @@ from config import (
     WS_BROADCAST_INTERVAL_MS,
     WS_ENABLED,
 )
-from db import make_pool
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from models import Feedback, QueryRequest, Transcript
+from read_adapters import get_read_adapter
 
 ENV = os.environ.get("RATEXP_ENV", "local").lower()
 CORS_ORIGINS_RAW = os.environ.get("RATEXP_CORS_ORIGINS")
@@ -53,27 +52,8 @@ def _resolve_cors_origins() -> list[str]:
 # Shared by the CORS middleware and the WebSocket origin check (CORS doesn't cover WS handshakes).
 ALLOWED_ORIGINS = _resolve_cors_origins()
 
-# Defense-in-depth on top of the read-only transaction; also catches data-modifying CTEs.
-_FORBIDDEN_SQL = re.compile(
-    r"\b(insert|update|delete|drop|alter|create|truncate|grant|revoke|copy|vacuum|merge|call|do)\b",
-    re.IGNORECASE,
-)
-
-
-def _validate_select(sql: str) -> str:
-    """Return a cleaned single SELECT statement, or raise HTTP 400."""
-    cleaned = sql.strip().rstrip(";").strip()
-    if not cleaned:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "empty query")
-    if ";" in cleaned:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "only a single statement is allowed")
-    if not re.match(r"(?is)^\s*(select|with)\b", cleaned):
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "only SELECT queries are allowed")
-    if _FORBIDDEN_SQL.search(cleaned):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "only read-only SELECT queries are allowed"
-        )
-    return cleaned
+# Query validation now lives in the read adapter (each source validates its own
+# language - SQL in read_adapters/utils/postgres.py, DQL in read_adapters/utils/dynatrace.py).
 
 
 def _jsonable(value):
@@ -140,50 +120,19 @@ def _row_to_transcript(r) -> Transcript:
     )
 
 
+# These delegate to the configured read adapter (see read_adapters/); the SQL lives
+# there. Kept as thin module functions so the endpoints, the snapshot builder, and
+# the tests share one call surface.
 def _select_feedback(limit: int) -> list[tuple]:
-    with app.state.pool.connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT created_at, session_id, skill_name, agent, score, comment, request_id
-            FROM feedback
-            ORDER BY created_at DESC
-            LIMIT %s
-            """,
-            (limit,),
-        )
-        return cur.fetchall()
+    return app.state.read.select_feedback(limit)
 
 
 def _select_transcript(limit: int) -> list[tuple]:
-    with app.state.pool.connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id
-            FROM transcript
-            ORDER BY created_at DESC
-            LIMIT %s
-            """,
-            (limit,),
-        )
-        return cur.fetchall()
+    return app.state.read.select_transcript(limit)
 
 
 def _select_transcripts_by_ids(request_ids: list, session_ids: list) -> list[tuple]:
-    """Transcripts matching any of the given request_id/session_id keys."""
-    if not request_ids and not session_ids:
-        return []
-    with app.state.pool.connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id
-            FROM transcript
-            WHERE request_id = ANY(%s) OR session_id = ANY(%s)
-            ORDER BY created_at DESC
-            LIMIT %s
-            """,
-            (request_ids, session_ids, LIST_MAX_LIMIT),
-        )
-        return cur.fetchall()
+    return app.state.read.select_transcripts_by_ids(request_ids, session_ids)
 
 
 def _select_transcripts_for(feedback_rows: list[tuple]) -> list[tuple]:
@@ -200,27 +149,12 @@ def _select_transcripts_for(feedback_rows: list[tuple]) -> list[tuple]:
 
 
 def _select_top_skills(limit: int) -> list[dict]:
-    with app.state.pool.connection() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT skill_name,
-                   COUNT(*) AS total,
-                   COUNT(*) FILTER (WHERE score = 1) AS good,
-                   COUNT(*) FILTER (WHERE score = 2) AS bad
-            FROM feedback
-            GROUP BY skill_name
-            ORDER BY total DESC, skill_name ASC
-            LIMIT %s
-            """,
-            (limit,),
-        )
-        rows = cur.fetchall()
-    return [{"skill_name": r[0], "total": r[1], "good": r[2], "bad": r[3]} for r in rows]
+    return app.state.read.select_top_skills(limit)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.pool = make_pool()
+    app.state.read = get_read_adapter()
     # One broadcaster fans snapshots to all clients, so DB load tracks writes, not viewers.
     broadcaster = asyncio.create_task(_broadcaster()) if WS_ENABLED else None
     try:
@@ -230,7 +164,7 @@ async def lifespan(app: FastAPI):
             broadcaster.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await broadcaster
-        app.state.pool.close()
+        app.state.read.close()
 
 
 # Hide Swagger/ReDoc/OpenAPI outside local dev.
@@ -251,6 +185,19 @@ app.add_middleware(
 @app.get("/healthz")
 def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/meta")
+def meta() -> dict:
+    """What the UI needs to render the filter box for the active read source:
+    whether the /query box is on, and the source's query language + an example."""
+    read = app.state.read
+    return {
+        "query_enabled": QUERY_ENABLED,
+        "read_source": read.name,
+        "query_language": read.query_language,
+        "query_example": read.query_example,
+    }
 
 
 @app.get("/feedback")
@@ -306,34 +253,22 @@ def snapshot() -> dict:
 
 @app.post("/query")
 def run_query(req: QueryRequest) -> dict:
-    """Run a guarded, read-only SELECT for the dashboard's filter/CSV box.
+    """Run a guarded, read-only query for the dashboard's filter/CSV box.
 
-    Layered guardrails: SELECT-only + single statement (validated), wrapped in a
-    row-capping subquery, and executed in a read-only transaction with a
-    statement timeout - so writes are impossible and cost/volume are bounded.
+    The query is in the read source's own language (SQL for PostgreSQL, DQL for
+    Dynatrace); the read adapter validates it, caps rows, and runs it read-only.
     """
     if not QUERY_ENABLED:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "query endpoint disabled")
 
-    cleaned = _validate_select(req.sql)
-    # Always fetch up to the hard cap so we can return the *most recent* rows regardless of
-    # the query's own ordering (it may have none). Trimming to the view - and, for Download,
-    # the single-skill rule - happens newest-first in Python below.
-    wrapped = f"SELECT * FROM ({cleaned}) AS _q LIMIT %s"
-
+    # The adapter validates + caps + runs the query in its language, newest-first
+    # trimming (and the Download single-skill rule) happen in Python below.
     try:
-        with app.state.pool.connection() as conn:
-            with conn.transaction(), conn.cursor() as cur:
-                # SET needs a literal, not a bound param; int() keeps the inlining injection-safe.
-                cur.execute(f"SET LOCAL statement_timeout = {int(QUERY_TIMEOUT_MS)}")
-                cur.execute("SET TRANSACTION READ ONLY")
-                cur.execute(wrapped, (QUERY_MAX_ROWS,))
-                columns = [d.name for d in cur.description] if cur.description else []
-                rows = cur.fetchall()
-    except HTTPException:
-        raise
+        columns, rows = app.state.read.run_query(req.query, QUERY_MAX_ROWS, QUERY_TIMEOUT_MS)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"query error: {e}") from e
     except Exception as e:
-        # Most failures here are the user's SQL, so surface them as 400, not 503.
+        # Most other failures here are the user's query, so surface as 400, not 503.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"query error: {e!r}") from e
 
     result = [dict(zip(columns, (_jsonable(v) for v in row), strict=False)) for row in rows]
@@ -424,12 +359,7 @@ def _build_snapshot() -> dict:
 
 def _change_signature() -> tuple:
     """A cheap fingerprint of the tables so the broadcaster can skip unchanged data."""
-    with app.state.pool.connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT count(*), max(created_at) FROM feedback")
-        feedback = cur.fetchall()
-        cur.execute("SELECT count(*), max(created_at) FROM transcript")
-        transcript = cur.fetchall()
-    return (str(feedback), str(transcript))
+    return app.state.read.change_signature()
 
 
 async def _broadcaster() -> None:

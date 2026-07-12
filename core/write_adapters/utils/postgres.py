@@ -1,11 +1,11 @@
 """Shared PostgreSQL write logic for the psql destination adapters.
 
-``PostgresAdapter`` holds everything the psql destinations have in common (lazy
+``PostgresWriteAdapter`` holds everything the psql destinations have in common (lazy
 pool + migrations, the two INSERTs); the concrete adapters that use it live in
 their own files and differ only in where they get their connection:
 
-- ``app_be_psql.py`` -> ``AppBePostgresAdapter`` (RateXp's own database).
-- ``custom_psql.py`` -> ``CustomPostgresAdapter`` (an adopter's own database).
+- ``app_be_psql.py`` -> ``AppBePostgresWriteAdapter`` (RateXp's own database).
+- ``custom_psql.py`` -> ``CustomPostgresWriteAdapter`` (an adopter's own database).
 
 The pool and migrations are built lazily on first write, so a database that is
 briefly unreachable at boot doesn't disable the adapter - the next write retries.
@@ -18,7 +18,7 @@ import json
 from models import Feedback, Transcript
 
 
-class PostgresAdapter:
+class PostgresWriteAdapter:
     def __init__(self, name: str, *, dsn: str, auth: str) -> None:
         self.name = name
         self._dsn = dsn

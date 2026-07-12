@@ -1,10 +1,10 @@
-"""Fan a record out to every enabled destination adapter.
+"""Fan a record out to every enabled write adapter.
 
 core validates and redacts a record once (see ingest.py), then calls here to send
-it to each configured adapter (see adapters/). Every adapter is independent and
-best-effort: a failure in one is logged and the rest still run, and the request
-still succeeds. The built adapter list is held for the process lifetime; server.py
-opens it at boot and closes it at shutdown.
+it to each configured destination (see write_adapters/). Every adapter is
+independent and best-effort: a failure in one is logged and the rest still run, and
+the request still succeeds. The built adapter list is held for the process lifetime;
+server.py opens it at boot and closes it at shutdown.
 """
 
 from __future__ import annotations
@@ -12,21 +12,21 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from adapters import build_adapters
+from write_adapters import build_write_adapters
 
 if TYPE_CHECKING:
-    from adapters import Adapter
     from models import Feedback, Transcript
+    from write_adapters import WriteAdapter
 
 logger = logging.getLogger(__name__)
 
-_adapters: list[Adapter] | None = None
+_adapters: list[WriteAdapter] | None = None
 
 
-def get_adapters() -> list[Adapter]:
+def get_adapters() -> list[WriteAdapter]:
     global _adapters
     if _adapters is None:
-        _adapters = build_adapters()
+        _adapters = build_write_adapters()
     return _adapters
 
 

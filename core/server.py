@@ -31,9 +31,9 @@ _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Build the enabled destination adapters now so PostgreSQL migrations run
-    # before the dashboard reads. Adapter build is best-effort (a bad one is
-    # skipped), so this never crash-loops at boot.
+    # Build the enabled write adapters now so PostgreSQL migrations run before the
+    # dashboard reads. Adapter build is best-effort (a bad one is skipped), so this
+    # never crash-loops at boot.
     try:
         get_adapters()
     except Exception:  # noqa: BLE001 - a destination may not be ready at boot

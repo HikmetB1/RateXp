@@ -56,26 +56,33 @@ class _EntraConnection(psycopg.Connection):
         return super().connect(conninfo, password=_entra_token(), **kwargs)
 
 
-def _pool_kwargs() -> dict:
-    if DB_AUTH == "entra":
+def _pool_kwargs(auth: str) -> dict:
+    if auth == "entra":
         return {"connection_class": _EntraConnection}
     return {}
 
 
-def make_pool(*, min_size: int = 1, max_size: int = 10) -> ConnectionPool:
-    """Open a connection pool using the configured auth mode."""
+def make_pool(
+    dsn: str = DATABASE_URL, auth: str = DB_AUTH, *, min_size: int = 1, max_size: int = 10
+) -> ConnectionPool:
+    """Open a connection pool for *dsn* using *auth* mode.
+
+    Defaults are the dashboard's own `DATABASE_URL` / `RATEXP_DB_AUTH` (the app_be_psql
+    read source). A read adapter can pass a different dsn/auth to read another
+    PostgreSQL (custom_psql - see read_adapters/custom_psql.py).
+    """
     return ConnectionPool(
-        DATABASE_URL,
+        dsn,
         min_size=min_size,
         max_size=max_size,
         open=True,
         kwargs={},
-        **_pool_kwargs(),
+        **_pool_kwargs(auth),
     )
 
 
-def connect() -> psycopg.Connection:
-    """Open a single connection (used by migrations) with the configured auth."""
-    if DB_AUTH == "entra":
-        return _EntraConnection.connect(DATABASE_URL)
-    return psycopg.connect(DATABASE_URL)
+def connect(dsn: str = DATABASE_URL, auth: str = DB_AUTH) -> psycopg.Connection:
+    """Open a single connection for *dsn* using *auth* mode."""
+    if auth == "entra":
+        return _EntraConnection.connect(dsn)
+    return psycopg.connect(dsn)
