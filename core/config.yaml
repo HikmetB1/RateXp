@@ -76,3 +76,8 @@ write_adapters:
     enabled: false
     tenant_url_env: CUSTOM_DT_TENANT_URL
     token_env: CUSTOM_DT_TOKEN
+  # A Bluebox workspace, over OpenTelemetry (OTLP). Write-only - no read adapter.
+  bluebox:
+    enabled: false
+    endpoint_env: BLUEBOX_OTLP_ENDPOINT
+    token_env: BLUEBOX_OTLP_TOKEN

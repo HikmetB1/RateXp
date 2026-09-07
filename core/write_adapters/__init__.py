@@ -1,8 +1,8 @@
 """Build the set of enabled destination adapters from config.yaml ``adapters``.
 
-Each of the four destinations is built only when its ``enabled`` flag is true. A
-destination that is enabled but can't be built (e.g. a Dynatrace adapter with no
-token, or a custom PostgreSQL with no DSN) is logged and skipped, never crashing
+Each destination is built only when its ``enabled`` flag is true. A destination
+that is enabled but can't be built (e.g. an OTLP adapter with no token, or a
+custom PostgreSQL with no DSN) is logged and skipped, never crashing
 startup - consistent with the best-effort, independent fan-out in dispatch.py.
 """
 
@@ -53,6 +53,13 @@ def _build_one(name: str, cfg: dict) -> WriteAdapter:
 
         return CustomDynatraceWriteAdapter(
             os.environ.get(cfg["tenant_url_env"], "").strip(),
+            os.environ.get(cfg["token_env"], "").strip(),
+        )
+    if name == "bluebox":
+        from .bluebox import BlueboxWriteAdapter
+
+        return BlueboxWriteAdapter(
+            os.environ.get(cfg["endpoint_env"], "").strip(),
             os.environ.get(cfg["token_env"], "").strip(),
         )
     raise RuntimeError(f"unknown adapter {name!r}")

@@ -122,10 +122,13 @@ Each submission is written to **every** adapter whose `enabled` is true — best
 | `custom_psql`      | An adopter's own PostgreSQL                   | DSN from `dsn_env`                            |
 | `app_be_dynatrace` | RateXp's Dynatrace tenant (OTLP)              | URL from `tenant_url_env`, token from `token_env` |
 | `custom_dynatrace` | An adopter's own Dynatrace tenant (OTLP)      | URL from `tenant_url_env`, token from `token_env` |
+| `bluebox`          | A Bluebox workspace (OTLP) — **write-only**   | URL from `endpoint_env`, token from `token_env` |
 
 - **No secrets or URLs in this file** — only the *names* of the env vars that hold them.
 - **Missing values are safe** — an adapter enabled but without its tenant/token/DSN is skipped with a warning.
-- **Dynatrace needs the extra** — build core with `dynatrace-otlp` (local `CORE_EXTRAS=dynatrace-otlp`; cloud `--build-arg EXTRAS="… dynatrace-otlp"`).
+- **OTLP adapters need an extra** — build core with `dynatrace-otlp` (local `CORE_EXTRAS=dynatrace-otlp`; cloud `--build-arg EXTRAS="… dynatrace-otlp"`).
+- **Bluebox takes either URL form** — the full OTLP base, or a bare tenant URL.
+- **Bluebox is write-only** — no query language, so no read adapter; read it with `bluebox ask`.
 - **Cloud values** — `app_be_dynatrace` gets `DT_TENANT_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_tenant_url` / `dynatrace_access_token`.
 
 ### `app/app-be/config.yaml`

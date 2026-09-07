@@ -24,11 +24,17 @@ def test_build_write_adapters_skips_disabled_and_unbuildable(monkeypatch):
                 "token_env": "NOPE_TOKEN",
             },
             "custom_dynatrace": {"enabled": False, "tenant_url_env": "X", "token_env": "X"},
+            "bluebox": {  # token unset -> skipped
+                "enabled": True,
+                "endpoint_env": "NOPE_ENDPOINT",
+                "token_env": "NOPE_TOKEN",
+            },
         },
     )
     monkeypatch.delenv("NOPE_DSN", raising=False)
     monkeypatch.delenv("NOPE_TOKEN", raising=False)
     monkeypatch.delenv("NOPE_TENANT", raising=False)
+    monkeypatch.delenv("NOPE_ENDPOINT", raising=False)
     assert write_adapters.build_write_adapters() == []  # nothing enabled-and-buildable
 
 
@@ -44,6 +50,7 @@ def test_build_write_adapters_builds_enabled_psql(monkeypatch):
             "custom_psql": {"enabled": False, "dsn_env": "X"},
             "app_be_dynatrace": {"enabled": False, "tenant_url_env": "X", "token_env": "X"},
             "custom_dynatrace": {"enabled": False, "tenant_url_env": "X", "token_env": "X"},
+            "bluebox": {"enabled": False, "endpoint_env": "X", "token_env": "X"},
         },
     )
     built = write_adapters.build_write_adapters()
@@ -151,3 +158,42 @@ def test_dynatrace_adapter_requires_tenant_and_token():
         DynatraceWriteAdapter("x", "https://t", "")
     adapter = DynatraceWriteAdapter("x", "https://tenant.example/", "tok")
     assert adapter._endpoint == "https://tenant.example/api/v2/otlp/v1/logs"
+
+
+# --- BlueboxAdapter ------------------------------------------------------------
+
+
+def test_bluebox_accepts_either_url_form():
+    from write_adapters.bluebox import BlueboxWriteAdapter
+
+    want = "https://abc12345.live.dynatrace.com/api/v2/otlp/v1/logs"
+    # `bluebox otlp-endpoint` prints the URL with /api/v2/otlp already on it; the
+    # prefix must not end up doubled.
+    full = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp", "tok")
+    assert full._endpoint == want
+    assert full.name == "bluebox"
+    # A trailing slash, and a bare tenant URL, both land on the same endpoint.
+    trailing = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp/", "tok")
+    assert trailing._endpoint == want
+    bare = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com", "tok")
+    assert bare._endpoint == want
+
+
+def test_bluebox_leaves_the_dynatrace_adapters_alone():
+    from write_adapters.app_be_dynatrace import AppBeDynatraceWriteAdapter
+    from write_adapters.custom_dynatrace import CustomDynatraceWriteAdapter
+
+    # Bluebox does its URL fix-up in its own __init__, so the shared base and the
+    # two Dynatrace adapters keep taking a bare tenant URL, unchanged.
+    for cls in (AppBeDynatraceWriteAdapter, CustomDynatraceWriteAdapter):
+        adapter = cls("https://tenant.example", "tok")
+        assert adapter._endpoint == "https://tenant.example/api/v2/otlp/v1/logs"
+
+
+def test_bluebox_requires_endpoint_and_token():
+    from write_adapters.bluebox import BlueboxWriteAdapter
+
+    with pytest.raises(RuntimeError):
+        BlueboxWriteAdapter("", "tok")
+    with pytest.raises(RuntimeError):
+        BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp", "")

@@ -9,6 +9,8 @@ the request. Each concrete destination lives in its own file:
 - ``custom_psql.py`` - an adopter's own PostgreSQL.
 - ``app_be_dynatrace.py`` - RateXp's Dynatrace tenant (OpenTelemetry/OTLP).
 - ``custom_dynatrace.py`` - an adopter's own Dynatrace tenant (OTLP).
+- ``bluebox.py`` - a Bluebox workspace (OTLP). Write-only: Bluebox has no query
+  language, so it has no counterpart in app-be's read_adapters/.
 
 The two shared bases they build on live in ``utils/`` (``utils/postgres.py`` ->
 ``PostgresWriteAdapter``, ``utils/dynatrace.py`` -> ``DynatraceWriteAdapter``). To add

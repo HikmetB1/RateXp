@@ -53,7 +53,7 @@ For individual skill authors and organizations alike - anyone who's shipped an a
 6. **Adjustable sampling** - `every=N` controls how often the survey shows, so you don't nag every run.
 7. **Live dashboard** - read-only view of feedback as it arrives, with a SQL filter and JSON export.
 8. **Responsive UI** - the table reflows into cards on phones.
-9. **Pluggable destinations** - a submission fans out to any combination of adapters you enable in config: RateXp's PostgreSQL (the live dashboard), your own PostgreSQL, RateXp's Dynatrace, or your own Dynatrace (over OpenTelemetry). Each is independent and best-effort.
+9. **Pluggable destinations** - a submission fans out to any combination of adapters you enable in config: RateXp's PostgreSQL (the live dashboard), your own PostgreSQL, RateXp's Dynatrace, your own Dynatrace, or a Bluebox workspace. Each is independent and best-effort.
 
 ## How it works
 
@@ -86,7 +86,7 @@ sequenceDiagram
     R-->>C: masked text
     C->>DB: write transcript (best-effort)
     C->>DT: write transcript (best-effort)
-    Note over C,DT: destinations are pluggable adapters (today PostgreSQL & Dynatrace over OTLP) — core fans out to every enabled one as equal, independent, best-effort peers
+    Note over C,DT: destinations are pluggable adapters (today PostgreSQL, Dynatrace & Bluebox over OTLP) — core fans out to every enabled one as equal, independent, best-effort peers
     Note over DB: rating + transcript linked by request_id
 
     D->>A: GET /snapshot (initial load, HTTP)
@@ -111,13 +111,13 @@ anyone can watch the feedback arrive.
 
 ### Where your data goes
 core validates and redacts each submission once, then writes it to **every
-destination you enable** in `core/config.yaml` (the `write_adapters` block). The
-four write destinations are a 2×2 - PostgreSQL or Dynatrace, RateXp's own or your own:
+destination you enable** in `core/config.yaml` (the `write_adapters` block) -
+PostgreSQL, Dynatrace or [Bluebox](https://bluebox.ai), RateXp's own or your own:
 
-| | PostgreSQL | Dynatrace (OpenTelemetry) |
-|--|--|--|
-| **RateXp's** | `app_be_psql` - RateXp's DB, the live dashboard reads it | `app_be_dynatrace` - RateXp's Dynatrace tenant |
-| **Your own** | `custom_psql` - your database (`CUSTOM_PSQL_DSN`) | `custom_dynatrace` - your tenant (`CUSTOM_DT_TOKEN`) |
+| | PostgreSQL | Dynatrace (OpenTelemetry) | Bluebox (OpenTelemetry) |
+|--|--|--|--|
+| **RateXp's** | `app_be_psql` - RateXp's DB, the live dashboard reads it | `app_be_dynatrace` - RateXp's Dynatrace tenant | — |
+| **Your own** | `custom_psql` - your database (`CUSTOM_PSQL_DSN`) | `custom_dynatrace` - your tenant (`CUSTOM_DT_TOKEN`) | `bluebox` - your workspace (`BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN`) |
 
 Enable any combination - the adapters are **independent and best-effort**, so one
 failing (or a Dynatrace token being absent) is logged and never blocks the others
@@ -130,6 +130,11 @@ adapter ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) - **Postgre
 dashboard's **filter box speaks that source's own language** - SQL when reading
 PostgreSQL, DQL when reading Dynatrace - so the box works either way. So writes fan
 out to many destinations; reads come from one source you pick.
+
+**Bluebox is write-only**, so it's the one destination with no read adapter: it
+deliberately exposes no query language, and you read it back by asking in plain
+English (`bluebox ask "which skills got the most bad ratings this week"`) rather
+than through the dashboard.
 
 ## Quick start - ship RateXp with your skill
 No prerequisites - setting up feedback takes just two tiny steps (two small files):

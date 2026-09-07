@@ -31,7 +31,8 @@ services:
     build:
       context: ./core
       # Build extras into the image's venv. Set CORE_EXTRAS=dynatrace-otlp in .env
-      # to run the Dynatrace destination adapters locally; empty = lean image.
+      # to run the OTLP destination adapters locally (Dynatrace, Bluebox);
+      # empty = lean image.
       args:
         EXTRAS: ${CORE_EXTRAS:-}
     restart: unless-stopped
@@ -50,6 +51,9 @@ services:
       CUSTOM_PSQL_DSN: ${CUSTOM_PSQL_DSN:-}
       CUSTOM_DT_TENANT_URL: ${CUSTOM_DT_TENANT_URL:-}
       CUSTOM_DT_TOKEN: ${CUSTOM_DT_TOKEN:-}
+      # Bluebox exports over OTLP, so it needs CORE_EXTRAS=dynatrace-otlp too.
+      BLUEBOX_OTLP_ENDPOINT: ${BLUEBOX_OTLP_ENDPOINT:-}
+      BLUEBOX_OTLP_TOKEN: ${BLUEBOX_OTLP_TOKEN:-}
     # Live-reload the API on source edits; prompt.md is read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
     command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"

@@ -74,11 +74,17 @@ if not isinstance(_REDACTION_LANGUAGES, list) or not _REDACTION_LANGUAGES:
 REDACTION_LANGUAGES: list[str] = [str(x) for x in _REDACTION_LANGUAGES]
 REDACTION_LANGUAGE: str = REDACTION_LANGUAGES[0]
 
-# Write adapters (see core/write_adapters/ + core/dispatch.py). Each of the four
-# named destinations must be present with an `enabled` flag; a submission is
-# written to every one whose flag is true.
+# Write adapters (see core/write_adapters/ + core/dispatch.py). Each named
+# destination must be present with an `enabled` flag; a submission is written to
+# every one whose flag is true.
 _WRITE_ADAPTERS_RAW = _require("write_adapters")
-_WRITE_ADAPTER_NAMES = ("app_be_psql", "custom_psql", "app_be_dynatrace", "custom_dynatrace")
+_WRITE_ADAPTER_NAMES = (
+    "app_be_psql",
+    "custom_psql",
+    "app_be_dynatrace",
+    "custom_dynatrace",
+    "bluebox",
+)
 WRITE_ADAPTERS: dict[str, dict] = {}
 for _name in _WRITE_ADAPTER_NAMES:
     _cfg = _require_in(_WRITE_ADAPTERS_RAW, "write_adapters", _name)
