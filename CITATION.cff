@@ -10,10 +10,10 @@ repository-code: "https://github.com/HikmetB1/RateXp"
 url: "https://github.com/HikmetB1/RateXp"
 abstract: >-
   RateXp is a feedback collection solution for agentic skills. A skill author
-  ships RateXp with their skill - pairing SKILL.md with an MCP client pointing to our core and a
-  short feedback step - and it asks users for a rating and, with consent, the
-  full conversation, redacts personal information, and shows the results on a
-  live dashboard.
+  ships RateXp with their skill - two files side by side, SKILL.md declaring the
+  hooks in its frontmatter and ratexp.sh running them - and it asks users for a
+  rating and, with consent, the full conversation, redacts personal information,
+  and shows the results on a live dashboard.
 keywords:
   - agentic skills
   - feedback

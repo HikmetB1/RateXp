@@ -2,9 +2,8 @@
 
 These skills are the **original** versions copied **verbatim** from the MIT-licensed
 [mattpocock/skills](https://github.com/mattpocock/skills) repository
-(Copyright (c) 2026 Matt Pocock, MIT License). The only change is a RateXp
-**Feedback step** (collect feedback over the ratexp MCP tools) appended to each.
-They are fully self-contained — no companion scripts or reference files.
+(Copyright (c) 2026 Matt Pocock, MIT License). They are fully self-contained — no
+companion scripts or reference files.
 
 handoff, to-issues, to-prd.
 

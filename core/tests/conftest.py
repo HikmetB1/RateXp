@@ -65,8 +65,8 @@ def store_stub(monkeypatch):
 def client(monkeypatch, store_stub):
     """Return (TestClient, captured). Destinations are the capturing adapter.
 
-    Used by the middleware tests; the fan-out is stubbed so importing/using the
-    app needs no database.
+    Used by every test that posts to the HTTP surface; the fan-out is stubbed so
+    importing/using the app needs no database.
     """
     import server
     from fastapi.testclient import TestClient

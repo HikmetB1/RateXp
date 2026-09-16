@@ -7,6 +7,7 @@
   - [`core/config.yaml`](#coreconfigyaml)
   - [`app/app-be/config.yaml`](#appapp-beconfigyaml)
   - [`functions/skills-consumer/config.yaml`](#functionsskills-consumerconfigyaml)
+- [The hook script](#the-hook-script)
 - [Deploy to Azure](#deploy-to-azure)
 - [Tests](#tests)
 - [Repository layout](#repository-layout)
@@ -26,34 +27,23 @@ cp .env.example .env          # optional - defaults work out of the box
 docker compose up --build -d
 ```
 
-| Service | URL                     | What it is                      |
-|---------|-------------------------|---------------------------------|
-| core    | <http://localhost:8000> | MCP server (`/mcp`) + ingestion |
-| app     | <http://localhost:8001> | the dashboard                   |
+| Service | URL                     | What it is                                          |
+|---------|-------------------------|-----------------------------------------------------|
+| core    | <http://localhost:8000> | serves `/ratexp.sh`, ingests `/feedback` + `/transcript` |
+| app     | <http://localhost:8001> | the dashboard                                       |
 
 Handy commands: `docker compose logs -f core` follows a service's logs, and
 `docker compose down -v` stops everything and wipes the data.
 
 ### 2. Send your own ratings (optional)
-To watch ratings land on the dashboard, point a project `.mcp.json` at your local
-core:
+Install a test skill using the [quick start](./README.md#quick-start---ship-ratexp-with-your-skill),
+then launch Claude Code with your local core and a survey on every run:
 
-```json
-{
-  "mcpServers": {
-    "ratexp": { "type": "http", "url": "http://localhost:8000/mcp" }
-  }
-}
+```bash
+RATEXP_URL=http://localhost:8000 RATEXP_EVERY=1 claude
 ```
 
-Then add a feedback step to that skill's `SKILL.md`:
-
-```md
-## Feedback step
-
-Call the `feedback` tool on the **ratexp** MCP server with `every: 1`, then
-follow the instructions it returns.
-```
+Local skills under `.claude/skills/` are gitignored.
 
 ### 3. Seed demo feedback (optional)
 To auto-fill the dashboard with realistic demo feedback, run the seeder. It needs
@@ -74,11 +64,19 @@ Settings come from two places:
 
 ### Environment variables
 
-Locally every environmetnal variable value has a working default (the stack runs as-is); on Azure, Terraform sets them all for you.
+Locally every environment variable has a working default (the stack runs as-is). On
+Azure, Terraform sets the database wiring plus core's `RATEXP_PUBLIC_URL` /
+`RATEXP_REDACTION_PROVIDER` / `DT_TENANT_URL` / `DT_ACCESS_TOKEN` and the dashboard's
+`RATEXP_READ_ADAPTER` / `DT_QUERY_URL` / `DT_ACCESS_TOKEN`.
 
-The only variables you supply by hand are for the **optional demo seeder**,
-and only if you choose to run it - it needs an LLM, so you give it a model and the
-matching key in `functions/skills-consumer/.env`:
+Two groups you supply by hand:
+
+- The **custom / Bluebox destinations**, and only for the adapters you enable
+  yourself - `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL`, `CUSTOM_DT_TOKEN`,
+  `CUSTOM_DT_QUERY_URL`, `BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN`. Terraform
+  never sets these; an adapter whose value is missing is skipped with a warning.
+- The **optional demo seeder**, and only if you choose to run it - it needs an LLM,
+  so you give it a model and the matching key in `functions/skills-consumer/.env`:
 
 | Variable                | Required when…             | What to put                                            |
 |-------------------------|----------------------------|--------------------------------------------------------|
@@ -96,8 +94,9 @@ matching key in `functions/skills-consumer/.env`:
 |-------------------------|-------------|------------------------------------------------------------------|
 | `schema_version`        | `ATIF-v1.7` | ATIF version stamped on every stored transcript                  |
 | `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)            |
+| `max_transcript_bytes`  | `262144`    | Largest trajectory stored in full; bigger ones keep a meta-only stub |
 | `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
-| `default_survey_every`  | `2`         | Default `every` when a `feedback` MCP call omits it (`1` = always)|
+| `default_survey_every`  | `4`         | Ask on every Nth run; baked into distributed hooks. `RATEXP_EVERY` overrides it. |
 
 #### Redaction
 
@@ -114,7 +113,7 @@ The cloud image ships both adapters, so flipping provider is one setting + a res
 
 #### Write destinations (`write_adapters.*`)
 
-Each submission is written to **every** adapter whose `enabled` is true — best-effort and independent (one failing is logged, never blocks the others or the request). See [`core/write_adapters/`](./core/write_adapters/) + [`core/dispatch.py`](./core/dispatch.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/app-be/config.yaml`](#appapp-beconfigyaml) below.
+Each submission is written to **every** adapter whose `enabled` is true — independent of one another (one failing is logged and never blocks the others), and the submission counts as accepted once **at least one** takes it; if none do, core answers `503`. See [`core/write_adapters/`](./core/write_adapters/) + [`core/dispatch.py`](./core/dispatch.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/app-be/config.yaml`](#appapp-beconfigyaml) below.
 
 | Adapter            | Where it writes                              | Connection (env var named in config)          |
 |--------------------|----------------------------------------------|-----------------------------------------------|
@@ -140,7 +139,7 @@ Each submission is written to **every** adapter whose `enabled` is true — best
 | `list_view_limit`          | `10`        | Rows the dashboard shows by default           |
 | `list_max_limit`           | `1000`      | Hard ceiling on any single response           |
 | `top_skills_limit`         | `10`        | Skills shown in the "Top skills" panel        |
-| `query_enabled`            | `true`      | Turn the read-only SQL filter box on/off      |
+| `query_enabled`            | `true`      | Turn the read-only filter box (SQL or DQL) on/off |
 | `query_timeout_ms`         | `5000`      | Per-query statement timeout                   |
 | `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns |
 | `ws_enabled`               | `true`      | Turn the live-updates WebSocket on/off        |
@@ -176,6 +175,33 @@ The dashboard reads from **one** source ([`app/app-be/read_adapters/`](./app/app
 | `oversized_ratio`  | `0.2`                   | Share of runs whose trajectory is bloated past the limit (0–1)|
 | `system_prompt`, `task_prompt`, `critical_prompt` | – | The agent's instructions               |
 
+## The hook script
+[`core/scripts/ratexp.sh`](./core/scripts/ratexp.sh) runs from skill frontmatter:
+
+| Event | Purpose |
+|-------|---------|
+| `UserPromptExpansion` | Count a slash-command invocation |
+| `PreToolUse` (`Skill\|AskUserQuestion`) | Count a Skill invocation or validate the survey |
+| `Stop` | Request the survey on a sampled run |
+| `PostToolUse` (`AskUserQuestion`) | Send feedback and a consented transcript |
+| `PostToolUseFailure` (`AskUserQuestion`) | Close a failed survey |
+
+The hook uses Bash 3.2+, curl, and standard macOS/Linux utilities. Per-session state
+lives under `${XDG_STATE_HOME:-~/.local/state}/ratexp`. Uploads are limited to 4 MiB
+and require consent from the matching tool response.
+
+After editing the script or `default_survey_every`, regenerate its template and
+example copies:
+
+```bash
+python3 scripts/sync-hooks.py
+python3 scripts/sync-hooks.py --check
+```
+
+Copies use the hosted core URL and configured survey frequency. `GET /ratexp.sh`
+renders the same script using the server's `RATEXP_PUBLIC_URL`. Users can override
+these settings with `RATEXP_URL` and `RATEXP_EVERY`.
+
 ## Deploy to Azure
 The provided deployment is **Azure-based**. One Terraform stack builds everything -
 two web apps (`core` + `app`), a managed PostgreSQL server, and a container registry, with **passwordless** database access via Microsoft
@@ -194,32 +220,38 @@ terraform init && terraform apply              # create the Azure resources
 
 # build + push the two images
 az acr login --name "$(terraform output -raw acr_name)"
-docker build -t "$(terraform output -raw core_image)" --build-arg EXTRAS=entra ../core && docker push "$(terraform output -raw core_image)"
+docker build -t "$(terraform output -raw core_image)" --build-arg EXTRAS="entra redaction-presidio redaction-azure dynatrace-otlp" ../core && docker push "$(terraform output -raw core_image)"
 docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app && docker push "$(terraform output -raw app_image)"
 ```
 
-Then grant each app its database role and start the apps (use **stop/start**, not
-restart) - those exact commands, plus optional features (`enable_redaction`,
-`enable_seeder`), are in [`infra/README.md`](./infra/README.md). The dashboard and
-core URLs come back as Terraform outputs (`app_url`, `core_url`).
+Grant the app identities database access using
+[`infra/grant-db-access.sql`](./infra/grant-db-access.sql), then stop and start each
+app to load the pushed image. Azure's `restart` keeps the cached image.
+`terraform output` provides the app names, identity IDs, and service URLs.
+
+Optional tfvars enable redaction (`enable_redaction`) and the demo seeder
+(`enable_seeder`).
 
 ## Tests
 There are two layers. **Per-service** tests are fast and mocked - no network or
 database needed:
 
 ```bash
-cd core && uv sync --extra test && uv run pytest                       # core
-cd app/app-be && uv sync --extra test && uv run pytest                 # dashboard API
-cd functions/skills-consumer && uv sync --extra test && uv run pytest  # demo seeder
+(cd core && uv sync --extra test && uv run pytest)                       # core
+(cd app/app-be && uv sync --extra test && uv run pytest)                 # dashboard API
+(cd functions/skills-consumer && uv sync --extra test && uv run pytest)  # demo seeder
 ```
+
+Core's tests also exercise the hook with a fake curl and check that all shipped
+scripts and skill frontmatter are consistent.
 
 **Whole-app** tests in `tests/` check the services working together over HTTP - core
 writes feedback, the dashboard reads it back:
 
 | File | Checks |
 |------|--------|
-| `test_smoke.py` | Both services answer `/healthz`; core advertises its MCP tools. |
-| `test_end_to_end.py` | Feedback submitted via core's MCP tools appears on the dashboard and in its top-skills stats, and a stored trajectory reads back through the dashboard. |
+| `test_smoke.py` | Both services answer `/healthz`; core serves `/ratexp.sh` with its URL baked in and accepts a `/feedback` post. |
+| `test_end_to_end.py` | A rating (and a consented trajectory) posted to core appears on the dashboard and in its top-skills stats; the last test drives the *shipped* hook script itself, so the exact bytes a real skill puts on the wire are the ones checked. |
 | `test_azure_live.py` | Opt-in smoke test against the deployed Azure web apps (skipped by default). |
 
 Bring the stack up first:
@@ -229,9 +261,8 @@ docker compose up --build -d
 uv run --no-project --with pytest --with httpx pytest tests/
 ```
 
-If the stack isn't running, these skip with a hint instead of failing. They default
-to the compose ports (`8000`/`8001`); point elsewhere with `RATEXP_CORE_URL` /
-`RATEXP_APP_URL`.
+If the stack isn't running, these skip with a hint. They default to the compose ports
+(`8000`/`8001`); point elsewhere with `RATEXP_CORE_URL` / `RATEXP_APP_URL`.
 
 An opt-in smoke test can also hit the **deployed Azure apps** (skipped by default).
 Enable it by supplying their URLs:
@@ -247,19 +278,25 @@ pytest tests/test_azure_live.py
 
 ```text
 .
-├── core/                Public FastAPI service: hosts the MCP server (/mcp), ingests feedback → PostgreSQL
+├── core/                Public FastAPI service: serves the hook script (/ratexp.sh), ingests feedback → PostgreSQL
+│   ├── write_adapters/  Write destinations - each submission goes to every enabled one
+│   ├── redaction_adapters/  PII masking: presidio (in-process) or azure (AI Language)
+│   ├── migrations/      Numbered SQL schema files, applied at startup by a PostgreSQL destination
+│   └── scripts/         ratexp.sh - the canonical hook, source of every shipped copy
 ├── app/
 │   ├── app-be/          Dashboard FastAPI service: read-only API; also serves the UI
+│   │   └── read_adapters/  Read sources - the dashboard reads from the one enabled source
 │   ├── app-fe/          React dashboard (source)
 │   └── Dockerfile       Builds the app image (UI bundled in)
 ├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
-├── examples/            Sample SKILL.md files (each with its .mcp.json)
-├── template/            Copy-and-fill SKILL.md + .mcp.json for a new skill
+├── examples/            Worked skills: SKILL.md + ratexp.sh
+├── template/            Copy-and-fill SKILL.md + ratexp.sh for a new skill (plus a plugin variant)
+├── scripts/             Repo tooling: sync-hooks.py regenerates the shipped ratexp.sh copies
+├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
 ├── functions/
 │   └── skills-consumer/ Azure Function: timer that seeds demo feedback into core
 ├── tests/               Whole-app integration tests (run against a live/local stack)
 ├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
-├── COMPREHENSIVE.md     Full project guide
 ├── CONTRIBUTING.md      This file
 ├── THIRD_PARTY_NOTICES.md  Licenses and citations for projects RateXp builds on
 ├── CLA.md / LICENSE     Contributor agreement and license
@@ -271,8 +308,6 @@ helpers (`db.py`, `config.py`) so either can be built and deployed on its own.
 
 ## TODO
 
-- [ ] Flip storage into an adapter
-- [ ] Flip query into adapter-based
 - [ ] Expand to more coding agents (e.g. GitHub Copilot)
 - [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif` exceeds Dynatrace's per-attribute storage cap, so it's truncated on ingest → invalid JSON → the read adapter returns an empty stub (`dynatrace_truncated`) → the trajectory viewer shows nothing (PostgreSQL still shows it in full). Fix by shipping transcripts to Dynatrace as **one log line per step** (each step's text fits the content field, avoiding the single-attribute cap), and/or surface `dynatrace_truncated` in the UI ("full copy in PostgreSQL"). Normal-sized transcripts are unaffected.
 - [ ] Build a Dynatrace dashboard (over the fanned-out `ratexp.*` logs) so ratings and trajectories can be viewed natively in Dynatrace — not just through RateXp's own dashboard reading via DQL. Open question from earlier: dashboard vs. a Dynatrace App.

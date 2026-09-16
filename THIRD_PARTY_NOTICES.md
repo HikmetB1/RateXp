@@ -33,7 +33,6 @@ plus a note only where one matters.
 - FastAPI — https://github.com/fastapi/fastapi
 - Uvicorn — https://github.com/encode/uvicorn
 - HTTPX — https://github.com/encode/httpx
-- MCP Python SDK (includes FastMCP) — https://github.com/modelcontextprotocol/python-sdk
 - PostgreSQL — https://www.postgresql.org/
 - Python (CPython) — https://www.python.org/
 - psycopg / psycopg-pool — https://www.psycopg.org/
@@ -49,6 +48,8 @@ plus a note only where one matters.
 - python-dotenv — https://github.com/theskumar/python-dotenv
 - requests — https://requests.readthedocs.io/
   *Note:* Apache-2.0. Its NOTICE must travel with any redistribution: `Requests, Copyright 2019 Kenneth Reitz`.
+- OpenTelemetry Python (SDK + OTLP HTTP exporter) — https://github.com/open-telemetry/opentelemetry-python
+  *Note:* optional. Only installed with core's `dynatrace-otlp` extra, which the Dynatrace and Bluebox destinations need.
 - langdetect — https://github.com/Mimino666/langdetect (Python port of Nakatani Shuyo's language-detection library)
 - setuptools — https://github.com/pypa/setuptools
 - Ruff — https://docs.astral.sh/ruff/
@@ -59,6 +60,9 @@ plus a note only where one matters.
 - Azure Functions (Python library + runtime) — https://github.com/Azure/azure-functions-python-library
 - azure-identity / azure-ai-textanalytics — https://github.com/Azure/azure-sdk-for-python
 - Microsoft Entra ID — https://www.microsoft.com/security/business/identity-access/microsoft-entra-id
+- GNU Bash — https://www.gnu.org/software/bash/
+- curl — https://curl.se/
+  *Note:* `ratexp.sh` uses the user's installed Bash and curl; neither is bundled.
 
 ## Skills & data format
 

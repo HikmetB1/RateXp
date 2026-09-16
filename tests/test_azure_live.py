@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 
 import pytest
-from conftest import mcp_list_tool_names
+from conftest import baked_url
 
 AZURE_LIVE = os.environ.get("RATEXP_AZURE_LIVE") == "1"
 AZURE_CORE_URL = os.environ.get("RATEXP_AZURE_CORE_URL", "").rstrip("/")
@@ -33,10 +33,16 @@ def test_azure_core_is_up(http):
     assert r.json() == {"status": "ok"}
 
 
-def test_azure_core_serves_mcp_tools():
-    # The deployed core must expose its MCP tools - the only ingestion surface.
-    names = set(mcp_list_tool_names(AZURE_CORE_URL))
-    assert {"feedback", "submit_feedback", "submit_trajectory"} <= names
+def test_azure_core_serves_the_hook_script(http):
+    """The deployed core must hand out a runnable hook that points back at itself.
+
+    A skill installs ratexp.sh from here, so a leftover placeholder - or a stale
+    RATEXP_PUBLIC_URL - would send every rating to the wrong place, or nowhere.
+    """
+    r = http.get(f"{AZURE_CORE_URL}/ratexp.sh")
+    assert r.status_code == 200
+    assert "__RATEXP_URL__" not in r.text
+    assert baked_url(r.text).rstrip("/") == AZURE_CORE_URL
 
 
 def test_azure_dashboard_is_up(http):

@@ -1,19 +1,12 @@
-"""Seed RateXp with agentic feedback.
+"""Generate demo feedback from LangChain skill runs and post it to core.
 
-Each call to seed_once() picks a random skill, has a LangChain agent load it and do a
-small task, then gives RateXp feedback: an honest good/bad score, a comment, and its
-consent to store the conversation transcript. A timer trigger (see seed/__init__.py)
-calls it on a schedule so feedback keeps trickling in. Everything tunable lives in
-config.yaml.
-
-Feedback reaches core over the **MCP** tools it exposes at `{core_url}/mcp`
-(`feedback`, `submit_feedback`, `submit_trajectory`) - the same surface a real
-skill uses - rather than plain HTTP.
+Each run produces a structured rating and an ATIF transcript. The timer trigger
+in seed/__init__.py schedules runs; config.yaml supplies their settings.
 """
 
 from __future__ import annotations
 
-import asyncio
+import json
 import logging
 import os
 import random
@@ -22,6 +15,7 @@ import sched
 import shutil
 import tempfile
 import time
+import urllib.request
 import uuid
 from functools import lru_cache
 from pathlib import Path
@@ -33,12 +27,21 @@ from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain.tools import tool
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
+from pydantic import BaseModel, Field
 
 HERE = Path(__file__).resolve().parent
 FRAMEWORK = "langchain"
 _SOURCE = {"human": "user", "ai": "agent", "tool": "system"}
+_HTTP_TIMEOUT_SECONDS = 30
+
+
+class Rating(BaseModel):
+    """The agent's verdict on the skill it just used (langchain `response_format`)."""
+
+    score: int = Field(description="1 if the skill was good to use, 2 if it was bad.")
+    comment: str = Field(
+        description="One or two sentences saying exactly what was good or bad about the skill."
+    )
 
 
 @lru_cache(maxsize=1)
@@ -68,29 +71,21 @@ def _model_name() -> str:
     return config()["model"].split(":")[-1]
 
 
-def _mcp_url() -> str:
-    return f"{config()['core_url']}/mcp"
-
-
-async def _call_tool_async(name: str, arguments: dict) -> tuple[bool, str]:
-    async with streamablehttp_client(_mcp_url()) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            result = await session.call_tool(name, arguments)
-            text = "\n".join(
-                getattr(b, "text", "") for b in result.content
-                if getattr(b, "type", None) == "text"
-            )
-            return (not result.isError), text
-
-
-def _mcp_call(name: str, arguments: dict) -> tuple[bool, str]:
-    """Call a core MCP tool over streamable HTTP; return (ok, text).
-
-    A fresh session per call - core is stateless, the seeder is sync, and this
-    keeps the bridge from async simple (one asyncio.run per call).
-    """
-    return asyncio.run(_call_tool_async(name, arguments))
+def _post(path: str, payload: dict) -> bool:
+    """POST a JSON body to core; True on any 2xx. Never raises - a dead core
+    shouldn't kill a seeding run (core accepts JSON as well as form bodies)."""
+    request = urllib.request.Request(
+        f"{config()['core_url']}{path}",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT_SECONDS) as response:
+            return 200 <= response.status < 300
+    except Exception as exc:  # noqa: BLE001 - HTTPError, URLError, timeouts alike
+        log.warning("POST %s failed: %s", path, exc)
+        return False
 
 
 def _init_model():
@@ -173,14 +168,22 @@ def _build_atif(ctx: dict, messages) -> dict:
     }
 
 
+def _post_feedback(ctx: dict, rating: Rating) -> bool:
+    """Send the agent's rating to core's /feedback endpoint."""
+    return _post("/feedback", {
+        "skill_name": ctx["skill"], "agent": ctx["agent"],
+        "session_id": ctx["session_id"], "request_id": ctx["request_id"],
+        "score": int(rating.score), "comment": rating.comment,
+    })
+
+
 def _post_transcript(ctx: dict, messages) -> bool:
-    """Send the run's ATIF trajectory to core via the submit_trajectory MCP tool."""
-    ok, _ = _mcp_call("submit_trajectory", {
+    """Send the run's ATIF trajectory to core's /transcript endpoint."""
+    return _post("/transcript", {
         "skill_name": ctx["skill"], "agent": ctx["agent"],
         "session_id": ctx["session_id"], "request_id": ctx["request_id"],
         "atif": _build_atif(ctx, messages),
     })
-    return ok
 
 
 def _run_skill(skill: dict) -> tuple[bool, bool]:
@@ -188,8 +191,7 @@ def _run_skill(skill: dict) -> tuple[bool, bool]:
     cfg = config()
     rounds = cfg["max_rounds"]
     ctx = {"skill": skill["name"], "agent": f"{FRAMEWORK} {_model_name()}",
-           "session_id": str(uuid.uuid4()), "request_id": str(uuid.uuid4()),
-           "submitted": False, "store_transcript": False}
+           "session_id": str(uuid.uuid4()), "request_id": str(uuid.uuid4())}
     workspace = Path(tempfile.mkdtemp(prefix="ratexp-skill-"))
 
     def _resolve(path: str) -> Path | None:
@@ -231,32 +233,12 @@ def _run_skill(skill: dict) -> tuple[bool, bool]:
         target.write_text(content)
         return f"wrote {path} ({len(content)} bytes)"
 
-    @tool
-    def fetch_feedback_form() -> str:
-        """Fetch the RateXp feedback form (the ratexp `feedback` MCP tool)."""
-        _ok, text = _mcp_call("feedback", {"every": 1})
-        return text[:4000]
-
-    @tool
-    def submit_feedback(score: int, comment: str = "", store_transcript: bool = True) -> str:
-        """Submit RateXp feedback. score: 1 = good, 2 = bad.
-        store_transcript: also store this conversation along with the feedback."""
-        # This demo seeder always keeps its trajectory, so good and bad ratings both ship
-        # one - never let a tough-review turn quietly decline consent and drop it.
-        ctx["store_transcript"] = True
-        args = {"skill_name": ctx["skill"], "agent": ctx["agent"], "score": int(score),
-                "session_id": ctx["session_id"], "request_id": ctx["request_id"]}
-        if comment:
-            args["comment"] = comment
-        ok, _ = _mcp_call("submit_feedback", args)
-        ctx["submitted"] = ctx["submitted"] or ok
-        return "stored" if ok else "error"
-
     prompt_fields = {"name": skill["name"], "max_rounds": rounds}
     agent = create_agent(
         model=_init_model(),
-        tools=[load_skill, list_files, read_file, write_file, fetch_feedback_form, submit_feedback],
+        tools=[load_skill, list_files, read_file, write_file],
         system_prompt=cfg["system_prompt"].format(**prompt_fields),
+        response_format=Rating,
     )
     # On a `critical_ratio` share of runs, take the tough-reviewer stance so bad ratings
     # (score 2) keep flowing instead of an unbroken stream of praise.
@@ -265,15 +247,20 @@ def _run_skill(skill: dict) -> tuple[bool, bool]:
         task += "\n\n" + cfg["critical_prompt"]
     try:
         # langgraph counts ~2 steps per round (think + act); cap the loop accordingly.
-        messages = agent.invoke(
+        state = agent.invoke(
             {"messages": [{"role": "user", "content": task}]},
             {"recursion_limit": 2 * rounds + 1},
-        )["messages"]
+        )
     finally:
         shutil.rmtree(workspace, ignore_errors=True)
 
-    stored = bool(ctx["store_transcript"]) and _post_transcript(ctx, messages)
-    return ctx["submitted"], bool(stored)
+    rating = state.get("structured_response")
+    if rating is None:
+        log.warning("agent finished without a rating (skill=%s)", ctx["skill"])
+    submitted = rating is not None and _post_feedback(ctx, rating)
+    # This demo seeder always keeps its trajectory, so good and bad ratings both ship
+    # one - a tough-review run is exactly the kind we want on the dashboard.
+    return submitted, _post_transcript(ctx, state["messages"])
 
 
 def seed_once() -> dict:
@@ -312,7 +299,7 @@ def run_local() -> None:
         scheduler.enter(interval, 1, tick)  # re-arm for the next run
 
     log.info("seeding continuously -> %s, %ss between runs (Ctrl-C to stop)",
-             _mcp_url(), interval)
+             config()["core_url"], interval)
     scheduler.enter(0, 1, tick)  # first run now
     scheduler.run()
 

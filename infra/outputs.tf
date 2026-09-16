@@ -34,7 +34,7 @@ output "app_name" {
 }
 
 output "core_url" {
-  description = "Public URL of core - point your skills' .mcp.json here (append /mcp)."
+  description = "Public URL of core - serves /ratexp.sh and is the RATEXP_URL the shipped hook posts to."
   value       = local.core_url
 }
 

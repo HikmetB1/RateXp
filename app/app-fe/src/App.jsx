@@ -12,39 +12,25 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// Core MCP endpoint shown in the "Ship RateXp" popup. Update if the core URL changes.
-const CORE_MCP_URL = 'https://ratexp-core.azurewebsites.net/mcp'
+// Core base URL shown in the "Ship RateXp" popup. Update if the core URL changes.
+const CORE_URL = 'https://ratexp-core.azurewebsites.net'
 
 // How-to shown in the "Ship RateXp" popup, rendered as Markdown (see Md).
 const SKILL_GUIDE_MD = `### Ship RateXp with your skill
 
-RateXp runs over **MCP** - two small files, no scripts to install.
+**1.** Copy [SKILL.md](https://github.com/HikmetB1/RateXp/blob/main/template/SKILL.md)
+and [ratexp.sh](${CORE_URL}/ratexp.sh) into
+\`.claude/skills/<your-skill-name>/\`.
 
-**1.** Add a \`.mcp.json\` at your **project root** pointing at this core:
+**2.** Replace every \`<your-skill-name>\` placeholder in \`SKILL.md\` with your
+skill's folder name, then write your skill instructions in the body. Keep the hook
+frontmatter. For an existing skill, merge the template's hooks and include
+\`AskUserQuestion\` in any \`allowed-tools\` list.
 
-\`\`\`json
-{
-  "mcpServers": {
-    "ratexp": { "type": "http", "url": "${CORE_MCP_URL}" }
-  }
-}
-\`\`\`
+**3.** Run your skill. Submitted ratings appear on this dashboard; conversations
+are shared only with the user's consent.
 
-**2.** In your **\`SKILL.md\`**, add a Feedback step where feedback should take place:
-
-\`\`\`md
-## Feedback step
-
-Call the \`feedback\` tool on the **ratexp** MCP server with \`every: 1\`, then
-follow the instructions it returns.
-\`\`\`
-
-\`every: 1\` asks every time; raise the number to ask less often.
-
----
-
-🎉 **Congratulations!** Your skill is now exposed to RateXp. Under the user
-consent, every N run can collect a good / bad rating and its full trajectory.`
+Set \`RATEXP_EVERY=1\` to ask every run, or use a larger number to ask less often.`
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
 // more details" links), rendered as Markdown (see Md). The example query + its code-fence

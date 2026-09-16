@@ -15,8 +15,7 @@ max_transcript_bytes: 262144
 # Per-IP request budget per minute (token bucket). 0 disables the limiter.
 rate_limit_per_minute: 120
 
-# Default survey sampling when the `feedback` MCP tool omits `every`: ~1 in N runs
-# (1 = always, 2 = ~half). A skill can override per call with every=N. Must be >= 1.
+# Ask on every Nth skill run. Baked into distributed hooks; RATEXP_EVERY overrides.
 default_survey_every: 2
 
 # PII redaction for consented transcripts. The conversation text is masked before
@@ -52,9 +51,10 @@ redaction:
 
 # Write destinations. Every submission is validated + redacted once, then written to
 # every adapter whose `enabled` is true (see core/write_adapters/ + core/dispatch.py).
-# Adapters are independent and best-effort: one failing is logged, never blocking
-# the others or the request. Enable any combination. Secrets (DB passwords, tokens)
-# are never in this file - each adapter names the env var to read them from.
+# Adapters are independent: one failing is logged and never blocks the others, but the
+# request fails (503) if none of them accepted. Enable any combination. Secrets (DB
+# passwords, tokens) are never in this file - each adapter names the env var to read
+# them from.
 write_adapters:
   # RateXp's own PostgreSQL - the one the live dashboard reads. Uses core's
   # DATABASE_URL / RATEXP_DB_AUTH.

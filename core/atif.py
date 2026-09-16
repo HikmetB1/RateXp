@@ -119,6 +119,14 @@ def _has_block(content, block_type: str) -> bool:
     )
 
 
+SURVEY_MARK = "check all that apply or type a comment."
+
+
+def _is_survey_turn(content) -> bool:
+    """Exclude RateXp's questionnaire from the skill trajectory."""
+    return SURVEY_MARK in (content if isinstance(content, str) else json.dumps(content))
+
+
 def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None) -> dict:
     """Build an ATIF trajectory dict from raw Claude Code .jsonl text.
 
@@ -150,6 +158,9 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
             continue  # skip summaries, meta, and anything non-conversational
 
         content = msg.get("content")
+        if _is_survey_turn(content):
+            continue  # asking for the rating is not part of the run being rated
+
         timestamp = entry.get("timestamp")
         step: dict = {"step_id": len(steps) + 1}
         if timestamp:

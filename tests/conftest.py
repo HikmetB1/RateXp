@@ -12,13 +12,11 @@ real client would. Two modes:
 
 from __future__ import annotations
 
-import asyncio
 import os
+import shlex
 
 import httpx
 import pytest
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
 
 # Where the local stack lives. Defaults match docker-compose.yml's published ports.
 CORE_URL = os.environ.get("RATEXP_CORE_URL", "http://localhost:8000").rstrip("/")
@@ -61,46 +59,49 @@ def http() -> httpx.Client:
         yield client
 
 
-# --- MCP client helpers (core's only ingestion surface is /mcp) ---------------
-# A fresh session per call: core is stateless, so this keeps the bridge from
-# async simple. Reused by the local fixtures below and by the Azure live tests.
-
-async def _with_session(url: str, fn):
-    async with streamablehttp_client(url) as (read, write, _):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            return await fn(session)
+# --- core ingestion helpers (core's surface is plain HTTP) --------------------
+# The shipped hook posts multipart form fields with `curl --form-string`, so the
+# fixtures below put the same shape on the wire, just from Python.
 
 
-def mcp_list_tool_names(core_url: str) -> list[str]:
-    async def _go(session):
-        res = await session.list_tools()
-        return [t.name for t in res.tools]
-
-    return asyncio.run(_with_session(f"{core_url}/mcp", _go))
+def _form(fields: dict) -> dict:
+    """Fields as multipart parts - what `curl --form-string name=value` sends."""
+    return {name: (None, str(value)) for name, value in fields.items() if value is not None}
 
 
-def mcp_tool_call(core_url: str, name: str, arguments: dict | None = None) -> tuple[bool, str]:
-    async def _go(session):
-        result = await session.call_tool(name, arguments or {})
-        text = "\n".join(
-            getattr(b, "text", "") for b in result.content if getattr(b, "type", None) == "text"
-        )
-        return (not result.isError), text
+def baked_url(script: str) -> str:
+    """The URL compiled into a copy of ratexp.sh, read off its DEFAULT_URL line.
 
-    return asyncio.run(_with_session(f"{core_url}/mcp", _go))
+    core serves the script with its own public URL substituted for the
+    `'__RATEXP_URL__'` placeholder; shlex strips whatever quoting was used.
+    """
+    for line in script.splitlines():
+        if line.startswith("DEFAULT_URL="):
+            return (shlex.split(line.split("=", 1)[1]) or [""])[0]
+    return ""
 
 
 @pytest.fixture
-def mcp_call(core_url):
-    """Call a core MCP tool by name; returns (ok, text)."""
-    def _call(name: str, arguments: dict | None = None) -> tuple[bool, str]:
-        return mcp_tool_call(core_url, name, arguments)
+def post_feedback(core_url, http):
+    """POST a rating to core the way the hook does; returns the response."""
 
-    return _call
+    def _post(**fields) -> httpx.Response:
+        return http.post(f"{core_url}/feedback", files=_form(fields))
+
+    return _post
 
 
 @pytest.fixture
-def mcp_tools(core_url) -> list[str]:
-    """The tool names core advertises over MCP."""
-    return mcp_list_tool_names(core_url)
+def post_transcript(core_url, http):
+    """POST a trajectory to core; returns the response.
+
+    Pass `transcript=<raw .jsonl>` for the hook's form upload (core converts it
+    to ATIF), or `atif=<dict>` to send a ready-built trajectory as JSON.
+    """
+
+    def _post(**fields) -> httpx.Response:
+        if "atif" in fields:
+            return http.post(f"{core_url}/transcript", json=fields, timeout=30)
+        return http.post(f"{core_url}/transcript", files=_form(fields), timeout=30)
+
+    return _post

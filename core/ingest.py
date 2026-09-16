@@ -1,8 +1,7 @@
 """Shared write path: fill defaults, size-limit, redact, then persist.
 
-Pulled out of the old HTTP handlers so the storage logic has one home,
-independent of how a record arrived. The MCP tools (see mcp_app.py) call here;
-so do the unit tests. Behaviour is unchanged from the former POST handlers.
+One home for the storage logic, independent of how a record arrived. The POST
+handlers in server.py call here; so do the unit tests.
 """
 
 from __future__ import annotations
@@ -33,8 +32,8 @@ def _fill_defaults(record: Feedback | Transcript) -> None:
 def ingest_feedback(record: Feedback) -> None:
     """Fill defaults and fan the rating out to every enabled destination.
 
-    Each destination is independent and best-effort (see dispatch.py): a failing
-    one is logged, never blocking the others or this call.
+    Each destination is independent (see dispatch.py): a failing one is logged and
+    never blocks the others, but a WriteError is raised if none accepted the rating.
     """
     _fill_defaults(record)
     write_feedback(record)
@@ -45,7 +44,8 @@ def ingest_transcript(record: Transcript) -> None:
 
     Oversized first: only a meta-only stub remains, so a few huge conversations
     can't bloat the DB or slow the dashboard. The stub carries no conversation
-    text, so it skips the (costly, fail-closed) redaction call below.
+    text, so it skips the (costly, fail-closed) redaction call below. Raises
+    WriteError if no destination accepted the trajectory (see dispatch.py).
     """
     _fill_defaults(record)
     record.atif = stub_if_oversized(record.atif, MAX_TRANSCRIPT_BYTES)

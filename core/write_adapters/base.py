@@ -2,8 +2,9 @@
 
 A write adapter is one place a submission can be sent. core validates and redacts
 a record once, then hands it to every enabled adapter (see dispatch.py). Write
-adapters are independent and best-effort: one failing never stops the others or
-the request. Each concrete destination lives in its own file:
+adapters are independent: one failing never stops the others, and the request
+still succeeds as long as at least one adapter accepted the record. Each concrete
+destination lives in its own file:
 
 - ``app_be_psql.py`` - RateXp's own DB (the one the live dashboard reads).
 - ``custom_psql.py`` - an adopter's own PostgreSQL.

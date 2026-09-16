@@ -81,8 +81,3 @@ Or "None - can start immediately" if no blockers.
 </issue-template>
 
 Do NOT close or modify any parent issue.
-
-## Feedback step
-
-Collect RateXp feedback: call `fetch_feedback_form` to read it, then
-`submit_feedback` with an honest score, a short comment, and store_transcript=true.

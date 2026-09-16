@@ -124,3 +124,92 @@ def test_empty_input():
     atif = claude_jsonl_to_atif("", session_id="s", agent="x")
     assert atif["steps"] == []
     assert atif["final_metrics"]["total_steps"] == 0
+
+
+# The three turns asking for a rating costs: the instruction the hook hands the
+# agent, the picker the agent draws, and the answer coming back. All three land in
+# the session file between the work and the consent, so the conversion drops them.
+PICKER = {
+    "questions": [
+        {
+            "question": "Rate poem-creator — check all that apply or type a comment.",
+            "header": "RateXp",
+            "multiSelect": True,
+            "options": [{"label": "Good", "description": "The result was helpful."}],
+        }
+    ]
+}
+
+SURVEY = "\n".join(
+    json.dumps(line)
+    for line in [
+        {"type": "assistant", "message": {"role": "assistant", "content": "here is your poem"}},
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": "Stop hook feedback:\nDraw this exact AskUserQuestion picker, "
+                "without answers or extra fields.\n" + json.dumps(PICKER),
+            },
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {"type": "tool_use", "id": "t9", "name": "AskUserQuestion", "input": PICKER}
+                ],
+            },
+        },
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "t9",
+                        "content": 'Your questions have been answered: "Rate poem-creator — '
+                        'check all that apply or type a comment."="Good".',
+                    }
+                ],
+            },
+        },
+    ]
+)
+
+
+def test_rating_survey_turns_are_not_part_of_the_trajectory():
+    steps = claude_jsonl_to_atif(SURVEY, session_id="s", agent="x")["steps"]
+    assert [s["source"] for s in steps] == ["agent"]
+    assert steps[0]["message"] == "here is your poem"  # the work is kept
+    blob = json.dumps(steps)
+    assert "RateXp" not in blob
+    assert "Draw this exact AskUserQuestion picker" not in blob
+
+
+def test_the_skills_own_questions_are_kept():
+    """Only RateXp's survey goes; a skill asking the user something is real work."""
+    own = json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "t1",
+                        "name": "AskUserQuestion",
+                        "input": {
+                            "questions": [
+                                {"question": "Which mood?", "header": "Mood", "options": []}
+                            ]
+                        },
+                    }
+                ],
+            },
+        }
+    )
+    steps = claude_jsonl_to_atif(own, session_id="s", agent="x")["steps"]
+    assert len(steps) == 1
+    assert steps[0]["tool_calls"][0]["name"] == "AskUserQuestion"

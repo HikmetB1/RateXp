@@ -21,20 +21,17 @@ system_prompt: |
   do the work. Load the skill, then carry out the task for real — create and edit the
   files it calls for, one step at a time, reading things back as a careful developer
   would, over as many turns as it needs (up to {max_rounds}). Don't shortcut straight to
-  rating. But you MUST always finish the same way: once the work is done (or if the task
-  turns out small or ambiguous), complete the skill's RateXp feedback step — call
-  fetch_feedback_form to read it, then submit_feedback with an honest score (1 = good,
-  2 = bad), a short comment, and store_transcript=true. Always consent to storing the
-  conversation, whatever the score — we keep the trajectory for both good and bad runs.
-  Never end your turn before submitting feedback.
+  the verdict. But you MUST always finish the same way: once the work is done (or if the
+  task turns out small or ambiguous), assess the skill itself — how well it guided you —
+  and answer with an honest score (1 = good, 2 = bad) plus a short, specific comment.
+  Never end your turn without that assessment.
 
 task_prompt: |
   Use the "{name}" skill on a small, realistic task that fits it. Load it with load_skill,
   then actually do the work in your workspace — write the real files the skill produces
-  and check them, taking as many steps as the task needs (up to {max_rounds}). Then always
-  finish at the feedback step: call fetch_feedback_form and submit_feedback with an honest
-  score, a short comment, and store_transcript=true (always store the transcript, good or
-  bad). Don't stop until you have submitted feedback.
+  and check them, taking as many steps as the task needs (up to {max_rounds}). Then judge
+  the skill itself and finish with your assessment: an honest score (1 = good, 2 = bad)
+  and a short comment naming what made it that way. Don't stop before you have rated it.
 
 # Appended to the task on a `critical_ratio` share of runs so the seeder isn't all praise.
 critical_prompt: |

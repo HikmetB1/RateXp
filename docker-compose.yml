@@ -3,7 +3,9 @@
 #
 #   docker compose up --build -d
 #   open http://localhost:8001          # dashboard
-#   http://localhost:8000/mcp           # the MCP endpoint a skill connects to
+#   http://localhost:8000/ratexp.sh     # the hook script skills download
+#   http://localhost:8000/feedback      # where installed hooks post ratings
+#   http://localhost:8000/transcript    # where they post consented transcripts
 #
 # Values default to a working local setup; override via a .env file (see
 # .env.example), which compose reads automatically.
@@ -39,8 +41,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
-      # Public base URL the feedback flow hands the agent for the transcript
-      # helper + upload endpoint. Must be reachable from the host running the skill.
+      # Base URL baked into the hook script core serves at /ratexp.sh; installed
+      # hooks post back here. Must be reachable from the host running the skill.
       RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
       # Redaction's adapter deps aren't in the local core image, so keep it off
       # here; set true only when core is built with a redaction adapter.
@@ -54,7 +56,7 @@ services:
       # Bluebox exports over OTLP, so it needs CORE_EXTRAS=dynatrace-otlp too.
       BLUEBOX_OTLP_ENDPOINT: ${BLUEBOX_OTLP_ENDPOINT:-}
       BLUEBOX_OTLP_TOKEN: ${BLUEBOX_OTLP_TOKEN:-}
-    # Live-reload the API on source edits; prompt.md is read per request.
+    # Live-reload the API on source edits; scripts/ratexp.sh is read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
     command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"
     volumes:

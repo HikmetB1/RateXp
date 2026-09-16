@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from types import SimpleNamespace
 
 import seeder
@@ -85,6 +86,110 @@ def test_build_atif_pads_past_size_limit_when_oversized(monkeypatch):
 def test_build_atif_no_padding_when_disabled(monkeypatch):
     monkeypatch.setattr(seeder, "config", lambda: _cfg(0))  # never oversized
     assert seeder._build_atif(_ctx(), [])["steps"] == []
+
+
+class _Response:
+    """Minimal stand-in for what urlopen() returns (a context manager with .status)."""
+
+    def __init__(self, status):
+        self.status = status
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _capture_posts(monkeypatch, status=201):
+    """Record every urllib POST the seeder makes instead of sending it."""
+    sent = []
+
+    def fake_urlopen(request, timeout=None):
+        sent.append({"url": request.full_url, "method": request.get_method(),
+                     "headers": {k.lower(): v for k, v in request.header_items()},
+                     "body": json.loads(request.data.decode())})
+        return _Response(status)
+
+    monkeypatch.setattr(seeder.urllib.request, "urlopen", fake_urlopen)
+    return sent
+
+
+def test_post_feedback_sends_rating_as_json(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _cfg(0))
+    sent = _capture_posts(monkeypatch)
+    assert seeder._post_feedback(_ctx(), seeder.Rating(score=2, comment="clunky")) is True
+    assert sent[0]["url"] == "http://core/feedback"
+    assert sent[0]["method"] == "POST"
+    assert sent[0]["headers"]["content-type"] == "application/json"
+    assert sent[0]["body"] == {"skill_name": "demo", "agent": "agent", "session_id": "s",
+                               "request_id": "r", "score": 2, "comment": "clunky"}
+
+
+def test_post_transcript_sends_atif_as_json(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _cfg(0))
+    sent = _capture_posts(monkeypatch)
+    assert seeder._post_transcript(_ctx(), []) is True
+    assert sent[0]["url"] == "http://core/transcript"
+    assert sent[0]["body"]["atif"]["session_id"] == "s"
+
+
+def test_post_is_false_on_non_2xx(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _cfg(0))
+    _capture_posts(monkeypatch, status=500)
+    assert seeder._post("/feedback", {}) is False
+
+
+def test_post_is_false_when_the_request_raises(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _cfg(0))
+
+    def boom(request, timeout=None):
+        raise urllib.error.URLError("core is down")
+
+    monkeypatch.setattr(seeder.urllib.request, "urlopen", boom)
+    assert seeder._post("/feedback", {}) is False
+
+
+class _Agent:
+    """Stand-in for a compiled langchain agent: returns a fixed final state."""
+
+    def __init__(self, state):
+        self.state = state
+
+    def invoke(self, _inputs, _config=None):
+        return self.state
+
+
+def _stub_agent(monkeypatch, state):
+    monkeypatch.setattr(seeder, "_init_model", lambda: None)
+    monkeypatch.setattr(seeder, "create_agent", lambda **kwargs: _Agent(state))
+
+
+def _run_cfg():
+    return {**_cfg(0), "max_rounds": 3, "critical_ratio": 0, "temperature": 0.7,
+            "system_prompt": "system {name} {max_rounds}",
+            "task_prompt": "task {name} {max_rounds}", "critical_prompt": "be tough"}
+
+
+def test_run_skill_posts_the_structured_rating(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _run_cfg())
+    _stub_agent(monkeypatch, {"messages": [_msg("human", "hello")],
+                              "structured_response": seeder.Rating(score=1, comment="clear")})
+    sent = _capture_posts(monkeypatch)
+    assert seeder._run_skill({"name": "demo", "prompt": "x"}) == (True, True)
+    assert [s["url"] for s in sent] == ["http://core/feedback", "http://core/transcript"]
+    assert sent[0]["body"]["score"] == 1
+    assert sent[0]["body"]["comment"] == "clear"
+    # Both posts describe the same run.
+    assert sent[0]["body"]["request_id"] == sent[1]["body"]["request_id"]
+
+
+def test_run_skill_without_a_rating_still_stores_the_transcript(monkeypatch):
+    monkeypatch.setattr(seeder, "config", lambda: _run_cfg())
+    _stub_agent(monkeypatch, {"messages": [], "structured_response": None})
+    sent = _capture_posts(monkeypatch)
+    assert seeder._run_skill({"name": "demo", "prompt": "x"}) == (False, True)
+    assert [s["url"] for s in sent] == ["http://core/transcript"]
 
 
 def test_seed_once_reports_when_no_skills(monkeypatch):

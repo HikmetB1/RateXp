@@ -20,6 +20,7 @@
 <p align="center">
   <a href="#quick-start---ship-ratexp-with-your-skill">Quick start</a> ·
   <a href="#how-often-it-asks">How often it asks</a> ·
+  <a href="#privacy">Privacy</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#the-dashboard">Dashboard</a> ·
   <a href="#contact">Contact</a> ·
@@ -28,7 +29,9 @@
 </p>
 
 ## One-line pitch
-Hey, skill author 👋 - shipped a skill but can't tell how people actually use it? RateXp collects feedback for agentic skills. You pair your `SKILL.md` with an MCP client that points to our core (see [Quick start](#quick-start---ship-ratexp-with-your-skill) below). From then on, RateXp asks your users for a rating - and, with their consent, the full conversation - strips out any personal info, and shows it all on a [live dashboard](https://ratexp-app.azurewebsites.net/).
+RateXp collects user ratings and opt-in conversations for Claude Code skills.
+Ship `SKILL.md` and `ratexp.sh` with your skill, then view feedback on the
+[live dashboard](https://ratexp-app.azurewebsites.net/).
 
 ## Demo
 <p align="center">
@@ -39,75 +42,52 @@ Hey, skill author 👋 - shipped a skill but can't tell how people actually use 
 Once you ship a skill, you're flying blind - there's no easy way to see how it's actually used or to hear back from the people using it. Authors get no ratings, no real conversations, and nothing concrete to improve the skill with, unless they build their own feedback plumbing from scratch.
 
 ## What is RateXp
-RateXp is a feedback collection solution for agentic skills that closes that gap. A skill author pairs their `SKILL.md` with an MCP client pointing to our core (`.mcp.json`) and adds a short feedback step; when the skill runs, the agent calls RateXp's MCP tools to collect a quick rating and - only with consent - upload the whole conversation. The answer is sent to RateXp, which strips out personal info before saving it, and anyone can open a live dashboard to watch the feedback arrive - giving authors user ratings plus the actual material they need to improve the skill.
+RateXp helps skill authors learn from real use. A hook asks users for a good/bad
+rating and an optional comment after a skill runs. Users can also share the
+conversation; RateXp masks personal information before storing it.
 
 ## Who it's for
 For individual skill authors and organizations alike - anyone who's shipped an agentic skill and wants user ratings plus the actual conversations to see how satisfied their users are and improve it.
 
 ## Features
-1. **Quick MCP setup** - point an `.mcp.json` at your core and add a short feedback step to your `SKILL.md`.
-2. **Tested models** - works over the Model Context Protocol; tested and working with Claude Opus (4.8, 4.7, 4.6, 4.5) and Sonnet (4.6, 4.5).
+1. **Two-file setup** - drop `SKILL.md` + `ratexp.sh` into your skill folder. The template includes the hooks that collect feedback.
+2. **Tested models** - tested and working with Claude Opus (4.8, 4.7, 4.6, 4.5) and Sonnet (4.6, 4.5).
 3. **Ratings + comments** - quick good/bad rating with an optional comment from the user.
-4. **Opt-in transcripts** - with the user's consent, stores the whole conversation in a standard format (ATIF) for review.
+4. **Opt-in transcripts** - with the user's consent, stores that run of your skill in a standard format (ATIF) for review. The hook uploads it straight from the user's machine, so it never passes through the model.
 5. **PII redaction** - personal info is masked before storage via a pluggable adapter (self-hosted Presidio or Azure AI Language), fail-closed (drops rather than saves unredacted).
-6. **Adjustable sampling** - `every=N` controls how often the survey shows, so you don't nag every run.
-7. **Live dashboard** - read-only view of feedback as it arrives, with a SQL filter and JSON export.
+6. **Adjustable sampling** - `RATEXP_EVERY` controls how often the survey shows, so you don't nag every run.
+7. **Live dashboard** - read-only view of feedback as it arrives, with a filter box (SQL for PostgreSQL, DQL for Dynatrace) and JSON export.
 8. **Responsive UI** - the table reflows into cards on phones.
-9. **Pluggable destinations** - a submission fans out to any combination of adapters you enable in config: RateXp's PostgreSQL (the live dashboard), your own PostgreSQL, RateXp's Dynatrace, your own Dynatrace, or a Bluebox workspace. Each is independent and best-effort.
+9. **Pluggable destinations** - a submission fans out to any combination of adapters you enable in config: RateXp's PostgreSQL (the live dashboard), your own PostgreSQL, RateXp's Dynatrace, your own Dynatrace, or a Bluebox workspace. Each is independent, and at least one must accept.
 
 ## How it works
 
 ```mermaid
 sequenceDiagram
-    participant U as user
-    participant S as skill (agent)
-    participant H as upload helper<br/>(user's machine)
-    participant C as core (MCP + HTTP)
-    participant R as redaction<br/>(Presidio / Azure AI Language)
-    participant DB as write + read destination
-    participant DT as write + read destination<br/>(optional)
-    participant A as dashboard API<br/>(read-only)
-    participant D as dashboard UI
+    participant U as User
+    participant S as Skill
+    participant H as ratexp.sh
+    participant C as Core
+    participant DB as Storage
+    participant D as Dashboard
 
-    S->>C: feedback tool
-    C-->>S: survey steps (~1 in N) or "skip"
-    S->>U: ask survey (AskUserQuestion)
-    U->>S: answers (rating, consent, comment)
-    S->>C: submit_feedback (rating, over MCP)
-    C->>DB: write rating (best-effort)
-    C->>DT: write rating (best-effort)
-
-    Note over S,H: only on consent
-    S->>H: run curl|sh (one local command, single approval)
-    H->>C: GET /upload_transcript.sh
-    C-->>H: helper script
-    H->>C: POST /transcript (raw .jsonl, plain HTTP)
-    C->>R: redact PII (fail-closed)
-    R-->>C: masked text
-    C->>DB: write transcript (best-effort)
-    C->>DT: write transcript (best-effort)
-    Note over C,DT: destinations are pluggable adapters (today PostgreSQL, Dynatrace & Bluebox over OTLP) — core fans out to every enabled one as equal, independent, best-effort peers
-    Note over DB: rating + transcript linked by request_id
-
-    D->>A: GET /snapshot (initial load, HTTP)
-    A->>DB: read (filter box: SQL)
-    A-->>D: snapshot
-    D->>A: subscribe /ws (WebSocket)
-    A-->>D: live snapshots (on connect, then on change)
-    Note over DB,A: read from one source you pick — PostgreSQL (SQL box) or Dynatrace (DQL box)
+    U->>S: Run skill
+    S->>H: Skill hooks
+    H-->>S: Ask for feedback on every Nth run
+    S->>U: Rating, comment, transcript consent
+    U->>H: Answer via AskUserQuestion
+    H->>C: POST /feedback
+    opt User consents to sharing
+        H->>C: POST /transcript
+        C->>C: Convert to ATIF and redact PII
+    end
+    C->>DB: Store in enabled destinations
+    D->>DB: Read feedback via dashboard API
 ```
 
-In plain words: a skill author pairs their `SKILL.md` with a small `.mcp.json`
-pointing at **core**, and adds a short feedback step. When the skill runs, the
-agent calls core's `feedback` MCP tool, follows the survey steps to ask the user a
-quick rating (only ~1 in N runs - the rest are skipped), and sends it back through
-the `submit_feedback` tool. With consent, the agent runs one command that fetches a
-tiny helper from core; the helper runs **on the user's machine** and uploads the raw
-conversation straight to core over plain HTTP - never through the model's context.
-Core **redacts any personal info** (via Presidio or Azure AI Language, fail-closed -
-it drops rather than stores anything unredacted) before saving. The **dashboard** is
-a separate read-only service that reads the database and pushes live updates, so
-anyone can watch the feedback arrive.
+The hook sends feedback directly from the user's machine. Core stores it, and a
+separate read-only dashboard API reads the selected data source and streams updates
+to the UI.
 
 ### Where your data goes
 core validates and redacts each submission once, then writes it to **every
@@ -119,10 +99,12 @@ PostgreSQL, Dynatrace or [Bluebox](https://bluebox.ai), RateXp's own or your own
 | **RateXp's** | `app_be_psql` - RateXp's DB, the live dashboard reads it | `app_be_dynatrace` - RateXp's Dynatrace tenant | — |
 | **Your own** | `custom_psql` - your database (`CUSTOM_PSQL_DSN`) | `custom_dynatrace` - your tenant (`CUSTOM_DT_TOKEN`) | `bluebox` - your workspace (`BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN`) |
 
-Enable any combination - the adapters are **independent and best-effort**, so one
-failing (or a Dynatrace token being absent) is logged and never blocks the others
-or the request. Secrets (DB strings, tokens) come from env vars named in the
-config, never from the file itself. See [`core/write_adapters/`](./core/write_adapters/) and [`core/dispatch.py`](./core/dispatch.py).
+Enable any combination - the adapters are **independent**, so one failing (or a
+Dynatrace token being absent) is logged and never blocks the others. A submission
+is **accepted once at least one destination takes it**; if none do, core answers
+`503` and the hook tells the user it could not be sent. Secrets (DB strings, tokens)
+come from env vars named in the config, never from the file itself. See
+[`core/write_adapters/`](./core/write_adapters/) and [`core/dispatch.py`](./core/dispatch.py).
 
 The read side is a single source you pick: the live dashboard reads from **one** read
 adapter ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) - **PostgreSQL**
@@ -137,50 +119,51 @@ English (`bluebox ask "which skills got the most bad ratings this week"`) rather
 than through the dashboard.
 
 ## Quick start - ship RateXp with your skill
-No prerequisites - setting up feedback takes just two tiny steps (two small files):
+Requires Claude Code, Bash 3.2+, and curl.
 
-1. Add an `.mcp.json` at your **project root** pointing at your core's MCP endpoint:
+1. Copy [`template/SKILL.md`](./template/SKILL.md) and
+   [`template/ratexp.sh`](./template/ratexp.sh) into
+   `.claude/skills/<your-skill-name>/`.
+2. Replace every `<your-skill-name>` in `SKILL.md` with your skill's folder name,
+   then write your skill instructions in the body. Keep the hook frontmatter.
+3. Run your skill and view submitted ratings on the
+   [dashboard](https://ratexp-app.azurewebsites.net/).
 
-```json
-{
-  "mcpServers": {
-    "ratexp": { "type": "http", "url": "https://ratexp-core.azurewebsites.net/mcp" }
-  }
-}
-```
+For an existing skill, copy `ratexp.sh` and merge the template's `hooks` into its
+frontmatter. Include `AskUserQuestion` if you use an `allowed-tools` list.
+For a plugin, use [`template/plugin/`](./template/plugin/).
 
-2. Add this block to your `SKILL.md` where the feedback should take place:
-
-```md
-## Feedback step
-
-Call the `feedback` tool on the **ratexp** MCP server with `every: 1`, then
-follow the instructions it returns.
-```
-
-That's the whole setup. Copy [`template/`](./template/) to start from a ready-made
-skill + `.mcp.json`.
-
-You're now ready to collect feedback. As soon as your skill runs and a user leaves a
-rating, watch it arrive live on the [dashboard](https://ratexp-app.azurewebsites.net/).
+A self-hosted core serves a configured script at `GET /ratexp.sh`.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for local development and deployment.
 
 ## How often it asks
-`every` sets how often the survey pops up. On each call the `feedback` tool rolls a
-dice and asks about **1 in N** times, skipping the rest. Use `every: 1` to ask
-every time, a larger number to ask less often, or omit it for the server default
-(~half the runs).
+The hook asks on every Nth run of each skill within a session. The shipped default
+is **4**, set by `default_survey_every` in [`core/config.yaml`](./core/config.yaml).
+Set `RATEXP_EVERY=1` to ask every run, or choose a larger number to ask less often.
+`RATEXP_URL` overrides the destination.
+
+## Privacy
+Submitted feedback includes the skill name, rating, optional comment, agent name,
+session ID, and request ID. Transcript sharing requires **“Yes, store trajectory”**
+in the survey; **“No, do not store”** keeps it private.
+
+When the hook observes the skill starting, it uploads the conversation from that
+point through the survey response. If the initial start event is unavailable, the
+upload includes the session so far. Core masks personal information before storage
+and drops the transcript if redaction fails.
 
 ## Examples
-See [`examples/poem-creator/`](./examples/poem-creator/) for a complete, working `SKILL.md`
-(plus its `.mcp.json`). It asks for a mood, writes a short original poem, and then runs
-the feedback step - a good template to copy and adapt. For a blank starting point, copy
-[`template/`](./template/).
+See [`examples/poem-creator/`](./examples/poem-creator/) for a complete, working skill -
+`SKILL.md` plus its `ratexp.sh`. It asks for a mood and writes a short original poem,
+with the feedback hooks already wired up - a good template to copy and adapt. For a
+blank starting point, copy [`template/`](./template/).
 
 ## The dashboard
 The [dashboard](https://ratexp-app.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows
 only the latest entries and the most-rated skills (both capped by `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10 each). The layout is responsive. Each rating that has a stored conversation links to it; the transcript opens in a slide-over drawer as a step-by-step timeline, rendered as formatted Markdown.
 
-To pull more than the preview shows, use the **SQL filter** and **Download JSON**:
+To pull more than the preview shows, use the **filter box** - it speaks the read
+source's own language (SQL for PostgreSQL, DQL for Dynatrace) - and **Download JSON**:
 
 - No query → the 10 most recent rows.
 - A query that returns a single skill → *all* of that skill's rows.
