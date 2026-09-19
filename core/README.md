@@ -1,5 +1,24 @@
 # core
 
+## Installing into a skill/plugin
+
+README TODO: tto be duplicated on the main readme 
+
+```bash
+curl -fsSL <core>/install.sh | bash -s skill my-skill     # .claude/skills/my-skill/
+curl -fsSL <core>/install.sh | bash -s plugin my-plugin   # my-plugin/skills/my-plugin/
+```
+
+Either one leaves you a `SKILL.md` and a `ratexp.sh`. Write your skill in the body of
+`SKILL.md` and leave the frontmatter alone - that is what runs the hook.
+
+`ratexp.sh` needs no editing - the core that served it already filled in where to post and
+how often to ask. Set `RATEXP_EVERY` to ask more or less often for a run:
+
+```bash
+RATEXP_EVERY=1 claude
+```
+
 ## What it solves
 README TODO: the problem the soluton slves is to be written on the main read me and only a tiny scentese on regarding the mermaid charto to be added instead. 
 
@@ -43,25 +62,6 @@ Everything tunable lives in [`config.yaml`](./config.yaml), which explains each 
 - `default_survey_every`: ask on every Nth run, baked into the hook copies
 - `redaction`: whether personal data is masked, and which adapter does it
 - `write_adapters`: which destinations every submission is written to
-
-## Installing into a skill/plugin
-
-README TODO: tto be duplicated on the main readme 
-
-```bash
-curl -fsSL <core>/install.sh | bash -s skill my-skill     # .claude/skills/my-skill/
-curl -fsSL <core>/install.sh | bash -s plugin my-plugin   # my-plugin/skills/my-plugin/
-```
-
-Either one leaves you a `SKILL.md` and a `ratexp.sh`. Write your skill in the body of
-`SKILL.md` and leave the frontmatter alone - that is what runs the hook.
-
-`ratexp.sh` needs no editing - the core that served it already filled in where to post and
-how often to ask. Set `RATEXP_EVERY` to ask more or less often for a run:
-
-```bash
-RATEXP_EVERY=1 claude
-```
 
 ## Hook copies
 
