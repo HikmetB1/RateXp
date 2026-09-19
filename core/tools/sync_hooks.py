@@ -8,7 +8,7 @@ import re
 import shlex
 from pathlib import Path
 
-CORE = Path(__file__).resolve().parent
+CORE = Path(__file__).resolve().parents[1]
 HOSTED_URL = "https://ratexp-core.azurewebsites.net"
 # Every copy of the hook we ship. A new template or example needs a line here,
 # or its script silently keeps the placeholders and posts nowhere.
@@ -48,7 +48,7 @@ def main() -> int:
             path.write_text(script, encoding="utf-8")
             path.chmod(0o755)
     if args.check and stale:
-        print("Run: python3 core/sync_hooks.py")
+        print("Run: python3 core/tools/sync_hooks.py")
         return 1
     return 0
 

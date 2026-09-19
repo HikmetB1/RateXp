@@ -1,7 +1,7 @@
 """Guards the shipped skill/plugin templates: hook copies and SKILL.md frontmatter.
 
 A copied template must work as-is, so each one ships its own ratexp.sh (generated
-from the canonical script by sync_hooks.py) and declares all five hooks.
+from the canonical script by tools/sync_hooks.py) and declares all five hooks.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def _frontmatter(path: Path) -> dict:
 def test_shipped_hook_copies_are_in_sync():
     """Every ratexp.sh copy is the canonical script with a real URL baked in."""
     proc = subprocess.run(
-        [sys.executable, str(CORE / "sync_hooks.py"), "--check"],
+        [sys.executable, str(CORE / "tools" / "sync_hooks.py"), "--check"],
         capture_output=True,
         text=True,
         check=False,

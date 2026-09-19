@@ -1,16 +1,32 @@
 # core
 
+## Summary
+
 `ratexp.sh` always posts to the same two core endpoints, `/feedback` and `/transcript`, and
-never knows where the data ends up. Core is the admin: it does all the writing, and you set
-where it writes (`write_adapters`) and how personal data is masked (`redaction`) in `config.yaml`.
+never knows where the data ends up. Core is the admin: it decides which destinations are
+switched on, and it does all the writing.
 
-Nothing here has an `__init__.py`, so `api/` and `modules/` only import with `core/` as the
-starting point — `WORKDIR /app` in the container, `tests/conftest.py` in the tests. Import
-the full path, like `from modules.write import dispatch_to_adapters`, or the same file can
-load twice under two names.
+## Config
 
-`GET /ratexp.sh` fills in the blanks in `ratexp.sh` on each request; `sync_hooks.py` writes
-the filled-in copies into `template/` and `examples/`, so edits to a copy get wiped. A new
-template or example needs a line in `sync_hooks.py`, or its copy keeps the blanks.
+Everything tunable lives in [`config.yaml`](./config.yaml), which explains each key inline:
 
-Tests: see [CONTRIBUTING](../CONTRIBUTING.md#tests).
+- `schema_version`: ATIF version stamped on every stored transcript
+- `max_body_bytes` / `max_transcript_bytes`: largest request accepted, and largest trajectory
+  stored in full (anything bigger keeps a meta-only stub)
+- `rate_limit_per_minute`: per-IP budget; `0` turns the limiter off
+- `default_survey_every`: ask on every Nth run, baked into the hook copies
+- `redaction`: whether personal data is masked, and which adapter does it
+- `write_adapters`: which destinations every submission is written to
+
+## Hook copies
+
+`GET /ratexp.sh` fills in the blanks in `ratexp.sh` per request. The copies under `template/`
+and `examples/` are generated from it, so edits to a copy get wiped. Change `ratexp.sh`, then
+regenerate:
+
+```bash
+python3 tools/sync_hooks.py          # regenerate the copies
+python3 tools/sync_hooks.py --check  # report drift, change nothing (the tests run this)
+```
+
+A new template or example needs a line in `tools/sync_hooks.py`, or its copy keeps the blanks.

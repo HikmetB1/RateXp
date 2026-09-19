@@ -202,8 +202,8 @@ After editing the script or `default_survey_every`, regenerate its template and
 example copies:
 
 ```bash
-python3 core/sync_hooks.py
-python3 core/sync_hooks.py --check
+python3 core/tools/sync_hooks.py
+python3 core/tools/sync_hooks.py --check
 ```
 
 Copies use the hosted core URL and configured survey frequency. `GET /ratexp.sh`
@@ -288,7 +288,7 @@ pytest tests/test_azure_live.py
 .
 ├── core/                Public FastAPI service: serves the hook script (/ratexp.sh), ingests feedback → PostgreSQL
 │   ├── ratexp.sh        The canonical hook, source of every shipped copy
-│   ├── sync_hooks.py    Regenerates those copies from it; --check fails when one drifts
+│   ├── tools/           Dev-only, never shipped: sync_hooks.py regenerates the hook copies
 │   ├── api/             The HTTP surface: routes, record schemas, trajectory building
 │   ├── modules/
 │   │   ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)

@@ -46,7 +46,7 @@ EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 # test sets RATEXP_EVERY itself, so this only stands in for "a copy was made".
 BAKED_EVERY = 2
 
-# The copies sync_hooks.py generates, with a real URL baked in. They must behave
+# The copies tools/sync_hooks.py generates, with a real URL baked in. They must behave
 # exactly like the canonical script they came from.
 SHIPPED = (
     CORE / "template" / "skill" / "ratexp.sh",
@@ -115,7 +115,7 @@ class Hook:
         self.session = "sess-hook-1"
 
         # By default: the canonical script, dropped into a directory named for
-        # the skill, with the URL baked in the way sync_hooks.py does.
+        # the skill, with the URL baked in the way tools/sync_hooks.py does.
         # `source` instead runs an already-generated shipped copy verbatim.
         if source is None:
             self.skill = DEFAULT_SKILL
@@ -670,7 +670,7 @@ def test_the_baked_in_frequency_applies_when_nothing_overrides_it(hook):
     """Whoever hands the script out chooses how often to ask.
 
     core stamps `default_survey_every` into every copy it serves (and
-    sync_hooks.py does the same for the shipped ones), so a skill works
+    tools/sync_hooks.py does the same for the shipped ones), so a skill works
     without anyone setting an environment variable. The harness bakes 2.
     """
     env = {"RATEXP_EVERY": None}  # unset it; fall back to what the copy carries
