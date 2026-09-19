@@ -33,11 +33,12 @@ from modules.read.open_read_source import open_read_source
 
 ENV = os.environ.get("RATEXP_ENV", "local").lower()
 CORS_ORIGINS_RAW = os.environ.get("RATEXP_CORS_ORIGINS")
-# The UI the Dockerfile builds into ./static, one level up from this file. Absent in local dev.
+# app/static, one level up from this package - the UI the Dockerfile builds in. Resolved
+# from __file__ so the working directory doesn't matter. Absent in a checkout.
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
-def resolve_cors_origins() -> list[str]:
+def _resolve_cors_origins() -> list[str]:
     # Truthy (not `is not None`) so a "" injected by compose behaves like absent.
     if CORS_ORIGINS_RAW:
         return [o.strip() for o in CORS_ORIGINS_RAW.split(",") if o.strip()]
@@ -50,7 +51,7 @@ def resolve_cors_origins() -> list[str]:
 
 
 # Shared by the CORS middleware and the WebSocket origin check (CORS doesn't cover WS handshakes).
-ALLOWED_ORIGINS = resolve_cors_origins()
+ALLOWED_ORIGINS = _resolve_cors_origins()
 
 
 @asynccontextmanager
@@ -201,7 +202,7 @@ def run_query(req: QueryRequest) -> dict:
     }
 
 
-def ws_origin_allowed(websocket: WebSocket) -> bool:
+def _ws_origin_allowed(websocket: WebSocket) -> bool:
     # CORS middleware doesn't guard WS handshakes, so enforce the allowlist here.
     if "*" in ALLOWED_ORIGINS:
         return True
@@ -215,7 +216,7 @@ async def ws_feed(websocket: WebSocket) -> None:
     if not WS_ENABLED:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    if not ws_origin_allowed(websocket):
+    if not _ws_origin_allowed(websocket):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     await websocket.accept()

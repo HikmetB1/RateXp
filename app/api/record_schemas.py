@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 
 class Feedback(BaseModel):
+    """A single stored rating, as the dashboard returns it."""
+
     created_at: str | None = None  # ISO8601 UTC
     session_id: str | None = None
     skill_name: str
