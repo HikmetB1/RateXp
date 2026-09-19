@@ -1,7 +1,7 @@
 """Guards the shipped skill/plugin templates: hook copies and SKILL.md frontmatter.
 
 A copied template must work as-is, so each one ships its own ratexp.sh (generated
-from the canonical script by scripts/sync-hooks.py) and declares all five hooks.
+from the canonical script by sync_hooks.py) and declares all five hooks.
 """
 
 from __future__ import annotations
@@ -13,16 +13,17 @@ from pathlib import Path
 import pytest
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
+CORE = Path(__file__).resolve().parents[1]
 
 # Every SKILL.md we ship. Each sits next to its own copy of the hook script.
 SKILLS = (
-    ROOT / "template" / "SKILL.md",
-    ROOT / "template" / "plugin" / "skills" / "my-skill" / "SKILL.md",
-    ROOT / "examples" / "poem-creator" / "SKILL.md",
+    CORE / "template" / "skill" / "SKILL.md",
+    CORE / "template" / "plugin" / "skills" / "my-skill" / "SKILL.md",
+    CORE / "examples" / "example_skill_poem_creator" / "SKILL.md",
+    CORE / "examples" / "example_plugin_poem_creator" / "skills" / "poem-creator" / "SKILL.md",
 )
 
-# The five hook events the flow needs; see core/ratexp.sh.
+# The five hook events the flow needs; see ratexp.sh.
 HOOK_EVENTS = frozenset(
     {"UserPromptExpansion", "PreToolUse", "Stop", "PostToolUse", "PostToolUseFailure"}
 )
@@ -42,7 +43,7 @@ def _frontmatter(path: Path) -> dict:
 def test_shipped_hook_copies_are_in_sync():
     """Every ratexp.sh copy is the canonical script with a real URL baked in."""
     proc = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "sync-hooks.py"), "--check"],
+        [sys.executable, str(CORE / "sync_hooks.py"), "--check"],
         capture_output=True,
         text=True,
         check=False,

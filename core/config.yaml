@@ -19,8 +19,8 @@ rate_limit_per_minute: 120
 default_survey_every: 2
 
 # PII redaction for consented transcripts. The conversation text is masked before
-# storage; on error the upload is dropped (fail-closed). Set enabled: false to run
-# locally without redaction.
+# storage; on error the upload is dropped (fail-closed). This file is the only
+# switch - both adapters ship in the image, so nothing else needs changing.
 redaction:
   enabled: true
   # Which adapter masks the text (see core/modules/redaction/adapters/):

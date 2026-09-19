@@ -38,20 +38,21 @@ ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", 
 # Tools the script must NOT need. The sandbox deliberately hides them.
 FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "grep", "cat")
 
-REPO = Path(__file__).resolve().parents[2]
-CANONICAL = REPO / "core" / "ratexp.sh"
+CORE = Path(__file__).resolve().parents[1]
+CANONICAL = CORE / "ratexp.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 # What the tests bake in where a real copy would carry config.yaml's value. Every
 # test sets RATEXP_EVERY itself, so this only stands in for "a copy was made".
 BAKED_EVERY = 2
 
-# The copies scripts/sync-hooks.py generates, with a real URL baked in. They
-# must behave exactly like the canonical script they came from.
+# The copies sync_hooks.py generates, with a real URL baked in. They must behave
+# exactly like the canonical script they came from.
 SHIPPED = (
-    REPO / "template" / "ratexp.sh",
-    REPO / "template" / "plugin" / "skills" / "my-skill" / "ratexp.sh",
-    REPO / "examples" / "poem-creator" / "ratexp.sh",
+    CORE / "template" / "skill" / "ratexp.sh",
+    CORE / "template" / "plugin" / "skills" / "my-skill" / "ratexp.sh",
+    CORE / "examples" / "example_skill_poem_creator" / "ratexp.sh",
+    CORE / "examples" / "example_plugin_poem_creator" / "skills" / "poem-creator" / "ratexp.sh",
 )
 
 # Loopback is the only http:// origin the script accepts, and nothing listens
@@ -114,7 +115,7 @@ class Hook:
         self.session = "sess-hook-1"
 
         # By default: the canonical script, dropped into a directory named for
-        # the skill, with the URL baked in the way scripts/sync-hooks.py does.
+        # the skill, with the URL baked in the way sync_hooks.py does.
         # `source` instead runs an already-generated shipped copy verbatim.
         if source is None:
             self.skill = DEFAULT_SKILL
@@ -669,7 +670,7 @@ def test_the_baked_in_frequency_applies_when_nothing_overrides_it(hook):
     """Whoever hands the script out chooses how often to ask.
 
     core stamps `default_survey_every` into every copy it serves (and
-    scripts/sync-hooks.py does the same for the shipped ones), so a skill works
+    sync_hooks.py does the same for the shipped ones), so a skill works
     without anyone setting an environment variable. The harness bakes 2.
     """
     env = {"RATEXP_EVERY": None}  # unset it; fall back to what the copy carries

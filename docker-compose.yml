@@ -32,30 +32,20 @@ services:
   core:
     build:
       context: ./core
-      # Build extras into the image's venv. Set CORE_EXTRAS=dynatrace-otlp in .env
-      # to run the OTLP destination adapters locally (Dynatrace, Bluebox);
-      # empty = lean image.
-      args:
-        EXTRAS: ${CORE_EXTRAS:-}
     restart: unless-stopped
+    # Core's own destination secrets live with core (cp core/.env.example core/.env).
+    # Keep those keys out of `environment:` below - it wins over env_file, so
+    # re-listing one here would blank out whatever core/.env sets.
+    env_file:
+      - path: ./core/.env
+        required: false
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
       # Base URL baked into the hook script core serves at /ratexp.sh; installed
       # hooks post back here. Must be reachable from the host running the skill.
+      # Stays here because it follows the port compose publishes.
       RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
-      # Redaction's adapter deps aren't in the local core image, so keep it off
-      # here; set true only when core is built with a redaction adapter.
-      RATEXP_REDACTION_ENABLED: ${RATEXP_REDACTION_ENABLED:-false}
-      # Destination adapter values (which adapters run is set in core/config.yaml).
-      DT_TENANT_URL: ${DT_TENANT_URL:-}
-      DT_ACCESS_TOKEN: ${DT_ACCESS_TOKEN:-}
-      CUSTOM_PSQL_DSN: ${CUSTOM_PSQL_DSN:-}
-      CUSTOM_DT_TENANT_URL: ${CUSTOM_DT_TENANT_URL:-}
-      CUSTOM_DT_TOKEN: ${CUSTOM_DT_TOKEN:-}
-      # Bluebox exports over OTLP, so it needs CORE_EXTRAS=dynatrace-otlp too.
-      BLUEBOX_OTLP_ENDPOINT: ${BLUEBOX_OTLP_ENDPOINT:-}
-      BLUEBOX_OTLP_TOKEN: ${BLUEBOX_OTLP_TOKEN:-}
     # Live-reload the API on source edits; ratexp.sh is read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
     command: uvicorn api.serve_http:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"

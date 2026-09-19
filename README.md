@@ -122,9 +122,8 @@ than through the dashboard.
 ## Quick start - ship RateXp with your skill
 Requires Claude Code, Bash 3.2+, and curl.
 
-1. Copy [`template/SKILL.md`](./template/SKILL.md) and
-   [`template/ratexp.sh`](./template/ratexp.sh) into
-   `.claude/skills/<your-skill-name>/`.
+1. Copy the two files in [`core/template/skill/`](./core/template/skill/) - `SKILL.md`
+   and `ratexp.sh` - into `.claude/skills/<your-skill-name>/`.
 2. Replace every `<your-skill-name>` in `SKILL.md` with your skill's folder name,
    then write your skill instructions in the body. Keep the hook frontmatter.
 3. Run your skill and view submitted ratings on the
@@ -132,14 +131,14 @@ Requires Claude Code, Bash 3.2+, and curl.
 
 For an existing skill, copy `ratexp.sh` and merge the template's `hooks` into its
 frontmatter. Include `AskUserQuestion` if you use an `allowed-tools` list.
-For a plugin, use [`template/plugin/`](./template/plugin/).
+For a plugin, use [`core/template/plugin/`](./core/template/plugin/).
 
 A self-hosted core serves a configured script at `GET /ratexp.sh`.
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for local development and deployment.
 
 ## How often it asks
 The hook asks on every Nth run of each skill within a session. The shipped default
-is **4**, set by `default_survey_every` in [`core/config.yaml`](./core/config.yaml).
+is **2**, set by `default_survey_every` in [`core/config.yaml`](./core/config.yaml).
 Set `RATEXP_EVERY=1` to ask every run, or choose a larger number to ask less often.
 `RATEXP_URL` overrides the destination.
 
@@ -154,10 +153,15 @@ upload includes the session so far. Core masks personal information before stora
 and drops the transcript if redaction fails.
 
 ## Examples
-See [`examples/poem-creator/`](./examples/poem-creator/) for a complete, working skill -
-`SKILL.md` plus its `ratexp.sh`. It asks for a mood and writes a short original poem,
-with the feedback hooks already wired up - a good template to copy and adapt. For a
-blank starting point, copy [`template/`](./template/).
+The same poem-writing skill, packaged both ways, with the feedback hooks already
+wired up - ask for a mood, get a short original poem:
+
+- [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
+  a plain skill: `SKILL.md` plus its `ratexp.sh`.
+- [`core/examples/example_plugin_poem_creator/`](./core/examples/example_plugin_poem_creator/) -
+  the same skill as a plugin, hooks resolved from `${CLAUDE_PLUGIN_ROOT}`.
+
+For a blank starting point, copy [`core/template/`](./core/template/).
 
 ## The dashboard
 The [dashboard](https://ratexp-app.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows

@@ -6,7 +6,7 @@ set -o pipefail
 umask 077
 export LC_ALL=C
 DEFAULT_URL=https://ratexp-core.azurewebsites.net
-DEFAULT_EVERY=4
+DEFAULT_EVERY=2
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.

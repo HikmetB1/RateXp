@@ -37,15 +37,7 @@ if DEFAULT_SURVEY_EVERY < 1:
 
 # PII redaction config (see modules/redaction/).
 _REDACTION: dict = _require("redaction")
-# RATEXP_REDACTION_ENABLED overrides config.yaml, so a local stack (no Azure
-# identity) can disable redaction without editing the cloud-bound file. Truthy: 1/true/yes/on.
-_REDACTION_ENABLED_DEFAULT: bool = bool(_require_in(_REDACTION, "redaction", "enabled"))
-_REDACTION_ENABLED_ENV = os.getenv("RATEXP_REDACTION_ENABLED")
-REDACTION_ENABLED: bool = (
-    _REDACTION_ENABLED_ENV.strip().lower() in ("1", "true", "yes", "on")
-    if _REDACTION_ENABLED_ENV is not None
-    else _REDACTION_ENABLED_DEFAULT
-)
+REDACTION_ENABLED: bool = bool(_require_in(_REDACTION, "redaction", "enabled"))
 # Which adapter handles redaction: "presidio" (self-hosted) or "azure" (AI Language).
 # RATEXP_REDACTION_PROVIDER overrides config.yaml so a deployment can flip provider
 # without a rebuild (both adapters' deps ship in the image).

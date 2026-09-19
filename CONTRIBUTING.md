@@ -24,6 +24,7 @@ The whole stack - PostgreSQL + core + dashboard - comes up with one command:
 ```bash
 git clone <repo-url> ratexp && cd ratexp
 cp .env.example .env          # optional - defaults work out of the box
+cp core/.env.example core/.env  # only to send feedback somewhere besides PostgreSQL
 docker compose up --build -d
 ```
 
@@ -69,12 +70,19 @@ Azure, Terraform sets the database wiring plus core's `RATEXP_PUBLIC_URL` /
 `RATEXP_REDACTION_PROVIDER` / `DT_TENANT_URL` / `DT_ACCESS_TOKEN` and the dashboard's
 `RATEXP_READ_ADAPTER` / `DT_QUERY_URL` / `DT_ACCESS_TOKEN`.
 
+Each service keeps its own values: the root `.env` holds stack wiring (ports,
+`DATABASE_URL`, `RATEXP_PUBLIC_URL`) and the dashboard's read source; `core/.env`
+holds the tenant URLs, DSNs and tokens core writes to; `functions/skills-consumer/.env`
+holds the seeder's model key. All three are gitignored, each with an `.env.example`
+beside it.
+
 Two groups you supply by hand:
 
 - The **custom / Bluebox destinations**, and only for the adapters you enable
   yourself - `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL`, `CUSTOM_DT_TOKEN`,
-  `CUSTOM_DT_QUERY_URL`, `BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN`. Terraform
-  never sets these; an adapter whose value is missing is skipped with a warning.
+  `BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN` in `core/.env`, and
+  `CUSTOM_DT_QUERY_URL` in the root `.env` for the read side. Terraform never sets
+  these; an adapter whose value is missing is skipped with a warning.
 - The **optional demo seeder**, and only if you choose to run it - it needs an LLM,
   so you give it a model and the matching key in `functions/skills-consumer/.env`:
 
@@ -96,7 +104,7 @@ Two groups you supply by hand:
 | `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)            |
 | `max_transcript_bytes`  | `262144`    | Largest trajectory stored in full; bigger ones keep a meta-only stub |
 | `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
-| `default_survey_every`  | `4`         | Ask on every Nth run; baked into distributed hooks. `RATEXP_EVERY` overrides it. |
+| `default_survey_every`  | `2`         | Ask on every Nth run; baked into distributed hooks. `RATEXP_EVERY` overrides it. |
 
 #### Redaction
 
@@ -104,7 +112,7 @@ Masks PII before storage (see [`core/modules/redaction/`](./core/modules/redacti
 
 | Key                       | Meaning                                                                 |
 |---------------------------|-------------------------------------------------------------------------|
-| `redaction.enabled`       | Turn redaction on. `RATEXP_REDACTION_ENABLED` overrides — local `false`, cloud uses this file's `true`. |
+| `redaction.enabled`       | Turn redaction on. Set here and nowhere else — both adapters are already in the image. |
 | `redaction.provider`      | `presidio` (in-process, free) or `azure` (Language account). `RATEXP_REDACTION_PROVIDER` overrides — cloud sets it from Terraform's `redaction_provider`. |
 | `redaction.languages`     | PII model languages; the first is the fallback.                         |
 | `redaction.azure_endpoint`| Language account endpoint — only for the `azure` provider.              |
@@ -125,7 +133,7 @@ Each submission is written to **every** adapter whose `enabled` is true — inde
 
 - **No secrets or URLs in this file** — only the *names* of the env vars that hold them.
 - **Missing values are safe** — an adapter enabled but without its tenant/token/DSN is skipped with a warning.
-- **OTLP adapters need an extra** — build core with `dynatrace-otlp` (local `CORE_EXTRAS=dynatrace-otlp`; cloud `--build-arg EXTRAS="… dynatrace-otlp"`).
+- **Nothing to install** — every adapter's dependencies are already in the image; enabling one here is the whole step.
 - **Bluebox takes either URL form** — the full OTLP base, or a bare tenant URL.
 - **Bluebox is write-only** — no query language, so no read adapter; read it with `bluebox ask`.
 - **Cloud values** — `app_be_dynatrace` gets `DT_TENANT_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_tenant_url` / `dynatrace_access_token`.
@@ -194,8 +202,8 @@ After editing the script or `default_survey_every`, regenerate its template and
 example copies:
 
 ```bash
-python3 scripts/sync-hooks.py
-python3 scripts/sync-hooks.py --check
+python3 core/sync_hooks.py
+python3 core/sync_hooks.py --check
 ```
 
 Copies use the hosted core URL and configured survey frequency. `GET /ratexp.sh`
@@ -220,7 +228,7 @@ terraform init && terraform apply              # create the Azure resources
 
 # build + push the two images
 az acr login --name "$(terraform output -raw acr_name)"
-docker build -t "$(terraform output -raw core_image)" --build-arg EXTRAS="entra redaction-presidio redaction-azure dynatrace-otlp" ../core && docker push "$(terraform output -raw core_image)"
+docker build -t "$(terraform output -raw core_image)" ../core && docker push "$(terraform output -raw core_image)"
 docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app && docker push "$(terraform output -raw app_image)"
 ```
 
@@ -280,19 +288,19 @@ pytest tests/test_azure_live.py
 .
 ├── core/                Public FastAPI service: serves the hook script (/ratexp.sh), ingests feedback → PostgreSQL
 │   ├── ratexp.sh        The canonical hook, source of every shipped copy
+│   ├── sync_hooks.py    Regenerates those copies from it; --check fails when one drifts
 │   ├── api/             The HTTP surface: routes, record schemas, trajectory building
-│   └── modules/
-│       ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)
-│       └── write/       Write destinations (each submission goes to every enabled one) + the SQL schema
+│   ├── modules/
+│   │   ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)
+│   │   └── write/       Write destinations (each submission goes to every enabled one) + the SQL schema
+│   ├── template/        Copy-and-fill starting points: skill/ and plugin/
+│   └── examples/        The same poem skill packaged both ways, hooks already wired
 ├── app/
 │   ├── app-be/          Dashboard FastAPI service: read-only API; also serves the UI
 │   │   └── read_adapters/  Read sources - the dashboard reads from the one enabled source
 │   ├── app-fe/          React dashboard (source)
 │   └── Dockerfile       Builds the app image (UI bundled in)
 ├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
-├── examples/            Worked skills: SKILL.md + ratexp.sh
-├── template/            Copy-and-fill SKILL.md + ratexp.sh for a new skill (plus a plugin variant)
-├── scripts/             Repo tooling: sync-hooks.py regenerates the shipped ratexp.sh copies
 ├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
 ├── functions/
 │   └── skills-consumer/ Azure Function: timer that seeds demo feedback into core

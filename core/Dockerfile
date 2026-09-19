@@ -1,16 +1,14 @@
 # core - public ingestion service.
 #
-# Build with the Entra extra for cloud (Managed Identity DB auth):
-#   docker build --build-arg EXTRAS=entra -t ratexp-core .
-# Without it, core uses password auth from DATABASE_URL (local dev).
-# EXTRAS is space-separated; add a redaction adapter to enable transcript PII
-# redaction: --build-arg EXTRAS="entra redaction-presidio" (or redaction-azure).
+#   docker build -t ratexp-core .
+#
+# Every optional adapter is built in, so whatever config.yaml switches on is
+# already present. Nothing here is per-environment: config.yaml and the env vars
+# pick what actually runs.
 
 FROM ghcr.io/astral-sh/uv:0.5 AS uv
 
 FROM python:3.12-slim
-
-ARG EXTRAS=""
 
 COPY --from=uv /uv /usr/local/bin/uv
 
@@ -20,21 +18,23 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 WORKDIR /app
 
-# Lockfile-driven install - same deps every rebuild. EXTRAS may name several
-# extras separated by spaces; each becomes its own --extra flag.
+# Lockfile-driven install - same deps every rebuild. entra is Managed Identity DB
+# auth, the two redaction- extras are the PII adapters, dynatrace-otlp the OTLP
+# destinations. All four so a config.yaml change never needs a matching rebuild.
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev \
-      $(for e in $EXTRAS; do echo "--extra $e"; done)
+      --extra entra \
+      --extra redaction-presidio \
+      --extra redaction-azure \
+      --extra dynatrace-otlp
 
-# The Presidio adapter needs per-language spaCy models at runtime; fetch the ones
-# it supports, only when that adapter is built in (keeps the image small otherwise).
-RUN if echo " $EXTRAS " | grep -q " redaction-presidio "; then \
-      python -m spacy download en_core_web_sm && \
-      python -m spacy download es_core_news_sm && \
-      python -m spacy download fr_core_news_sm && \
-      python -m spacy download pt_core_news_sm && \
-      python -m spacy download ru_core_news_sm; \
-    fi
+# The Presidio adapter loads these per-language spaCy models at runtime; pip won't
+# pull them, so fetch them here (see modules/redaction/adapters/redact_with_presidio.py).
+RUN python -m spacy download en_core_web_sm && \
+    python -m spacy download es_core_news_sm && \
+    python -m spacy download fr_core_news_sm && \
+    python -m spacy download pt_core_news_sm && \
+    python -m spacy download ru_core_news_sm
 
 # ratexp.sh is the hook script core serves at GET /ratexp.sh. modules/ carries the
 # migration .sql files alongside the code that applies them.
