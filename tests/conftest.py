@@ -1,8 +1,8 @@
 """Shared fixtures for the whole-app (integration) test suite.
 
-Unlike the per-service suites under core/, app/ and functions/, these
-tests are black-box: they talk to *running* services over HTTP, exactly like a
-real client would. Two modes:
+Unlike the per-service suites under core/, app/ and seeder/, these tests are
+black-box: they talk to *running* services over HTTP, exactly like a real client
+would. Two modes:
 
 - Local stack (default): point at the docker-compose stack on localhost. These
   tests always run; if the stack isn't up they skip with a clear hint.

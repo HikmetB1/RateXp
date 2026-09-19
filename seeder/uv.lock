@@ -1000,7 +1000,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ratexp-skills-consumer"
+name = "ratexp-seeder"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [

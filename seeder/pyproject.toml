@@ -1,0 +1,27 @@
+[project]
+name = "ratexp-seeder"
+version = "1.0.0"
+description = "RateXp demo seeder: an agent uses a skill, then submits feedback to core."
+requires-python = ">=3.12"
+# Runtime deps live in requirements.txt (the Azure Functions image installs from it).
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["load_config"]
+
+# api/ and modules/ carry no __init__.py, so discovery has to be told to treat
+# them as namespace packages - without `namespaces` it finds nothing and the
+# install silently ships only load_config.
+[tool.setuptools.packages.find]
+include = ["api*", "modules*"]
+namespaces = true
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }

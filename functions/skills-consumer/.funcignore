@@ -1,5 +1,0 @@
-local.settings.json
-.env
-__pycache__/
-.venv/
-*.pyc

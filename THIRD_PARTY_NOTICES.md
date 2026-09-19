@@ -66,5 +66,5 @@ plus a note only where one matters.
 
 ## Skills & data format
 
-- **handoff, to-issues, to-prd skills** — MIT © 2026 Matt Pocock. https://github.com/mattpocock/skills — see [ATTRIBUTION.md](./functions/skills-consumer/skills/ATTRIBUTION.md).
+- **handoff, to-issues, to-prd skills** — MIT © 2026 Matt Pocock. https://github.com/mattpocock/skills — see [ATTRIBUTION.md](./seeder/skills/ATTRIBUTION.md).
 - **ATIF — Agent Trajectory Interchange Format (Harbor)** — the JSON shape RateXp uses to store transcripts. If you have the canonical upstream reference, cite it in the same format above.

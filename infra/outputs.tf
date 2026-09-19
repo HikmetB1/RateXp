@@ -64,7 +64,7 @@ output "grant_db_access_hint" {
 }
 
 output "seeder_name" {
-  description = "skills-consumer Function App name (empty when enable_seeder is false). Use with `az functionapp restart`."
+  description = "Seeder Function App name (empty when enable_seeder is false). Use with `az functionapp restart`."
   value       = var.enable_seeder ? azurerm_linux_function_app.seeder[0].name : ""
 }
 

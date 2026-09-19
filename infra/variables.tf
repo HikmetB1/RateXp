@@ -76,7 +76,7 @@ variable "entra_admin_principal_type" {
 }
 
 variable "enable_seeder" {
-  description = "Provision the skills-consumer Azure Function plus its Azure OpenAI (AI Foundry) account. The timer-triggered agent seeds demo feedback into core and costs model credits. Off by default."
+  description = "Provision the seeder Azure Function plus its Azure OpenAI (AI Foundry) account. The timer-triggered agent seeds demo feedback into core and costs model credits. Off by default."
   type        = bool
   default     = false
 }

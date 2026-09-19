@@ -1,0 +1,11 @@
+# The Dockerfile copies each path it wants by name, so this is about keeping the
+# build context small - except .env, which stays listed so a broader COPY could
+# never bake the model key into an image.
+.env
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+*.pyc
+tests/

@@ -215,11 +215,11 @@ resource "azurerm_linux_web_app" "app" {
   }
 }
 
-# --- skills-consumer: Azure Function that seeds demo feedback into core (optional) ---
+# --- seeder: Azure Function that seeds demo feedback into core (optional) ---
 # Provisioned only when var.enable_seeder is true. A timer trigger has a LangChain agent
 # run a bundled skill and POST feedback to core's public API. The agent's model is Azure
 # OpenAI, reached passwordlessly: the function's Managed Identity holds "Cognitive Services
-# OpenAI User" on the account below - no API key anywhere (see seeder.py).
+# OpenAI User" on the account below - no API key anywhere (see seeder/function_app.py).
 
 # Azure OpenAI (AI Foundry) account + a single chat model deployment.
 resource "azurerm_cognitive_account" "aoai" {
@@ -298,7 +298,8 @@ resource "azurerm_linux_function_app" "seeder" {
     MODEL                               = var.seeder_model
     AZURE_OPENAI_ENDPOINT               = azurerm_cognitive_account.aoai[0].endpoint
     OPENAI_API_VERSION                  = var.openai_api_version
-    # No AZURE_OPENAI_API_KEY: seeder.py auths with the Managed Identity below.
+    # No AZURE_OPENAI_API_KEY: the seeder auths with the Managed Identity below
+    # (see seeder/modules/agent/open_chat_model.py).
   }
 }
 

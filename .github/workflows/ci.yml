@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uvx ruff check core/ app/
-      - run: uvx ruff format --check core/ app/
+      - run: uvx ruff check core/ app/ seeder/
+      - run: uvx ruff format --check core/ app/ seeder/
 
   test:
     runs-on: ubuntu-latest
@@ -29,8 +29,8 @@ jobs:
         run: |
           uv sync --frozen --extra test
           uv run pytest -q
-      - name: Test skills-consumer
-        working-directory: functions/skills-consumer
+      - name: Test seeder
+        working-directory: seeder
         run: |
           uv sync --frozen --extra test
           uv run pytest -q

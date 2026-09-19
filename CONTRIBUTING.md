@@ -6,7 +6,7 @@
   - [Environment variables](#environment-variables)
   - [`core/config.yaml`](#coreconfigyaml)
   - [`app/config.yaml`](#appconfigyaml)
-  - [`functions/skills-consumer/config.yaml`](#functionsskills-consumerconfigyaml)
+  - [`seeder/config.yaml`](#seederconfigyaml)
 - [The hook script](#the-hook-script)
 - [Deploy to Azure](#deploy-to-azure)
 - [Tests](#tests)
@@ -48,12 +48,11 @@ Local skills under `.claude/skills/` are gitignored.
 
 ### 3. Seed demo feedback (optional)
 To auto-fill the dashboard with realistic demo feedback, run the seeder. It needs
-an LLM, so set `MODEL` and the matching key (e.g. `OPENAI_API_KEY`) in
-`functions/skills-consumer/.env`, then bring it up with the `seed` profile (kept
-out of a plain run because it spends API credits):
+an LLM, so put that model's key (e.g. `OPENAI_API_KEY`) in `seeder/.env`, then bring
+it up with the `seed` profile (kept out of a plain run because it spends API credits):
 
 ```bash
-cp functions/skills-consumer/.env.example functions/skills-consumer/.env  # set MODEL + key
+cp seeder/.env.example seeder/.env   # set the key for the model in seeder/config.yaml
 docker compose --profile seed up --build -d
 ```
 
@@ -67,14 +66,14 @@ Settings come from two places:
 
 Locally every environment variable has a working default (the stack runs as-is). On
 Azure, Terraform sets the database wiring plus core's `RATEXP_PUBLIC_URL` /
-`RATEXP_REDACTION_PROVIDER` / `DT_TENANT_URL` / `DT_ACCESS_TOKEN` and the dashboard's
-`DT_QUERY_URL` / `DT_ACCESS_TOKEN`.
+`RATEXP_REDACTION_PROVIDER` / `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, the dashboard's
+`DT_QUERY_URL` / `DT_ACCESS_TOKEN`, and the seeder's `MODEL` / `RATEXP_CORE_URL` /
+`SEED_SCHEDULE`.
 
 Each service keeps its own values: the root `.env` holds stack wiring (ports,
 `DATABASE_URL`, `RATEXP_PUBLIC_URL`) and the dashboard's read source; `core/.env`
-holds the tenant URLs, DSNs and tokens core writes to; `functions/skills-consumer/.env`
-holds the seeder's model key. All three are gitignored, each with an `.env.example`
-beside it.
+holds the tenant URLs, DSNs and tokens core writes to; `seeder/.env` holds the
+seeder's model key. All three are gitignored, each with an `.env.example` beside it.
 
 Two groups you supply by hand:
 
@@ -83,15 +82,15 @@ Two groups you supply by hand:
   `BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN` in `core/.env`, and
   `CUSTOM_DT_QUERY_URL` in the root `.env` for the read side. Terraform never sets
   these; an adapter whose value is missing is skipped with a warning.
-- The **optional demo seeder**, and only if you choose to run it - it needs an LLM,
-  so you give it a model and the matching key in `functions/skills-consumer/.env`:
+- The **optional demo seeder**, and only if you choose to run it - it needs an LLM.
+  You pick which one in [`seeder/config.yaml`](./seeder/config.yaml); `seeder/.env`
+  holds only that model's credentials:
 
-| Variable                | Required when…             | What to put                                            |
-|-------------------------|----------------------------|--------------------------------------------------------|
-| `MODEL`                 | always (for the seeder)    | LangChain model id, e.g. `openai:gpt-4o-mini`          |
-| `OPENAI_API_KEY`        | `MODEL` starts `openai:`   | your OpenAI key                                        |
-| `AZURE_OPENAI_ENDPOINT` | `MODEL` starts `azure_openai:` | your Azure OpenAI endpoint (with `OPENAI_API_VERSION`) |
-| `AZURE_OPENAI_API_KEY`  | `azure_openai:`, no Managed Identity | your Azure OpenAI key (optional if using Managed Identity) |
+| Variable                | Required when…                        | What to put                                            |
+|-------------------------|---------------------------------------|--------------------------------------------------------|
+| `OPENAI_API_KEY`        | `model` starts `openai:`              | your OpenAI key                                        |
+| `AZURE_OPENAI_ENDPOINT` | `model` starts `azure_openai:`        | your Azure OpenAI endpoint (with `OPENAI_API_VERSION`) |
+| `AZURE_OPENAI_API_KEY`  | `azure_openai:`, no Managed Identity  | your Azure OpenAI key (optional if using Managed Identity) |
 
 
 
@@ -169,16 +168,17 @@ The dashboard reads from **one** source ([`app/modules/read/`](./app/modules/rea
 - **No secrets or URLs in this file** — only env var *names*. For the Dynatrace sources, `query_url_env` must point at the **apps/DQL** host (e.g. `…apps.dynatrace.com`), not the ingest host.
 - **Cloud values** — the app gets `DT_QUERY_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_query_url` / `dynatrace_access_token`, used only when `config.yaml` has a Dynatrace source enabled (RateXp's deployment reads its own store — `app_be_psql` or `app_be_dynatrace`; the `custom_*` sources are for adopters wiring their own).
 
-### `functions/skills-consumer/config.yaml`
-*Where to set:* [`functions/skills-consumer/config.yaml`](./functions/skills-consumer/config.yaml) (demo seeder only).
+### `seeder/config.yaml`
+*Where to set:* [`seeder/config.yaml`](./seeder/config.yaml) (demo seeder only).
 
 | Key                | Default                 | Meaning                                                       |
 |--------------------|-------------------------|---------------------------------------------------------------|
-| `model`            | `openai:gpt-4o-mini`    | Same id as `MODEL`; env `MODEL` overrides it                  |
+| `schema_version`   | `ATIF-v1.7`             | ATIF version stamped on every seeded trajectory (matches core's) |
+| `model`            | `openai:gpt-4o-mini`    | LangChain `init_chat_model` id; env `MODEL` overrides it      |
+| `core_url`         | `http://localhost:8000` | Core to submit to; env `RATEXP_CORE_URL` overrides it         |
 | `temperature`      | `0.7`                   | Sampling temperature for the agent                            |
 | `max_rounds`       | `40`                    | Agent turns per task before it must rate                      |
-| `interval_seconds` | `3`                     | Pause between runs for the local script                       |
-| `core_url`         | `http://localhost:8000` | Core URL; env `RATEXP_CORE_URL` overrides it                  |
+| `interval_seconds` | `3`                     | Pause between runs, local loop only (Azure uses `SEED_SCHEDULE`) |
 | `critical_ratio`   | `0.3`                   | Share of runs that take the tough-reviewer stance (0–1)       |
 | `oversized_ratio`  | `0.2`                   | Share of runs whose trajectory is bloated past the limit (0–1)|
 | `system_prompt`, `task_prompt`, `critical_prompt` | – | The agent's instructions               |
@@ -247,7 +247,7 @@ database needed:
 ```bash
 (cd core && uv sync --extra test && uv run pytest)                       # core
 (cd app && uv sync --extra test && uv run pytest)                 # dashboard API
-(cd functions/skills-consumer && uv sync --extra test && uv run pytest)  # demo seeder
+(cd seeder && uv sync --extra test && uv run pytest)              # demo seeder
 ```
 
 Core's tests also exercise the hook with a fake curl and check that all shipped
@@ -301,10 +301,15 @@ pytest tests/test_azure_live.py
 │   │   └── read/        Read sources - the dashboard reads from the one enabled source
 │   ├── FE/              React dashboard (source)
 │   └── Dockerfile       Builds the app image (UI bundled in)
+├── seeder/              Optional Azure Function: a timer has an agent use a skill, then rate it
+│   ├── azure_function/  The timer trigger + host.json; the Dockerfile flattens it into the image root
+│   ├── api/             One run end to end, and the two ways one gets started
+│   ├── modules/
+│   │   ├── agent/       The model, the skill pool, and the sandboxed run itself
+│   │   └── submit/      Messages → ATIF, and the two posts to core
+│   └── skills/          The skills the agent picks from (third-party, see ATTRIBUTION.md)
 ├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
 ├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
-├── functions/
-│   └── skills-consumer/ Azure Function: timer that seeds demo feedback into core
 ├── tests/               Whole-app integration tests (run against a live/local stack)
 ├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
 ├── CONTRIBUTING.md      This file
@@ -313,9 +318,9 @@ pytest tests/test_azure_live.py
 └── pyproject.toml       Shared Python tooling config
 ```
 
-`core/` and `app/` are each self-contained - they deliberately duplicate small
-helpers (database connection, config loading) so either can be built and deployed
-on its own.
+`core/`, `app/` and `seeder/` are each self-contained - they deliberately duplicate
+small helpers (database connection, config loading) so any one of them can be built
+and deployed on its own.
 
 ## TODO
 
