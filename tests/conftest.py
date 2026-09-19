@@ -1,6 +1,6 @@
 """Shared fixtures for the whole-app (integration) test suite.
 
-Unlike the per-service suites under core/, app/app-be/ and functions/, these
+Unlike the per-service suites under core/, app/ and functions/, these
 tests are black-box: they talk to *running* services over HTTP, exactly like a
 real client would. Two modes:
 

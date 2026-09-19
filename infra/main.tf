@@ -182,7 +182,7 @@ resource "azurerm_linux_web_app" "core" {
   }
 }
 
-# --- app: dashboard (read-only API + UI), the only place app-be is reachable ---
+# --- app: dashboard (read-only API + UI), the only place the dashboard API is reachable ---
 resource "azurerm_linux_web_app" "app" {
   name                = local.app_name
   resource_group_name = azurerm_resource_group.this.name
@@ -208,11 +208,10 @@ resource "azurerm_linux_web_app" "app" {
     DATABASE_URL        = local.app_dsn
     RATEXP_ENV          = "prod"
     RATEXP_CORS_ORIGINS = local.app_url # same-origin; the UI is served by app itself
-    # Dashboard read source (see app/app-be/read_adapters/). Empty keeps it on app_be_psql;
-    # "app_be_dynatrace" reads the fanned-out logs over DQL (the filter box then speaks DQL).
-    RATEXP_READ_ADAPTER = var.dashboard_read_adapter
-    DT_QUERY_URL        = var.dynatrace_query_url
-    DT_ACCESS_TOKEN     = var.dynatrace_access_token
+    # Which source the dashboard reads is app/config.yaml read_adapters, baked into the
+    # image. These only supply the credentials for it when that source is Dynatrace.
+    DT_QUERY_URL    = var.dynatrace_query_url
+    DT_ACCESS_TOKEN = var.dynatrace_access_token
   }
 }
 

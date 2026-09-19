@@ -108,7 +108,7 @@ come from env vars named in the config, never from the file itself. See
 [`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py).
 
 The read side is a single source you pick: the live dashboard reads from **one** read
-adapter ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) - **PostgreSQL**
+adapter ([`app/modules/read/`](./app/modules/read/)) - **PostgreSQL**
 (queried with SQL) or **Dynatrace** (the fanned-out logs, queried with DQL). The
 dashboard's **filter box speaks that source's own language** - SQL when reading
 PostgreSQL, DQL when reading Dynatrace - so the box works either way. So writes fan
@@ -169,7 +169,7 @@ For a blank starting point, copy [`core/template/`](./core/template/).
 
 ## The dashboard
 The [dashboard](https://ratexp-app.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows
-only the latest entries and the most-rated skills (both capped by `list_view_limit` / `top_skills_limit` in `app/app-be/config.yaml`, default 10 each). The layout is responsive. Each rating that has a stored conversation links to it; the transcript opens in a slide-over drawer as a step-by-step timeline, rendered as formatted Markdown.
+only the latest entries and the most-rated skills (both capped by `list_view_limit` / `top_skills_limit` in `app/config.yaml`, default 10 each). The layout is responsive. Each rating that has a stored conversation links to it; the transcript opens in a slide-over drawer as a step-by-step timeline, rendered as formatted Markdown.
 
 To pull more than the preview shows, use the **filter box** - it speaks the read
 source's own language (SQL for PostgreSQL, DQL for Dynatrace) - and **Download JSON**:

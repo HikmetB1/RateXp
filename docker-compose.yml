@@ -62,20 +62,16 @@ services:
       context: ./app
       dockerfile: Dockerfile
     restart: unless-stopped
+    # The dashboard's own read-source credentials live with app (cp app/.env.example
+    # app/.env). Keep those keys out of `environment:` below - it wins over env_file, so
+    # re-listing one here would blank out whatever app/.env sets.
+    env_file:
+      - path: ./app/.env
+        required: false
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
       RATEXP_ENV: local
-      # Dashboard read source (config.yaml read_adapters - enable exactly one; default
-      # app_be_psql). Override with RATEXP_READ_ADAPTER (app_be_psql | custom_psql |
-      # app_be_dynatrace | custom_dynatrace) + the matching creds; the filter box then
-      # speaks that source's language (SQL for psql, DQL for dynatrace).
-      RATEXP_READ_ADAPTER: ${RATEXP_READ_ADAPTER:-}
-      DT_QUERY_URL: ${DT_QUERY_URL:-}
-      DT_ACCESS_TOKEN: ${DT_ACCESS_TOKEN:-}
-      CUSTOM_PSQL_DSN: ${CUSTOM_PSQL_DSN:-}
-      CUSTOM_DT_QUERY_URL: ${CUSTOM_DT_QUERY_URL:-}
-      CUSTOM_DT_TOKEN: ${CUSTOM_DT_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy

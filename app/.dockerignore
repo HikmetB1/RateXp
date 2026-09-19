@@ -6,3 +6,5 @@
 **/.venv
 **/tests
 **/static
+# Local read-source credentials - never bake them into the image.
+.env

@@ -1,29 +1,29 @@
-# The "app" web app: one image that serves the dashboard UI and its read-only
-# API from a single origin. Build from the app/ directory:
-#   docker build -f Dockerfile -t ratexp-app .
-# Add the Entra extra for cloud (Managed Identity DB auth):
-#   docker build --build-arg EXTRAS=entra -f Dockerfile -t ratexp-app .
+# app - the dashboard: one image serving the UI and its read-only API from a single origin.
+#
+#   docker build -t ratexp-app .
+#
+# Entra (Managed Identity database auth) is built in, so RATEXP_DB_AUTH picks password
+# or entra at runtime. Nothing here is per-environment: config.yaml and the env vars
+# pick what actually runs.
 
 # --- Stage 1: build the dashboard bundle ---
 FROM node:22-alpine AS frontend
 
 WORKDIR /fe
-COPY app-fe/package.json app-fe/package-lock.json ./
+COPY FE/package.json FE/package-lock.json ./
 RUN npm ci
-COPY app-fe/index.html app-fe/vite.config.js ./
-COPY app-fe/src ./src
+COPY FE/index.html FE/vite.config.js ./
+COPY FE/src ./src
 # Static assets (logo, favicons) - Vite copies public/ into dist/ at build.
-COPY app-fe/public ./public
+COPY FE/public ./public
 
-# Empty base => the bundle calls the API on its own origin (same host as app-be).
+# Empty base => the bundle calls the API on its own origin (the same host serves both).
 ENV VITE_API_BASE=""
 RUN npm run build
 
 # --- Stage 2: the API server, also serving the built UI ---
 FROM ghcr.io/astral-sh/uv:0.5 AS uv
 FROM python:3.12-slim
-
-ARG EXTRAS=""
 
 COPY --from=uv /uv /usr/local/bin/uv
 
@@ -33,18 +33,20 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
 
 WORKDIR /app
 
-COPY app-be/pyproject.toml app-be/uv.lock ./
-RUN uv sync --frozen --no-install-project --no-dev \
-      $( [ -n "$EXTRAS" ] && echo "--extra $EXTRAS" )
+# Lockfile-driven install - same deps every rebuild.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev --extra entra
 
-COPY app-be/server.py app-be/models.py app-be/config.py app-be/config.yaml app-be/db.py ./
-COPY app-be/read_adapters/ ./read_adapters/
-# The built dashboard, served by app-be at "/" (see server.py).
+COPY load_config.py config.yaml ./
+COPY api/ ./api/
+COPY modules/ ./modules/
+# The built dashboard, served by api/serve_http.py at "/".
 COPY --from=frontend /fe/dist ./static
 
+# Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv
 USER ratexp
 
 EXPOSE 8000
 
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.serve_http:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -189,15 +189,6 @@ variable "dynatrace_access_token" {
   sensitive   = true
 }
 
-# Dashboard read source (see app/app-be/read_adapters/). Default (empty) keeps the
-# dashboard on RateXp's PostgreSQL (SQL filter box); set "app_be_dynatrace" to read the
-# fanned-out logs (DQL filter box). Dynatrace also needs dynatrace_query_url.
-variable "dashboard_read_adapter" {
-  description = "Which read source the dashboard uses (mirrors the write 2x2): empty/\"app_be_psql\" (RateXp's DB, SQL box) or \"app_be_dynatrace\" (the fanned-out logs, DQL box). Sets RATEXP_READ_ADAPTER on app."
-  type        = string
-  default     = ""
-}
-
 variable "dynatrace_query_url" {
   description = "Dynatrace DQL/apps host (e.g. https://xxxx.apps.dynatrace.com) the dashboard queries when the dynatrace read source is enabled. Sets DT_QUERY_URL on app."
   type        = string

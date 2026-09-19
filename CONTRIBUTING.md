@@ -5,7 +5,7 @@
 - [Configuration](#configuration)
   - [Environment variables](#environment-variables)
   - [`core/config.yaml`](#coreconfigyaml)
-  - [`app/app-be/config.yaml`](#appapp-beconfigyaml)
+  - [`app/config.yaml`](#appconfigyaml)
   - [`functions/skills-consumer/config.yaml`](#functionsskills-consumerconfigyaml)
 - [The hook script](#the-hook-script)
 - [Deploy to Azure](#deploy-to-azure)
@@ -68,7 +68,7 @@ Settings come from two places:
 Locally every environment variable has a working default (the stack runs as-is). On
 Azure, Terraform sets the database wiring plus core's `RATEXP_PUBLIC_URL` /
 `RATEXP_REDACTION_PROVIDER` / `DT_TENANT_URL` / `DT_ACCESS_TOKEN` and the dashboard's
-`RATEXP_READ_ADAPTER` / `DT_QUERY_URL` / `DT_ACCESS_TOKEN`.
+`DT_QUERY_URL` / `DT_ACCESS_TOKEN`.
 
 Each service keeps its own values: the root `.env` holds stack wiring (ports,
 `DATABASE_URL`, `RATEXP_PUBLIC_URL`) and the dashboard's read source; `core/.env`
@@ -121,7 +121,7 @@ The cloud image ships both adapters, so flipping provider is one setting + a res
 
 #### Write destinations (`write_adapters.*`)
 
-Each submission is written to **every** adapter whose `enabled` is true — independent of one another (one failing is logged and never blocks the others), and the submission counts as accepted once **at least one** takes it; if none do, core answers `503`. See [`core/modules/write/adapters/`](./core/modules/write/adapters/) + [`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/app-be/config.yaml`](#appapp-beconfigyaml) below.
+Each submission is written to **every** adapter whose `enabled` is true — independent of one another (one failing is logged and never blocks the others), and the submission counts as accepted once **at least one** takes it; if none do, core answers `503`. See [`core/modules/write/adapters/`](./core/modules/write/adapters/) + [`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/config.yaml`](#appconfigyaml) below.
 
 | Adapter            | Where it writes                              | Connection (env var named in config)          |
 |--------------------|----------------------------------------------|-----------------------------------------------|
@@ -138,8 +138,8 @@ Each submission is written to **every** adapter whose `enabled` is true — inde
 - **Bluebox is write-only** — no query language, so no read adapter; read it with `bluebox ask`.
 - **Cloud values** — `app_be_dynatrace` gets `DT_TENANT_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_tenant_url` / `dynatrace_access_token`.
 
-### `app/app-be/config.yaml`
-*Where to set:* [`app/app-be/config.yaml`](./app/app-be/config.yaml).
+### `app/config.yaml`
+*Where to set:* [`app/config.yaml`](./app/config.yaml).
 
 | Key                        | Default     | Meaning                                       |
 |----------------------------|-------------|-----------------------------------------------|
@@ -155,7 +155,7 @@ Each submission is written to **every** adapter whose `enabled` is true — inde
 
 #### Read source (`read_adapters`)
 
-The dashboard reads from **one** source ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) — the one with `enabled: true` in `read_adapters` (like the write side's `enabled` flags, but **exactly one** may be on). It **mirrors the write side's 2×2** (RateXp's own vs. a custom adopter store × PostgreSQL vs. Dynatrace). `RATEXP_READ_ADAPTER` overrides which. The dashboard's **filter box speaks that source's own query language** — SQL for PostgreSQL, DQL for Dynatrace — which the adapter validates + row-caps + runs read-only. The UI learns the language from `GET /meta`.
+The dashboard reads from **one** source ([`app/modules/read/`](./app/modules/read/)) — the one with `enabled: true` in `read_adapters` (like the write side's `enabled` flags, but **exactly one** may be on). It **mirrors the write side's 2×2** (RateXp's own vs. a custom adopter store × PostgreSQL vs. Dynatrace). Like the write side, the choice lives only in `config.yaml`, so changing it needs a rebuild. The dashboard's **filter box speaks that source's own query language** — SQL for PostgreSQL, DQL for Dynatrace — which the adapter validates + row-caps + runs read-only. The UI learns the language from `GET /meta`.
 
 | Source             | Query lang. | Reads from                               | Settings (env var named in config)                          |
 |--------------------|-------------|------------------------------------------|-------------------------------------------------------------|
@@ -165,9 +165,9 @@ The dashboard reads from **one** source ([`app/app-be/read_adapters/`](./app/app
 | `custom_dynatrace` | **DQL**     | An adopter's Dynatrace tenant            | `query_url_env` (apps/DQL host), `token_env`               |
 
 - **The `*_psql` sources are the full experience** — transcripts, top-skills, the live feed, and a SQL filter box.
-- **The `*_dynatrace` sources** read the fanned-out logs; the filter box then accepts DQL. Transcripts come back **truncated** (the `ratexp.atif` attribute is capped on ingest), and each read is an async DQL query (slower/costlier than SQL). See [`read_adapters/utils/dynatrace.py`](./app/app-be/read_adapters/utils/dynatrace.py).
+- **The `*_dynatrace` sources** read the fanned-out logs; the filter box then accepts DQL. Transcripts come back **truncated** (the `ratexp.atif` attribute is capped on ingest), and each read is an async DQL query (slower/costlier than SQL). See [`modules/read/adapters/read_from_dynatrace.py`](./app/modules/read/adapters/read_from_dynatrace.py).
 - **No secrets or URLs in this file** — only env var *names*. For the Dynatrace sources, `query_url_env` must point at the **apps/DQL** host (e.g. `…apps.dynatrace.com`), not the ingest host.
-- **Cloud values** — the app gets `RATEXP_READ_ADAPTER` / `DT_QUERY_URL` / `DT_ACCESS_TOKEN` from Terraform's `dashboard_read_adapter` / `dynatrace_query_url` / `dynatrace_access_token` (RateXp's deployment reads its own store — `app_be_psql` or `app_be_dynatrace`; the `custom_*` sources are for adopters wiring their own).
+- **Cloud values** — the app gets `DT_QUERY_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_query_url` / `dynatrace_access_token`, used only when `config.yaml` has a Dynatrace source enabled (RateXp's deployment reads its own store — `app_be_psql` or `app_be_dynatrace`; the `custom_*` sources are for adopters wiring their own).
 
 ### `functions/skills-consumer/config.yaml`
 *Where to set:* [`functions/skills-consumer/config.yaml`](./functions/skills-consumer/config.yaml) (demo seeder only).
@@ -246,7 +246,7 @@ database needed:
 
 ```bash
 (cd core && uv sync --extra test && uv run pytest)                       # core
-(cd app/app-be && uv sync --extra test && uv run pytest)                 # dashboard API
+(cd app && uv sync --extra test && uv run pytest)                 # dashboard API
 (cd functions/skills-consumer && uv sync --extra test && uv run pytest)  # demo seeder
 ```
 
@@ -295,10 +295,11 @@ pytest tests/test_azure_live.py
 │   │   └── write/       Write destinations (each submission goes to every enabled one) + the SQL schema
 │   ├── template/        Copy-and-fill starting points: skill/ and plugin/
 │   └── examples/        The same poem skill packaged both ways, hooks already wired
-├── app/
-│   ├── app-be/          Dashboard FastAPI service: read-only API; also serves the UI
-│   │   └── read_adapters/  Read sources - the dashboard reads from the one enabled source
-│   ├── app-fe/          React dashboard (source)
+├── app/                 Dashboard FastAPI service: read-only API; also serves the UI
+│   ├── api/             The HTTP surface: routes, record schemas, snapshots, the live feed
+│   ├── modules/
+│   │   └── read/        Read sources - the dashboard reads from the one enabled source
+│   ├── FE/              React dashboard (source)
 │   └── Dockerfile       Builds the app image (UI bundled in)
 ├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
 ├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
@@ -312,7 +313,7 @@ pytest tests/test_azure_live.py
 └── pyproject.toml       Shared Python tooling config
 ```
 
-`core/` and `app/app-be/` are each self-contained - they deliberately duplicate small
+`core/` and `app/` are each self-contained - they deliberately duplicate small
 helpers (database connection, config loading) so either can be built and deployed
 on its own.
 

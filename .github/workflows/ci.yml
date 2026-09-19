@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uvx ruff check core/ app/app-be/
-      - run: uvx ruff format --check core/ app/app-be/
+      - run: uvx ruff check core/ app/
+      - run: uvx ruff format --check core/ app/
 
   test:
     runs-on: ubuntu-latest
@@ -24,8 +24,8 @@ jobs:
         run: |
           uv sync --frozen --extra test
           uv run pytest -q
-      - name: Test app-be
-        working-directory: app/app-be
+      - name: Test app
+        working-directory: app
         run: |
           uv sync --frozen --extra test
           uv run pytest -q
@@ -66,7 +66,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - working-directory: app/app-fe
+      - working-directory: app/FE
         run: |
           npm ci
           npm run build
