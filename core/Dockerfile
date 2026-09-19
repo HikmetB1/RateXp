@@ -38,9 +38,11 @@ RUN python -m spacy download en_core_web_sm && \
 
 # ratexp.sh is the hook script core serves at GET /ratexp.sh. modules/ carries the
 # migration .sql files alongside the code that applies them.
-COPY load_config.py config.yaml ratexp.sh ./
+COPY load_config.py config.yaml ratexp.sh install.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/
+# Served to skill authors by GET /template/... - install.sh downloads from here.
+COPY template/ ./template/
 
 # Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv

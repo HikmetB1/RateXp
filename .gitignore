@@ -24,9 +24,25 @@ tfplan
 
 # OS / editor
 .DS_Store
+/.idea
+/.vscode
 
-# Locally-installed skills for testing against a core on your own machine
-.claude/skills/
+# Shell and tool config belonging to the machine, not the repo. These appear at
+# the root as empty read-only placeholders under some sandboxes. Rooted with a
+# leading slash so a real file of the same name deeper in the tree still counts.
+/.bashrc
+/.bash_profile
+/.profile
+/.zshrc
+/.zprofile
+/.gitconfig
+/.ripgreprc
+/.mcp.json
+
+# Claude Code's local state: skills installed for testing against a core on your
+# own machine, plus per-machine settings. Nothing here is shared. The tracked
+# plugin manifests live in .claude-plugin/, a different name, so they are safe.
+.claude/
 
 # Archive (local UI style mockups, not tracked)
 archive/

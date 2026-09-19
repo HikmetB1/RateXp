@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shlex
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -19,12 +20,29 @@ from pydantic import ValidationError
 from starlette.formparsers import MultiPartException
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# core/ratexp.sh, one level up from this package. Resolved from __file__ so the
-# working directory doesn't matter.
-RATEXP_SH = Path(__file__).resolve().parent.parent / "ratexp.sh"
+# core/, one level up from this package. Resolved from __file__ so the working
+# directory doesn't matter.
+CORE_DIR = Path(__file__).resolve().parent.parent
+RATEXP_SH = CORE_DIR / "ratexp.sh"
+INSTALL_SH = CORE_DIR / "install.sh"
 URL_PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 PUBLIC_URL = os.environ.get("RATEXP_PUBLIC_URL", "http://localhost:8000").rstrip("/")
+
+# What install.sh may download, as an explicit allow-list: (kind, filename) -> the
+# file plus the placeholder `?name=` replaces in it. Never join a request path onto
+# a directory - that is how traversal gets in.
+_TEMPLATE_FILES = {
+    ("skill", "SKILL.md"): (CORE_DIR / "template/skill/SKILL.md", "<your-skill-name>"),
+    ("plugin", "SKILL.md"): (CORE_DIR / "template/plugin/skills/my-skill/SKILL.md", "my-skill"),
+    ("plugin", "plugin.json"): (
+        CORE_DIR / "template/plugin/.claude-plugin/plugin.json",
+        "my-plugin",
+    ),
+}
+# A name becomes a directory and is written into a shell command inside SKILL.md,
+# so only characters that are safe in both are accepted.
+_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
 BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -118,6 +136,30 @@ def get_ratexp_sh() -> str:
         .replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
         .replace(EVERY_PLACEHOLDER, shlex.quote(str(DEFAULT_SURVEY_EVERY)))
     )
+
+
+@app.get("/install.sh", response_class=PlainTextResponse)
+def get_install_sh() -> str:
+    """The installer, pointed at this deployment so a skill rates back to it."""
+    return INSTALL_SH.read_text(encoding="utf-8").replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
+
+
+@app.get("/template/{kind}/{filename}", response_class=PlainTextResponse)
+def get_template_file(kind: str, filename: str, name: str = "") -> str:
+    """One template file, with `?name=` substituted for the skill/plugin name."""
+    entry = _TEMPLATE_FILES.get((kind, filename))
+    if entry is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such template file")
+    path, placeholder = entry
+    text = path.read_text(encoding="utf-8")
+    if name:
+        if not _NAME_RE.match(name):
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "name must be lowercase letters, digits and hyphens",
+            )
+        text = text.replace(placeholder, name)
+    return text
 
 
 @app.post("/feedback", status_code=status.HTTP_201_CREATED)

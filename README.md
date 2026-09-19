@@ -119,22 +119,26 @@ deliberately exposes no query language, and you read it back by asking in plain
 English (`bluebox ask "which skills got the most bad ratings this week"`) rather
 than through the dashboard.
 
-## Quick start - ship RateXp with your skill
-Requires Claude Code, Bash 3.2+, and curl.
+## Quick start - ship RateXp with your skill or plugin
+Needs Claude Code, Bash 3.2+ and curl. From your project root:
 
-1. Copy the two files in [`core/template/skill/`](./core/template/skill/) - `SKILL.md`
-   and `ratexp.sh` - into `.claude/skills/<your-skill-name>/`.
-2. Replace every `<your-skill-name>` in `SKILL.md` with your skill's folder name,
-   then write your skill instructions in the body. Keep the hook frontmatter.
-3. Run your skill and view submitted ratings on the
-   [dashboard](https://ratexp-app.azurewebsites.net/).
+```bash
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s plugin my-plugin
+```
 
-For an existing skill, copy `ratexp.sh` and merge the template's `hooks` into its
-frontmatter. Include `AskUserQuestion` if you use an `allowed-tools` list.
-For a plugin, use [`core/template/plugin/`](./core/template/plugin/).
+The first creates `.claude/skills/my-skill/`, the second `my-plugin/` with the skill nested
+inside; each holds a `SKILL.md` with the hooks wired and a ready-to-run `ratexp.sh`. Write
+your skill in the body of `SKILL.md`, keep the frontmatter, and ratings land on the
+[dashboard](https://ratexp-app.azurewebsites.net/). `RATEXP_EVERY=1 claude` asks every run,
+and a self-hosted core works the same with its own URL.
 
-A self-hosted core serves a configured script at `GET /ratexp.sh`.
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for local development and deployment.
+**Existing skill?** Put `ratexp.sh` beside its `SKILL.md` with
+`curl -fsSL https://ratexp-core.azurewebsites.net/ratexp.sh -o ratexp.sh`, copy the `hooks`
+block from [the template](./core/template/skill/SKILL.md), and list `AskUserQuestion` in
+`allowed-tools`.
+
+[CONTRIBUTING.md](./CONTRIBUTING.md) covers local development and deployment.
 
 ## How often it asks
 The hook asks on every Nth run of each skill within a session. The shipped default
