@@ -36,12 +36,11 @@ RUN if echo " $EXTRAS " | grep -q " redaction-presidio "; then \
       python -m spacy download ru_core_news_sm; \
     fi
 
-COPY server.py ingest.py models.py migrate.py atif.py config.py config.yaml db.py dispatch.py ratelimit.py redact.py ./
-COPY redaction_adapters/ ./redaction_adapters/
-COPY write_adapters/ ./write_adapters/
-# scripts/ holds ratexp.sh - the hook script core serves at GET /ratexp.sh.
-COPY scripts/ ./scripts/
-COPY migrations/ ./migrations/
+# ratexp.sh is the hook script core serves at GET /ratexp.sh. modules/ carries the
+# migration .sql files alongside the code that applies them.
+COPY load_config.py config.yaml ratexp.sh ./
+COPY api/ ./api/
+COPY modules/ ./modules/
 
 # Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv
@@ -52,4 +51,4 @@ EXPOSE 8000
 # --proxy-headers + trust all forwarders: behind Azure's TLS-terminating proxy the
 # app must honor X-Forwarded-Proto, or any redirect it issues goes out as http and
 # the caller breaks. Azure forwards from a non-local IP, hence "*".
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["uvicorn", "api.serve_http:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

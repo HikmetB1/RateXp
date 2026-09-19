@@ -100,7 +100,7 @@ Two groups you supply by hand:
 
 #### Redaction
 
-Masks PII before storage (see [`core/redaction_adapters/`](./core/redaction_adapters/)).
+Masks PII before storage (see [`core/modules/redaction/`](./core/modules/redaction/)).
 
 | Key                       | Meaning                                                                 |
 |---------------------------|-------------------------------------------------------------------------|
@@ -113,7 +113,7 @@ The cloud image ships both adapters, so flipping provider is one setting + a res
 
 #### Write destinations (`write_adapters.*`)
 
-Each submission is written to **every** adapter whose `enabled` is true — independent of one another (one failing is logged and never blocks the others), and the submission counts as accepted once **at least one** takes it; if none do, core answers `503`. See [`core/write_adapters/`](./core/write_adapters/) + [`core/dispatch.py`](./core/dispatch.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/app-be/config.yaml`](#appapp-beconfigyaml) below.
+Each submission is written to **every** adapter whose `enabled` is true — independent of one another (one failing is logged and never blocks the others), and the submission counts as accepted once **at least one** takes it; if none do, core answers `503`. See [`core/modules/write/adapters/`](./core/modules/write/adapters/) + [`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/app-be/config.yaml`](#appapp-beconfigyaml) below.
 
 | Adapter            | Where it writes                              | Connection (env var named in config)          |
 |--------------------|----------------------------------------------|-----------------------------------------------|
@@ -176,7 +176,7 @@ The dashboard reads from **one** source ([`app/app-be/read_adapters/`](./app/app
 | `system_prompt`, `task_prompt`, `critical_prompt` | – | The agent's instructions               |
 
 ## The hook script
-[`core/scripts/ratexp.sh`](./core/scripts/ratexp.sh) runs from skill frontmatter:
+[`core/ratexp.sh`](./core/ratexp.sh) runs from skill frontmatter:
 
 | Event | Purpose |
 |-------|---------|
@@ -279,10 +279,11 @@ pytest tests/test_azure_live.py
 ```text
 .
 ├── core/                Public FastAPI service: serves the hook script (/ratexp.sh), ingests feedback → PostgreSQL
-│   ├── write_adapters/  Write destinations - each submission goes to every enabled one
-│   ├── redaction_adapters/  PII masking: presidio (in-process) or azure (AI Language)
-│   ├── migrations/      Numbered SQL schema files, applied at startup by a PostgreSQL destination
-│   └── scripts/         ratexp.sh - the canonical hook, source of every shipped copy
+│   ├── ratexp.sh        The canonical hook, source of every shipped copy
+│   ├── api/             The HTTP surface: routes, record schemas, trajectory building
+│   └── modules/
+│       ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)
+│       └── write/       Write destinations (each submission goes to every enabled one) + the SQL schema
 ├── app/
 │   ├── app-be/          Dashboard FastAPI service: read-only API; also serves the UI
 │   │   └── read_adapters/  Read sources - the dashboard reads from the one enabled source
@@ -304,7 +305,8 @@ pytest tests/test_azure_live.py
 ```
 
 `core/` and `app/app-be/` are each self-contained - they deliberately duplicate small
-helpers (`db.py`, `config.py`) so either can be built and deployed on its own.
+helpers (database connection, config loading) so either can be built and deployed
+on its own.
 
 ## TODO
 

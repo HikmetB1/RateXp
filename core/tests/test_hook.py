@@ -1,4 +1,4 @@
-"""Black-box tests for the hook script (core/scripts/ratexp.sh and its copies).
+"""Black-box tests for the hook script (core/ratexp.sh and its copies).
 
 The hook has to run on a bare machine: Bash 3.2+, curl, and a short list of
 standard utilities - no Python, no jq, no node. Nothing here imports or reads
@@ -39,7 +39,7 @@ ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", 
 FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "grep", "cat")
 
 REPO = Path(__file__).resolve().parents[2]
-CANONICAL = REPO / "core" / "scripts" / "ratexp.sh"
+CANONICAL = REPO / "core" / "ratexp.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 # What the tests bake in where a real copy would carry config.yaml's value. Every

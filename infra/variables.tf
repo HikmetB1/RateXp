@@ -172,7 +172,7 @@ variable "shared_language_resource_group" {
   default     = ""
 }
 
-# Dynatrace destination adapter (see core/adapters/dynatrace.py). Whether the
+# Dynatrace destination adapter (see core/modules/write/adapters/write_to_dynatrace.py). Whether the
 # app_be_dynatrace adapter runs is in core/config.yaml; its tenant URL and token are
 # per-environment, set on core as the DT_TENANT_URL / DT_ACCESS_TOKEN app settings.
 # Empty = the adapter is enabled in config.yaml but inert (no tenant/token), which is fine.

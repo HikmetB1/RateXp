@@ -56,9 +56,9 @@ services:
       # Bluebox exports over OTLP, so it needs CORE_EXTRAS=dynatrace-otlp too.
       BLUEBOX_OTLP_ENDPOINT: ${BLUEBOX_OTLP_ENDPOINT:-}
       BLUEBOX_OTLP_TOKEN: ${BLUEBOX_OTLP_TOKEN:-}
-    # Live-reload the API on source edits; scripts/ratexp.sh is read per request.
+    # Live-reload the API on source edits; ratexp.sh is read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
-    command: uvicorn server:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"
+    command: uvicorn api.serve_http:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"
     volumes:
       - ./core:/app
     depends_on:

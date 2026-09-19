@@ -1,4 +1,13 @@
-"""Shared fixtures. Stubs the store so tests need no real database."""
+"""Shared fixtures. Nothing here reaches a database, a tenant, or the network.
+
+Two fixtures are autouse, so they apply to every test in this folder whether it
+asks for them or not, and both go wrong quietly if you forget they exist:
+
+* the database environment variables are cleared, so a developer's own
+  DATABASE_URL cannot change what a test sees;
+* redaction is switched off, because config.yaml ships it on. A test that wants
+  redaction has to switch it back on itself (see test_redact_trajectory.py).
+"""
 
 from __future__ import annotations
 
@@ -7,41 +16,36 @@ from pathlib import Path
 
 import pytest
 
-# core/ is laid out as flat modules - make them importable regardless of where
-# pytest is invoked from.
+# pytest puts this folder on sys.path, not its parent, so `api.*` and `modules.*`
+# would not resolve. Add core/ itself, the directory the container imports from.
 _CORE_DIR = Path(__file__).resolve().parent.parent
 if str(_CORE_DIR) not in sys.path:
     sys.path.insert(0, str(_CORE_DIR))
 
 
 @pytest.fixture(autouse=True)
-def _isolate_env(monkeypatch):
-    """Each test starts with a clean, predictable environment."""
+def _isolate_database_env(monkeypatch):
     for var in ("RATEXP_DB_AUTH", "DATABASE_URL"):
         monkeypatch.delenv(var, raising=False)
 
 
 @pytest.fixture(autouse=True)
 def _disable_redaction(monkeypatch):
-    """Keep redaction out of the way by default (config ships enabled: true).
+    from modules.redaction import redact_trajectory
 
-    Tests that exercise redaction opt back in by patching `redact.REDACTION_ENABLED`
-    or `ingest.redact_atif` themselves.
-    """
-    import redact
-
-    monkeypatch.setattr(redact, "REDACTION_ENABLED", False)
+    monkeypatch.setattr(redact_trajectory, "REDACTION_ENABLED", False)
 
 
 @pytest.fixture
-def store_stub(monkeypatch):
-    """Swap the dispatch fan-out for one capturing adapter; return the captured records.
+def captured_writes(monkeypatch) -> list:
+    """Replace the whole fan-out with one in-memory adapter, and return what it received.
 
-    Every submission is written to the enabled adapters (see dispatch.py); here a
-    single in-memory adapter stands in for all of them, so tests need no database
-    and can assert on exactly what would be sent.
+    Every record goes to each enabled destination (see
+    modules/write/dispatch_to_adapters.py). Standing in for all of them with a
+    single capturing adapter lets a test assert on exactly what would be sent,
+    with no database, tenant or token in the way.
     """
-    import dispatch
+    from modules.write import dispatch_to_adapters
 
     captured: list = []
 
@@ -57,21 +61,45 @@ def store_stub(monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(dispatch, "_adapters", [CapturingAdapter()])
+    monkeypatch.setattr(dispatch_to_adapters, "_adapters", [CapturingAdapter()])
     return captured
 
 
 @pytest.fixture
-def client(monkeypatch, store_stub):
-    """Return (TestClient, captured). Destinations are the capturing adapter.
+def client(monkeypatch, captured_writes):
+    """A TestClient for the HTTP surface, fan-out stubbed and rate limiting off.
 
-    Used by every test that posts to the HTTP surface; the fan-out is stubbed so
-    importing/using the app needs no database.
+    Ask for `captured_writes` alongside it to see what a request stored.
     """
-    import server
+    from api import serve_http
+    from api.limit_request_rate import RateLimiter
     from fastapi.testclient import TestClient
-    from ratelimit import RateLimiter
 
-    # Keep the limiter out of the way unless a test exercises it explicitly.
-    monkeypatch.setattr(server, "_limiter", RateLimiter(1_000_000))
-    return TestClient(server.app), store_stub
+    # Capacity 0 means unlimited, so an ordinary test never trips the limiter.
+    monkeypatch.setattr(serve_http, "_limiter", RateLimiter(0))
+    return TestClient(serve_http.app)
+
+
+@pytest.fixture
+def no_destination_accepts(monkeypatch, captured_writes) -> None:
+    """Point the fan-out at a destination that always fails.
+
+    Depends on `captured_writes` so it is always applied after it, whichever
+    order a test lists them in. A test asking for this one is asserting on the
+    refusal, so `captured_writes` stays empty for it.
+    """
+    from modules.write import dispatch_to_adapters
+
+    class FailingAdapter:
+        name = "failing"
+
+        def write_feedback(self, record):
+            raise RuntimeError("destination down")
+
+        def write_transcript(self, record):
+            raise RuntimeError("destination down")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(dispatch_to_adapters, "_adapters", [FailingAdapter()])

@@ -22,7 +22,7 @@ SKILLS = (
     ROOT / "examples" / "poem-creator" / "SKILL.md",
 )
 
-# The five hook events the flow needs; see core/scripts/ratexp.sh.
+# The five hook events the flow needs; see core/ratexp.sh.
 HOOK_EVENTS = frozenset(
     {"UserPromptExpansion", "PreToolUse", "Stop", "PostToolUse", "PostToolUseFailure"}
 )

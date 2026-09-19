@@ -17,7 +17,7 @@ class Feedback(BaseModel):
 
 
 class Transcript(BaseModel):
-    """A stored full conversation, returned as ATIF JSON (see core/atif.py)."""
+    """A stored full conversation, returned as ATIF JSON (see core/api/build_trajectory.py)."""
 
     created_at: str | None = None
     session_id: str | None = None

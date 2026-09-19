@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-CANONICAL_HOOK = ROOT / "core" / "scripts" / "ratexp.sh"
+CANONICAL_HOOK = ROOT / "core" / "ratexp.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 
 # The hook refuses to post anywhere but https or the loopback host.

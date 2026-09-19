@@ -1,67 +1,28 @@
-"""build_write_adapters selection + the Postgres/Dynatrace adapter mapping."""
+"""What each destination does with a record: the SQL, the OTLP mapping, the URL.
+
+Nothing here opens a connection or sends a request. Choosing which destinations
+to build is in test_dispatch_to_adapters.py.
+"""
 
 from __future__ import annotations
 
 import contextlib
+import json
 
 import pytest
-from models import Feedback
+from api.record_schemas import Feedback, Transcript
+from modules.write.adapters.write_to_app_be_dynatrace import AppBeDynatraceWriteAdapter
+from modules.write.adapters.write_to_bluebox import BlueboxWriteAdapter
+from modules.write.adapters.write_to_custom_dynatrace import CustomDynatraceWriteAdapter
+from modules.write.adapters.write_to_custom_psql import CustomPostgresWriteAdapter
+from modules.write.adapters.write_to_dynatrace import DynatraceWriteAdapter
+from modules.write.adapters.write_to_postgres import PostgresWriteAdapter
 
-
-def test_build_write_adapters_skips_disabled_and_unbuildable(monkeypatch):
-    import config
-    import write_adapters
-
-    monkeypatch.setattr(
-        config,
-        "WRITE_ADAPTERS",
-        {
-            "app_be_psql": {"enabled": False},
-            "custom_psql": {"enabled": True, "dsn_env": "NOPE_DSN"},  # env unset -> skipped
-            "app_be_dynatrace": {  # token unset -> skipped
-                "enabled": True,
-                "tenant_url_env": "NOPE_TENANT",
-                "token_env": "NOPE_TOKEN",
-            },
-            "custom_dynatrace": {"enabled": False, "tenant_url_env": "X", "token_env": "X"},
-            "bluebox": {  # token unset -> skipped
-                "enabled": True,
-                "endpoint_env": "NOPE_ENDPOINT",
-                "token_env": "NOPE_TOKEN",
-            },
-        },
-    )
-    monkeypatch.delenv("NOPE_DSN", raising=False)
-    monkeypatch.delenv("NOPE_TOKEN", raising=False)
-    monkeypatch.delenv("NOPE_TENANT", raising=False)
-    monkeypatch.delenv("NOPE_ENDPOINT", raising=False)
-    assert write_adapters.build_write_adapters() == []  # nothing enabled-and-buildable
-
-
-def test_build_write_adapters_builds_enabled_psql(monkeypatch):
-    import config
-    import write_adapters
-
-    monkeypatch.setattr(
-        config,
-        "WRITE_ADAPTERS",
-        {
-            "app_be_psql": {"enabled": True},
-            "custom_psql": {"enabled": False, "dsn_env": "X"},
-            "app_be_dynatrace": {"enabled": False, "tenant_url_env": "X", "token_env": "X"},
-            "custom_dynatrace": {"enabled": False, "tenant_url_env": "X", "token_env": "X"},
-            "bluebox": {"enabled": False, "endpoint_env": "X", "token_env": "X"},
-        },
-    )
-    built = write_adapters.build_write_adapters()
-    assert [a.name for a in built] == ["app_be_psql"]  # lazy pool, no DB touched here
-
-
-# --- PostgresAdapter -----------------------------------------------------------
+# --- PostgreSQL ---------------------------------------------------------------
 
 
 class _FakeCursor:
-    def __init__(self, calls):
+    def __init__(self, calls: dict):
         self._calls = calls
 
     def __enter__(self):
@@ -75,8 +36,8 @@ class _FakeCursor:
         self._calls["params"] = params
 
 
-class _FakeConn:
-    def __init__(self, calls):
+class _FakeConnection:
+    def __init__(self, calls: dict):
         self._calls = calls
 
     def __enter__(self):
@@ -95,46 +56,101 @@ class _FakePool:
 
     @contextlib.contextmanager
     def connection(self):
-        yield _FakeConn(self.calls)
+        yield _FakeConnection(self.calls)
 
     def close(self):
         pass
 
 
-def test_postgres_adapter_writes_feedback():
-    from write_adapters.utils.postgres import PostgresWriteAdapter
-
+def _postgres() -> PostgresWriteAdapter:
     adapter = PostgresWriteAdapter("app_be_psql", dsn="x", auth="password")
-    adapter._pool = _FakePool()  # skip _ensure_pool (no migrations / real DB)
-    adapter.write_feedback(
-        Feedback(skill_name="demo", agent="cc", score=1, session_id="s", request_id="r")
-    )
-    assert "INSERT INTO feedback" in adapter._pool.calls["sql"]
-    # params order: created_at, session_id, skill_name, agent, score, comment, request_id
-    assert adapter._pool.calls["params"][2] == "demo"
-    assert adapter._pool.calls["params"][4] == 1
+    adapter._pool = _FakePool()  # set directly, so no migrations and no real database
+    return adapter
 
 
-# --- DynatraceAdapter (mapping only; no network) -------------------------------
-
-
-def test_dynatrace_adapter_maps_feedback():
-    pytest.importorskip("opentelemetry.sdk._logs")
-    from write_adapters.utils.dynatrace import DynatraceWriteAdapter
-
-    adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
-    captured: list = []
-
-    class FakeLogger:
-        def emit(self, **kw):
-            captured.append(kw)
-
-    adapter._provider = object()  # skip real SDK build
-    adapter._logger = FakeLogger()
+def test_a_rating_becomes_one_insert_with_its_columns_in_order():
+    adapter = _postgres()
     adapter.write_feedback(
         Feedback(
             skill_name="demo",
-            agent="cc",
+            agent="claude-code",
+            score=1,
+            comment="great",
+            session_id="s",
+            request_id="r",
+            created_at="2026-01-01T00:00:00Z",
+        )
+    )
+    assert "INSERT INTO feedback" in adapter._pool.calls["sql"]
+    assert adapter._pool.calls["params"] == (
+        "2026-01-01T00:00:00Z",
+        "s",
+        "demo",
+        "claude-code",
+        1,
+        "great",
+        "r",
+    )
+
+
+def test_a_repeated_request_id_is_not_inserted_twice():
+    # The hook retries on a lost response, so the request id is the idempotency
+    # key. Without this clause a flaky network doubles someone's rating.
+    adapter = _postgres()
+    adapter.write_feedback(Feedback(skill_name="demo", agent="claude-code", request_id="r"))
+    assert "ON CONFLICT (request_id)" in adapter._pool.calls["sql"]
+    assert "DO NOTHING" in adapter._pool.calls["sql"]
+
+
+def test_a_trajectory_is_stored_as_json():
+    adapter = _postgres()
+    adapter.write_transcript(
+        Transcript(skill_name="demo", agent="claude-code", atif={"steps": [{"step_id": 1}]})
+    )
+    assert "INSERT INTO transcript" in adapter._pool.calls["sql"]
+    assert json.loads(adapter._pool.calls["params"][5]) == {"steps": [{"step_id": 1}]}
+
+
+def test_an_adopters_postgres_with_no_connection_string_is_refused(monkeypatch):
+    monkeypatch.delenv("UNSET_DSN", raising=False)
+    with pytest.raises(RuntimeError):
+        CustomPostgresWriteAdapter("UNSET_DSN")
+
+
+def test_an_adopters_postgres_reads_its_connection_string_from_the_named_variable(monkeypatch):
+    # The secret is named in config.yaml but never written there.
+    monkeypatch.setenv("ADOPTER_DSN", "postgresql://someone@elsewhere/db")
+    adapter = CustomPostgresWriteAdapter("ADOPTER_DSN")
+    assert adapter.name == "custom_psql"
+    assert adapter._dsn == "postgresql://someone@elsewhere/db"
+
+
+# --- Dynatrace and Bluebox (OTLP) ---------------------------------------------
+
+OTLP_LOGS = "/api/v2/otlp/v1/logs"
+
+
+def _with_fake_logger(adapter: DynatraceWriteAdapter) -> list[dict]:
+    """Capture what the adapter would emit, skipping the real SDK pipeline."""
+    emitted: list[dict] = []
+
+    class FakeLogger:
+        def emit(self, **kwargs):
+            emitted.append(kwargs)
+
+    adapter._provider = object()
+    adapter._logger = FakeLogger()
+    return emitted
+
+
+def test_a_rating_becomes_one_otlp_log_record():
+    pytest.importorskip("opentelemetry.sdk._logs")
+    adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    emitted = _with_fake_logger(adapter)
+    adapter.write_feedback(
+        Feedback(
+            skill_name="demo",
+            agent="claude-code",
             score=2,
             comment="bad",
             session_id="s",
@@ -142,57 +158,74 @@ def test_dynatrace_adapter_maps_feedback():
             created_at="2026-01-01T00:00:00Z",
         )
     )
-    (kw,) = captured
-    assert kw["body"].startswith("RateXp rating: bad")
-    assert kw["attributes"]["ratexp.record_type"] == "feedback"
-    assert kw["attributes"]["ratexp.score"] == 2
-    assert kw["attributes"]["ratexp.rating"] == "bad"
+    (record,) = emitted
+    assert record["body"].startswith("RateXp rating: bad")
+    attributes = record["attributes"]
+    assert attributes["ratexp.record_type"] == "feedback"
+    assert attributes["ratexp.score"] == 2
+    assert attributes["ratexp.rating"] == "bad"  # the number is unreadable in a log viewer
+    assert attributes["ratexp.comment"] == "bad"
 
 
-def test_dynatrace_adapter_requires_tenant_and_token():
-    from write_adapters.utils.dynatrace import DynatraceWriteAdapter
+def test_an_unrated_run_still_becomes_a_log_record():
+    pytest.importorskip("opentelemetry.sdk._logs")
+    adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    emitted = _with_fake_logger(adapter)
+    adapter.write_feedback(Feedback(skill_name="demo", agent="claude-code"))
+    (record,) = emitted
+    assert "unrated" in record["body"]
+    # A None attribute is dropped rather than exported as a null.
+    assert "ratexp.score" not in record["attributes"]
 
+
+def test_a_huge_trajectory_is_truncated_and_says_so():
+    # Dynatrace rejects an oversized attribute outright, which would lose the
+    # whole record instead of the tail of one field.
+    pytest.importorskip("opentelemetry.sdk._logs")
+    adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    emitted = _with_fake_logger(adapter)
+    adapter.write_transcript(
+        Transcript(
+            skill_name="demo",
+            agent="claude-code",
+            atif={"steps": [{"message": "x" * 300_000}]},
+        )
+    )
+    attributes = emitted[0]["attributes"]
+    assert attributes["ratexp.atif_truncated"] is True
+    assert len(attributes["ratexp.atif"]) == 200_000
+
+
+def test_a_tenant_url_or_token_that_is_missing_is_refused():
     with pytest.raises(RuntimeError):
-        DynatraceWriteAdapter("x", "", "tok")
+        DynatraceWriteAdapter("app_be_dynatrace", "", "tok")
     with pytest.raises(RuntimeError):
-        DynatraceWriteAdapter("x", "https://t", "")
-    adapter = DynatraceWriteAdapter("x", "https://tenant.example/", "tok")
-    assert adapter._endpoint == "https://tenant.example/api/v2/otlp/v1/logs"
+        DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "")
 
 
-# --- BlueboxAdapter ------------------------------------------------------------
+@pytest.mark.parametrize("adapter_class", [AppBeDynatraceWriteAdapter, CustomDynatraceWriteAdapter])
+def test_a_dynatrace_destination_takes_a_bare_tenant_url(adapter_class):
+    adapter = adapter_class("https://tenant.example", "tok")
+    assert adapter._endpoint == "https://tenant.example" + OTLP_LOGS
 
 
-def test_bluebox_accepts_either_url_form():
-    from write_adapters.bluebox import BlueboxWriteAdapter
-
-    want = "https://abc12345.live.dynatrace.com/api/v2/otlp/v1/logs"
-    # `bluebox otlp-endpoint` prints the URL with /api/v2/otlp already on it; the
-    # prefix must not end up doubled.
-    full = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp", "tok")
-    assert full._endpoint == want
-    assert full.name == "bluebox"
-    # A trailing slash, and a bare tenant URL, both land on the same endpoint.
-    trailing = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp/", "tok")
-    assert trailing._endpoint == want
-    bare = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com", "tok")
-    assert bare._endpoint == want
-
-
-def test_bluebox_leaves_the_dynatrace_adapters_alone():
-    from write_adapters.app_be_dynatrace import AppBeDynatraceWriteAdapter
-    from write_adapters.custom_dynatrace import CustomDynatraceWriteAdapter
-
-    # Bluebox does its URL fix-up in its own __init__, so the shared base and the
-    # two Dynatrace adapters keep taking a bare tenant URL, unchanged.
-    for cls in (AppBeDynatraceWriteAdapter, CustomDynatraceWriteAdapter):
-        adapter = cls("https://tenant.example", "tok")
-        assert adapter._endpoint == "https://tenant.example/api/v2/otlp/v1/logs"
+@pytest.mark.parametrize(
+    "configured",
+    [
+        "https://abc12345.live.dynatrace.com/api/v2/otlp",  # what `bluebox otlp-endpoint` prints
+        "https://abc12345.live.dynatrace.com/api/v2/otlp/",
+        "https://abc12345.live.dynatrace.com",  # a bare tenant url, like the others
+    ],
+)
+def test_bluebox_accepts_every_form_of_its_endpoint(configured):
+    # Bluebox prints the endpoint with the prefix already on it, and the shared
+    # base appends the whole path itself. Doubling it would 404 silently.
+    adapter = BlueboxWriteAdapter(configured, "tok")
+    assert adapter._endpoint == "https://abc12345.live.dynatrace.com" + OTLP_LOGS
+    assert adapter.name == "bluebox"
 
 
-def test_bluebox_requires_endpoint_and_token():
-    from write_adapters.bluebox import BlueboxWriteAdapter
-
+def test_bluebox_without_an_endpoint_or_token_is_refused():
     with pytest.raises(RuntimeError):
         BlueboxWriteAdapter("", "tok")
     with pytest.raises(RuntimeError):

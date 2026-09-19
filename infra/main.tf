@@ -4,7 +4,7 @@
 #   core (public)  ──writes──►  PostgreSQL  ◄──reads──  app (dashboard)
 #
 # Auth to PostgreSQL is passwordless: each web app has a System-Assigned Managed
-# Identity and connects with a Microsoft Entra ID access token (see core/db.py).
+# Identity and connects with a Microsoft Entra ID access token (see core/modules/write/connect_to_postgres.py).
 # Password authentication is disabled on the server entirely.
 #
 # Images are pulled from an ACR provisioned here using the web apps' identities.
@@ -116,7 +116,7 @@ resource "azurerm_service_plan" "this" {
 
 # --- Azure AI Language: transcript PII redaction (optional) ---
 # Created only when var.enable_redaction is true. core masks PII via this resource
-# before writing to PostgreSQL (see core/redact.py). Passwordless: core's identity
+# before writing to PostgreSQL (see core/modules/redaction/redact_trajectory.py). Passwordless: core's identity
 # gets "Cognitive Services User" below. A custom subdomain is required for Entra auth.
 resource "azurerm_cognitive_account" "language" {
   count                 = var.enable_redaction && local.is_default_env ? 1 : 0
@@ -175,7 +175,7 @@ resource "azurerm_linux_web_app" "core" {
     # provisioned) and restart core - no rebuild needed (both adapters ship in the image).
     RATEXP_REDACTION_PROVIDER = var.redaction_provider
     # Tenant URL + token for the app_be_dynatrace destination adapter (see
-    # core/adapters/); the adapter's enabled flag lives in core/config.yaml. Supply
+    # core/modules/write/adapters/); the adapter's enabled flag lives in core/config.yaml. Supply
     # the token via TF_VAR_dynatrace_access_token.
     DT_TENANT_URL   = var.dynatrace_tenant_url
     DT_ACCESS_TOKEN = var.dynatrace_access_token

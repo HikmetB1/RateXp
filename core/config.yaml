@@ -1,6 +1,6 @@
 # core runtime config. Every key is required - a missing key fails loudly at startup.
 
-# ATIF schema version stamped on every stored transcript. Bump when atif.py's shape changes.
+# ATIF schema version stamped on every stored transcript. Bump when api/build_trajectory.py's shape changes.
 schema_version: ATIF-v1.7
 
 # Largest request body core accepts, in bytes (guards /transcript). 5 MiB.
@@ -23,7 +23,7 @@ default_survey_every: 2
 # locally without redaction.
 redaction:
   enabled: true
-  # Which adapter masks the text (see core/redaction_adapters/):
+  # Which adapter masks the text (see core/modules/redaction/adapters/):
   #   presidio - self-hosted, runs inside core, no per-call cost (default).
   #   azure    - Azure AI Language; needs azure_endpoint + the Managed Identity,
   #              and is billed per 1,000 text records.
@@ -50,7 +50,7 @@ redaction:
   azure_endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
 
 # Write destinations. Every submission is validated + redacted once, then written to
-# every adapter whose `enabled` is true (see core/write_adapters/ + core/dispatch.py).
+# every adapter whose `enabled` is true (see core/modules/write/).
 # Adapters are independent: one failing is logged and never blocks the others, but the
 # request fails (503) if none of them accepted. Enable any combination. Secrets (DB
 # passwords, tokens) are never in this file - each adapter names the env var to read

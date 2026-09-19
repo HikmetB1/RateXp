@@ -104,7 +104,8 @@ Dynatrace token being absent) is logged and never blocks the others. A submissio
 is **accepted once at least one destination takes it**; if none do, core answers
 `503` and the hook tells the user it could not be sent. Secrets (DB strings, tokens)
 come from env vars named in the config, never from the file itself. See
-[`core/write_adapters/`](./core/write_adapters/) and [`core/dispatch.py`](./core/dispatch.py).
+[`core/modules/write/adapters/`](./core/modules/write/adapters/) and
+[`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py).
 
 The read side is a single source you pick: the live dashboard reads from **one** read
 adapter ([`app/app-be/read_adapters/`](./app/app-be/read_adapters/)) - **PostgreSQL**
