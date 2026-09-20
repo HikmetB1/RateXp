@@ -39,16 +39,10 @@ tfplan
 /.ripgreprc
 /.mcp.json
 
-# Claude Code's local state: skills installed for testing against a core on your
-# own machine, plus per-machine settings. Nothing here is shared. The tracked
-# plugin manifests live in .claude-plugin/, a different name, so they are safe.
-.claude/
+# Your own ignore rules, for whatever only you have on this machine - agent files,
+# recordings, scratch work. Git reads it because this repo's local config points
+# at it; the notes inside the file explain the one-time setup.
+.local.gitignore
 
 # Archive (local UI style mockups, not tracked)
 archive/
-
-# Local agent working note (deployment runbook) - never committed
-AGENTS.md
-
-# Local video recordings - not tracked
-*.mp4
