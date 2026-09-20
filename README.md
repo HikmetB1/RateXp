@@ -105,13 +105,14 @@ For a blank starting point, copy [`core/template/`](./core/template/).
    (self-hosted Presidio or Azure AI Language), and dropped rather than stored unmasked.
 5. **Write adapters** - storage is an adapter architecture: core writes each submission to
    every adapter you switch on, and they run independently, so one failing never blocks the
-   others. Five ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
+   others. Six ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
    PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
-   Dynatrace) and `bluebox` (a Bluebox workspace).
+   Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
 6. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
-   JSON export. Reading is one more adapter, and you enable exactly one of four:
+   JSON export. Reading is one more adapter, and you enable exactly one of five:
    `app_be_psql` or `custom_psql` (queried with SQL), `app_be_dynatrace` or
-   `custom_dynatrace` (queried with DQL). Bluebox is write-only, so it has no read adapter.
+   `custom_dynatrace` (queried with DQL), or `phoenix` (queried with `key:value` filters).
+   Bluebox is write-only, so it has no read adapter.
 7. **Responsive UI** - the table reflows into cards on phones.
 8. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
 

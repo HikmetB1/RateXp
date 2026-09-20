@@ -1,9 +1,10 @@
 """Build the dashboard's read source - the one with ``enabled: true`` in config.yaml
 ``read_adapters`` (mirrors the write side's 2×2, but single-select: exactly one on).
 
-The four sources read back from the matching write destination: ``app_be_psql`` /
-``custom_psql`` (PostgreSQL, SQL filter box) and ``app_be_dynatrace`` /
-``custom_dynatrace`` (Dynatrace over DQL).
+The five sources read back from the matching write destination: ``app_be_psql`` /
+``custom_psql`` (PostgreSQL, SQL filter box), ``app_be_dynatrace`` /
+``custom_dynatrace`` (Dynatrace over DQL), and ``phoenix`` (an Arize Phoenix
+project, key:value filters).
 
 Each adapter is imported only once chosen, so an unused source's dependencies never
 have to load.
@@ -45,7 +46,15 @@ def open_read_source() -> ReadAdapter:
             os.environ.get(cfg.get("query_url_env", ""), "").strip(),
             os.environ.get(cfg.get("token_env", ""), "").strip(),
         )
+    if name == "phoenix":
+        from modules.read.adapters.read_from_phoenix import PhoenixReadAdapter
+
+        return PhoenixReadAdapter(
+            os.environ.get(cfg.get("endpoint_env", ""), "").strip(),
+            os.environ.get(cfg.get("api_key_env", ""), "").strip(),
+            os.environ.get(cfg.get("project_env", ""), "").strip(),
+        )
     raise RuntimeError(
         f"unknown read adapter {name!r}; use app_be_psql / custom_psql / "
-        "app_be_dynatrace / custom_dynatrace"
+        "app_be_dynatrace / custom_dynatrace / phoenix"
     )

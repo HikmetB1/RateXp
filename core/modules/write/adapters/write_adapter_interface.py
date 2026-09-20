@@ -12,6 +12,8 @@ accepted the record. Each concrete destination lives in its own file:
 - ``write_to_custom_dynatrace.py`` - an adopter's own Dynatrace tenant (OTLP).
 - ``write_to_bluebox.py`` - a Bluebox workspace (OTLP). Write-only: Bluebox has no
   query language, so it has no counterpart in app's modules/read/.
+- ``write_to_phoenix.py`` - an Arize Phoenix project, one span per record over
+  Phoenix's REST API.
 
 The two shared bases they build on are ``write_to_postgres.py`` ->
 ``PostgresWriteAdapter`` and ``write_to_dynatrace.py`` -> ``DynatraceWriteAdapter``.

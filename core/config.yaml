@@ -33,3 +33,8 @@ write_adapters:
     enabled: false
     endpoint_env: BLUEBOX_OTLP_ENDPOINT
     token_env: BLUEBOX_OTLP_TOKEN
+  phoenix:
+    enabled: false
+    endpoint_env: PHOENIX_COLLECTOR_ENDPOINT
+    api_key_env: PHOENIX_API_KEY
+    project_env: PHOENIX_PROJECT_NAME

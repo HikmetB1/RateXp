@@ -76,6 +76,7 @@ _WRITE_ADAPTER_NAMES = (
     "app_be_dynatrace",
     "custom_dynatrace",
     "bluebox",
+    "phoenix",
 )
 WRITE_ADAPTERS: dict[str, dict] = {}
 for _name in _WRITE_ADAPTER_NAMES:

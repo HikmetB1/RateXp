@@ -9,6 +9,8 @@ side's 2×2 destinations, but is single-select (exactly one enabled in config.ya
 - ``read_from_app_be_dynatrace.py`` / ``read_from_custom_dynatrace.py`` - Dynatrace,
   filter box speaks DQL; both subclass ``DynatraceReadAdapter`` in
   ``read_from_dynatrace.py``.
+- ``read_from_phoenix.py`` - an Arize Phoenix project over its REST span API; the
+  filter box speaks the key:value filters that API takes.
 
 The adapter owns the queries; ``api/`` keeps the HTTP shaping and formatting.
 """

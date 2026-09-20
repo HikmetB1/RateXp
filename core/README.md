@@ -118,7 +118,8 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
   so the hooks it hands out post back to the right place
 - `RATEXP_REDACTION_PROVIDER`: overrides `redaction.provider` for one deployment
 - `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL` /
-  `CUSTOM_DT_TOKEN`, `BLUEBOX_OTLP_ENDPOINT` / `BLUEBOX_OTLP_TOKEN`: one group per
+  `CUSTOM_DT_TOKEN`, `BLUEBOX_OTLP_ENDPOINT` / `BLUEBOX_OTLP_TOKEN`,
+  `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: one group per
   destination, named (never valued) in `config.yaml`. A destination missing its value is
   skipped with a warning instead of failing
 

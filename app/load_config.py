@@ -39,14 +39,15 @@ WS_BROADCAST_INTERVAL_MS: int = _require("ws_broadcast_interval_ms")
 # Read sources (see modules/read/). Mirrors the write side's names minus bluebox, which
 # has no query language. Each must be present with an `enabled` flag, and unlike the write
 # side exactly one may be true - that one is what the dashboard reads. Per-source values
-# (DSN / query URL / token) come from the env vars named here (dsn_env / query_url_env /
-# token_env), so nothing env-specific lives in config.yaml.
+# (a DSN, a URL, a token, a key) come from the env vars named here, so nothing
+# env-specific lives in config.yaml.
 _READ_ADAPTERS_RAW = _require("read_adapters")
 _READ_ADAPTER_NAMES = (
     "app_be_psql",
     "custom_psql",
     "app_be_dynatrace",
     "custom_dynatrace",
+    "phoenix",
 )
 READ_ADAPTERS: dict[str, dict] = {}
 for _name in _READ_ADAPTER_NAMES:

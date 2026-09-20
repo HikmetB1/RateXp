@@ -123,4 +123,12 @@ def _build_one(name: str, cfg: dict) -> WriteAdapter:
             os.environ.get(cfg["endpoint_env"], "").strip(),
             os.environ.get(cfg["token_env"], "").strip(),
         )
+    if name == "phoenix":
+        from modules.write.adapters.write_to_phoenix import PhoenixWriteAdapter
+
+        return PhoenixWriteAdapter(
+            os.environ.get(cfg["endpoint_env"], "").strip(),
+            os.environ.get(cfg["api_key_env"], "").strip(),
+            os.environ.get(cfg["project_env"], "").strip(),
+        )
     raise RuntimeError(f"unknown adapter {name!r}")

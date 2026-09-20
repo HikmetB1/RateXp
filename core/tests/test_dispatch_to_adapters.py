@@ -108,7 +108,7 @@ def test_one_destination_failing_to_close_does_not_strand_the_others(monkeypatch
 
 
 def _adapter_config(**enabled_by_name) -> dict:
-    """The five destinations, all off, then the named ones turned on."""
+    """The six destinations, all off, then the named ones turned on."""
     config = {
         "app_be_psql": {"enabled": False},
         "custom_psql": {"enabled": False, "dsn_env": "UNUSED_DSN"},
@@ -126,6 +126,12 @@ def _adapter_config(**enabled_by_name) -> dict:
             "enabled": False,
             "endpoint_env": "UNUSED_ENDPOINT",
             "token_env": "UNUSED_TOKEN",
+        },
+        "phoenix": {
+            "enabled": False,
+            "endpoint_env": "UNUSED_ENDPOINT",
+            "api_key_env": "UNUSED_KEY",
+            "project_env": "UNUSED_PROJECT",
         },
     }
     for name in enabled_by_name:
@@ -151,9 +157,16 @@ def test_an_enabled_destination_missing_its_secret_is_skipped_not_fatal(monkeypa
     monkeypatch.setattr(
         load_config,
         "WRITE_ADAPTERS",
-        _adapter_config(custom_psql=True, app_be_dynatrace=True, bluebox=True),
+        _adapter_config(custom_psql=True, app_be_dynatrace=True, bluebox=True, phoenix=True),
     )
-    for var in ("UNUSED_DSN", "UNUSED_TENANT", "UNUSED_TOKEN", "UNUSED_ENDPOINT"):
+    for var in (
+        "UNUSED_DSN",
+        "UNUSED_TENANT",
+        "UNUSED_TOKEN",
+        "UNUSED_ENDPOINT",
+        "UNUSED_KEY",
+        "UNUSED_PROJECT",
+    ):
         monkeypatch.delenv(var, raising=False)
     assert dispatch_to_adapters.build_write_adapters() == []
 
