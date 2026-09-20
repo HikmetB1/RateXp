@@ -154,34 +154,40 @@ its own.
 
 ## Tests: per-service and whole-app
 
-**Per-service** tests are fast and mocked - no network or database needed. Each one runs the
-same way from its own folder; the command is in that service's README:
+Two layers: run the per-service ones while you work, the whole-app ones before you push.
+
+**Per-service** - fast and mocked, so no network and no database. Each service runs the same
+way from its own folder; the command is in its README:
 [core](./core/README.md#tests-how-to-run-them), [app](./app/README.md#tests-how-to-run-them),
 [seeder](./seeder/README.md#tests-how-to-run-them).
 
-**Whole-app** tests in `tests/` check the services working together over HTTP - core writes
-feedback, the dashboard reads it back. Bring the stack up first:
+**Whole-app** - the real services talking over HTTP: core stores a rating, the dashboard reads
+it back. Bring the stack up first, then run `tests/`:
 
 ```bash
 docker compose up --build -d
-uv run --no-project --with pytest --with httpx pytest tests/
+uv run --no-project --with-requirements tests/requirements.txt pytest tests/
 ```
 
-| File                | Checks                                                                     |
-|---------------------|-----------------------------------------------------------------------------|
-| `test_smoke.py`     | Both services answer `/healthz`; core serves `/ratexp.sh` with its URL baked in and accepts a `/feedback` post. |
-| `test_end_to_end.py`| A rating (and a consented trajectory) posted to core appears on the dashboard and in its top-skills stats; the last test drives the *shipped* hook script, so the exact bytes a real skill puts on the wire are the ones checked. |
-| `test_azure_live.py`| Opt-in smoke test against the deployed Azure web apps (skipped by default). |
+| File | Checks |
+|------|--------|
+| `test_smoke.py` | Both services answer `/healthz`; core serves `/ratexp.sh` with its own URL baked in, and takes a `/feedback` post. |
+| `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the *shipped* hook script, so the bytes a real skill sends are the ones checked. |
+| `test_azure_live.py` | Read-only checks against a deployed stack. Skipped unless you opt in, see below. |
 
-If the stack isn't running, these skip with a hint. They default to the compose ports
-(`8000`/`8001`); point elsewhere with `RATEXP_CORE_URL` / `RATEXP_APP_URL`. To smoke the
-deployed apps instead:
+The stack need not be local: the tests read `RATEXP_CORE_URL` and `RATEXP_APP_URL`, defaulting
+to the compose ports `8000` and `8001`. If nothing answers there, they skip with a hint rather
+than fail.
+
+**Against a deployed stack.** Only `test_azure_live.py` is safe to aim at a live environment -
+it just reads, while the other two files store rows and would leave test data behind. It stays
+skipped until all three variables are set:
 
 ```bash
 export RATEXP_AZURE_LIVE=1
 export RATEXP_AZURE_CORE_URL=https://<your-core>.azurewebsites.net
 export RATEXP_AZURE_APP_URL=https://<your-app>.azurewebsites.net
-pytest tests/test_azure_live.py
+uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_azure_live.py
 ```
 
 ## README rules: what belongs in a folder README
