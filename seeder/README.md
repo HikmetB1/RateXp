@@ -5,7 +5,7 @@ bundled skills, actually does a small task with it, then rates the skill and pos
 and its trajectory to core like any real hook would. It is entirely optional and it spends
 model credits, so nothing starts it by accident.
 
-## Layout
+## Layout: what lives in this folder
 
 ```text
 seeder/
@@ -24,7 +24,7 @@ seeder/
 Because `requirements.txt` is the real dependency list, `uv lock` alone will not notice an
 edit to it - run `uv lock --refresh`.
 
-## Running locally
+## Running locally: start it on your machine
 
 From the repo root, this starts the seeder beside core and the dashboard. It sits behind an
 opt-in profile, since every run costs model credits - put the key for the model in
@@ -41,7 +41,7 @@ To run the loop on its own instead, without compose - there is no Functions runt
 uv sync && uv run python -m api.run_continuously
 ```
 
-## Config
+## Config: every key in config.yaml
 
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
 
@@ -55,7 +55,7 @@ uv sync && uv run python -m api.run_continuously
   past core's size limit on purpose so core stores a meta-only stub
 - `system_prompt` / `task_prompt` / `critical_prompt`: the agent's own instructions
 
-## Env
+## Env: the secrets it reads
 
 Secrets and per-environment wiring, in `seeder/.env` ([example](./.env.example)):
 
@@ -68,7 +68,7 @@ Secrets and per-environment wiring, in `seeder/.env` ([example](./.env.example))
 - `SEED_SCHEDULE`: the deployed timer's cadence, NCRONTAB with seconds (`*/30 * * * * *` is
   every 30s). Ignored by the local loop
 
-## Tests
+## Tests: how to run them
 
 ```bash
 uv sync --extra test && uv run pytest
@@ -76,7 +76,8 @@ uv sync --extra test && uv run pytest
 
 Mocked, so no model is called and no credits are spent - the chat model and core are stubbed.
 
-## Deploy
+## Deploy: how it gets to Azure
 
 The seeder is an Azure Function App, off by default: set `enable_seeder = true` in tfvars and
-push `seeder_image`. See [Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure).
+push `seeder_image`. See
+[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).

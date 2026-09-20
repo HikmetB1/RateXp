@@ -1,17 +1,17 @@
 # Contributing to RateXp
 
-- [The three services](#the-three-services)
-- [Config and env](#config-and-env)
-- [Running locally](#running-locally)
-- [Deploy to Azure](#deploy-to-azure)
-- [Repository layout](#repository-layout)
-- [Tests](#tests)
-- [TODO](#todo)
-- [README rules](#readme-rules)
-- [Code rules](#code-rules)
-- [Contributor License Agreement](#contributor-license-agreement)
+- [The three services](#the-three-services-who-does-what)
+- [Config and env](#config-and-env-where-settings-live)
+- [Running locally](#running-locally-the-whole-stack-at-once)
+- [Deploy to Azure](#deploy-to-azure-from-zero-to-live)
+- [Repository layout](#repository-layout-what-each-folder-holds)
+- [Tests](#tests-per-service-and-whole-app)
+- [TODO](#todo-what-is-still-open)
+- [README rules](#readme-rules-what-belongs-in-a-folder-readme)
+- [Code rules](#code-rules-how-code-should-read)
+- [Contributor License Agreement](#contributor-license-agreement-what-you-agree-to)
 
-## The three services
+## The three services: who does what
 
 The repo stands on three services. Each one builds, tests and deploys on its own, and each has
 its own README covering its layout, how to run it and what it reads:
@@ -25,7 +25,7 @@ its own README covering its layout, how to run it and what it reads:
 Both use adapters, switched on in `config.yaml`: core **writes** to every one enabled, app
 **reads** from exactly one - today PostgreSQL, so the filter box takes SQL.
 
-## Config and env
+## Config and env: where settings live
 
 Each service carries its own settings in two files beside its code:
 
@@ -45,7 +45,17 @@ Each service carries its own settings in two files beside its code:
 defaults in [`docker-compose.yml`](./docker-compose.yml); to override one, put it in a root
 `.env`, which compose reads automatically.
 
-## Running locally
+Anything ignored on your machine alone - agent files like `CLAUDE.md` and `AGENTS.md`,
+`.claude/`, screen recordings, scratch work - belongs in a `.local.gitignore` rather than the
+shared `.gitignore`. Git only reads it once you point the repo at it, so run this after cloning:
+
+```bash
+git config --local core.excludesFile .local.gitignore
+```
+
+The setting lives in `.git/config` and the file itself is gitignored, so both stay yours.
+
+## Running locally: the whole stack at once
 
 **Prerequisite:** Docker with Docker Compose **v2** (the `docker compose` command, with a
 space). The whole stack - PostgreSQL + core + dashboard - comes up with one command:
@@ -65,10 +75,11 @@ everything and wipes the data.
 
 > You can also run just one service on its own - outside compose, the UI with live reload, or
 > the demo seeder. Each service's README shows how:
-> [core](./core/README.md#running-locally), [app](./app/README.md#running-locally),
-> [seeder](./seeder/README.md#running-locally).
+> [core](./core/README.md#running-locally-start-it-on-your-machine),
+> [app](./app/README.md#running-locally-start-it-on-your-machine),
+> [seeder](./seeder/README.md#running-locally-start-it-on-your-machine).
 
-## Deploy to Azure
+## Deploy to Azure: from zero to live
 
 One Terraform stack creates the whole thing on Azure: two web apps (`core` + `app`), a managed
 PostgreSQL server, and a container registry to hold the images. The apps sign in to the
@@ -104,7 +115,7 @@ just pushed. `az webapp restart` does **not** - it keeps running the old cached 
 in transcripts, and `enable_seeder` deploys the demo seeder. With the seeder on, build and
 push `seeder_image` the same way as step 2.
 
-## Repository layout
+## Repository layout: what each folder holds
 
 ```text
 .
@@ -142,11 +153,12 @@ push `seeder_image` the same way as step 2.
 helpers (database connection, config loading) so any one of them can be built and deployed on
 its own.
 
-## Tests
+## Tests: per-service and whole-app
 
 **Per-service** tests are fast and mocked - no network or database needed. Each one runs the
 same way from its own folder; the command is in that service's README:
-[core](./core/README.md#tests), [app](./app/README.md#tests), [seeder](./seeder/README.md#tests).
+[core](./core/README.md#tests-how-to-run-them), [app](./app/README.md#tests-how-to-run-them),
+[seeder](./seeder/README.md#tests-how-to-run-them).
 
 **Whole-app** tests in `tests/` check the services working together over HTTP - core writes
 feedback, the dashboard reads it back. Bring the stack up first:
@@ -173,7 +185,7 @@ export RATEXP_AZURE_APP_URL=https://<your-app>.azurewebsites.net
 pytest tests/test_azure_live.py
 ```
 
-## TODO
+## TODO: what is still open
 
 - [ ] Expand to more coding agents (e.g. GitHub Copilot).
 - [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif`
@@ -186,7 +198,7 @@ pytest tests/test_azure_live.py
       trajectories can be viewed natively in Dynatrace. Open question: dashboard or a
       Dynatrace App.
 
-## README rules
+## README rules: what belongs in a folder README
 
 These are about the README inside a folder. Your reader knows the project but has never
 opened this folder. The root [README.md](./README.md) and this file are the two exceptions -
@@ -218,10 +230,15 @@ they are read front to back by someone who knows nothing yet, so they may run lo
 
 6. **Copy the shape of the README next door.**
    Folders get read side by side, so the same question should carry the same heading in
-   each: `core/README.md` puts its settings under `## Config`, one bullet per key, and
-   `app/README.md` follows it. A second shape for one job costs the reader a re-read.
+   each: `core/README.md` puts its settings under `## Config: every key in config.yaml`,
+   one bullet per key, and `app/README.md` follows it word for word. A second shape for one
+   job costs the reader a re-read.
 
-## Code rules
+7. **Put the answer in the heading.**
+   `## Tests: how to run them` tells the reader whether to stop or read on; `## Tests`
+   makes them guess. Title, colon, three or four words - never a sentence.
+
+## Code rules: how code should read
 
 Code has two readers who read the same way: a person skimming fast, and an agent holding
 a few hundred lines, never the whole project. One pass should be enough for both.
@@ -261,7 +278,7 @@ a few hundred lines, never the whole project. One pass should be enough for both
    file, shaping a module, or reaching for a path. `modules/read/` mirrors `modules/write/`
    file for file because of it. Follow what you find, or change every copy in one commit.
 
-## Contributor License Agreement
+## Contributor License Agreement: what you agree to
 
 Before your contribution can be merged, you agree to the
 [Contributor License Agreement](./CLA.md). You accept it automatically by submitting a pull

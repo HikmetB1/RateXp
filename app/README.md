@@ -5,7 +5,7 @@ four different places - RateXp's PostgreSQL or your own, RateXp's Dynatrace or y
 one is a "read adapter", and you switch exactly one on. The filter box then uses whatever
 query language that place speaks: SQL for PostgreSQL, DQL for Dynatrace.
 
-## Layout
+## Layout: what lives in this folder
 
 ```text
 app/
@@ -18,7 +18,7 @@ app/
 └── Dockerfile           stage 1 builds FE/, stage 2 runs the API with the bundle inside
 ```
 
-## Running locally
+## Running locally: start it on your machine
 
 From the repo root, this puts the dashboard on <http://localhost:8001>:
 
@@ -34,7 +34,7 @@ calls the API on `:8001`:
 cd FE && npm install && npm run dev
 ```
 
-## Config
+## Config: every key in config.yaml
 
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
 
@@ -51,7 +51,7 @@ cd FE && npm install && npm run dev
   source means editing this file and rebuilding. The `*_dynatrace` sources return transcripts
   truncated, because the attribute they arrive in is capped on ingest
 
-## Env
+## Env: the secrets it reads
 
 Secrets and per-environment wiring, in `app/.env` ([example](./.env.example)):
 
@@ -64,7 +64,7 @@ Secrets and per-environment wiring, in `app/.env` ([example](./.env.example)):
 - `RATEXP_ENV` / `RATEXP_CORS_ORIGINS`: `local` (the default) allows any origin; any other
   value makes `RATEXP_CORS_ORIGINS` mandatory and the app refuses to start without it
 
-## Tests
+## Tests: how to run them
 
 ```bash
 uv sync --extra test && uv run pytest
@@ -73,7 +73,7 @@ uv sync --extra test && uv run pytest
 Mocked, so no database is needed - the read adapters are stubbed and the live feed is driven
 by hand.
 
-## Deploy
+## Deploy: how it gets to Azure
 
 app is one of the two web apps in the Terraform stack - see
-[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure).
+[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).

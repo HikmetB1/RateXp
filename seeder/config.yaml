@@ -1,4 +1,4 @@
-# seeder settings. Every key is required; see ./README.md (## Config) for what each one does.
+# seeder settings. Every key is required; see ./README.md (## Config: every key in config.yaml).
 
 schema_version: ATIF-v1.7
 

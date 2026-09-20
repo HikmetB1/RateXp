@@ -26,7 +26,7 @@ sequenceDiagram
     C-->>H: 201 stored, or 503 if none accepted
 ```
 
-## Quick start
+## Quick start: install in one command
 
 One command, two files, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
 from your project root:
@@ -50,9 +50,9 @@ That is the whole setup. Ratings land on the
 or less often.*
 
 Want to run your own core instead of the hosted one? See
-[CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure).
+[CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
 
-## Layout
+## Layout: what lives in this folder
 
 ```text
 core/
@@ -70,7 +70,7 @@ core/
 └── Dockerfile           builds every optional adapter in, so config alone picks what runs
 ```
 
-## Running locally
+## Running locally: start it on your machine
 
 From the repo root, this puts core on <http://localhost:8000>, beside PostgreSQL and the
 dashboard:
@@ -89,7 +89,7 @@ uv sync --extra redaction-presidio --extra dynatrace-otlp
 DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api.serve_http:app --reload
 ```
 
-## Config
+## Config: every key in config.yaml
 
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
 
@@ -106,7 +106,7 @@ DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api
   one failing is logged and never blocks the others - but the request fails with `503` if
   none of them accepted
 
-## Env
+## Env: the secrets it reads
 
 Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
 
@@ -120,7 +120,7 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
   destination, named (never valued) in `config.yaml`. A destination missing its value is
   skipped with a warning instead of failing
 
-## Tests
+## Tests: how to run them
 
 ```bash
 uv sync --extra test && uv run pytest
@@ -129,12 +129,12 @@ uv sync --extra test && uv run pytest
 Mocked, so no network or database. They also drive `ratexp.sh` itself with a fake curl, and
 `test_templates.py` fails if any copy under `template/` or `examples/` has drifted.
 
-## Deploy
+## Deploy: how it gets to Azure
 
 core is one of the two web apps in the Terraform stack - see
-[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure).
+[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
 
-## Hook copies
+## Hook copies: edit the original, not the copies
 
 `ratexp.sh` in this folder is the original. It has two blanks in it: where to post, and how
 often to ask. Those blanks get filled in two different ways:

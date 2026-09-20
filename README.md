@@ -11,14 +11,14 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#how-it-works">How it works</a> ·
-  <a href="#examples">Examples</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#the-dashboard">Dashboard</a> ·
-  <a href="#contact">Contact</a> ·
-  <a href="#acknowledgements-and-citations">Acknowledgements</a> ·
-  <a href="#license">License</a>
+  <a href="#quick-start-install-in-one-command">Quick start</a> ·
+  <a href="#how-it-works-from-skill-to-storage">How it works</a> ·
+  <a href="#examples-skills-you-can-copy">Examples</a> ·
+  <a href="#features-what-you-get">Features</a> ·
+  <a href="#the-dashboard-read-and-export-the-feedback">Dashboard</a> ·
+  <a href="#contact-how-to-reach-me">Contact</a> ·
+  <a href="#acknowledgements-and-citations-projects-ratexp-builds-on">Acknowledgements</a> ·
+  <a href="#license-what-you-may-do-with-it">License</a>
 </p>
 
 RateXp collects user ratings and opt-in conversations for Claude Code skills: ship
@@ -29,7 +29,7 @@ RateXp collects user ratings and opt-in conversations for Claude Code skills: sh
   <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
 </p>
 
-## Quick start
+## Quick start: install in one command
 
 One command, two files, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
 from your project root:
@@ -53,7 +53,7 @@ That is the whole setup. Ratings land on the
 or less often.*
 
 Want to run your own core instead of the hosted one? See
-[CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure).
+[CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
 
 ## How it works
 
@@ -83,7 +83,7 @@ sequenceDiagram
     C-->>H: 201 stored, or 503 if none accepted
 ```
 
-## Examples
+## Examples: skills you can copy
 The same poem-writing skill packaged both ways, hooks already wired - ask for a mood, get a
 short original poem:
 
@@ -94,7 +94,7 @@ short original poem:
 
 For a blank starting point, copy [`core/template/`](./core/template/).
 
-## Features
+## Features: what you get
 1. **Two-file setup** - drop `SKILL.md` + `ratexp.sh` into your skill folder; the frontmatter
    carries the hooks that collect the feedback.
 2. **Ratings and comments** - a quick good/bad rating with an optional comment, asked on every
@@ -115,7 +115,7 @@ For a blank starting point, copy [`core/template/`](./core/template/).
 7. **Responsive UI** - the table reflows into cards on phones.
 8. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
 
-## The dashboard
+## The dashboard: read and export the feedback
 <p align="center">
   <img src="./assets/dashboard.png" alt="The RateXp dashboard" width="720">
 </p>
@@ -136,16 +136,16 @@ What it writes depends on what is in the box when you click it:
 
 Every exported row carries its full trajectory beside the rating.
 
-## Contact
+## Contact: how to reach me
 Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.com) or on
 [LinkedIn](https://www.linkedin.com/in/hikmetb/).
 
-## Acknowledgements and citations
+## Acknowledgements and citations: projects RateXp builds on
 We're grateful to the open-source projects that RateXp leveraged; for their licenses and
 formal citations see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). To cite RateXp
 itself, use [CITATION.cff](./CITATION.cff).
 
-## License
+## License: what you may do with it
 [PolyForm Shield 1.0.0](./LICENSE) - source-available.
 
 Use RateXp for **any purpose, commercial included**: gather feedback about your skills, deploy

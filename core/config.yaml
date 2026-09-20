@@ -1,4 +1,4 @@
-# core settings. Every key is required; see ./README.md (## Config) for what each one does.
+# core settings. Every key is required; see ./README.md (## Config: every key in config.yaml).
 
 schema_version: ATIF-v1.7
 
