@@ -1,4 +1,4 @@
-"""Opt-in smoke tests against the *deployed* Azure web apps.
+"""Opt-in checks against the *deployed* Azure web apps.
 
 These never run by default. Enable them only when you have a live environment:
 
@@ -7,6 +7,11 @@ These never run by default. Enable them only when you have a live environment:
     export RATEXP_AZURE_APP_URL=https://ratexp-dev-app.azurewebsites.net
 
 Without those, every test here is skipped so normal/CI runs stay green.
+
+Read-only on purpose: the other two files store rows, so pointing them at a
+deployed stack with RATEXP_CORE_URL / RATEXP_APP_URL would leave test data on a
+real dashboard. Both tests below need their service to answer, so a service that
+is down fails the run without a separate health check.
 """
 
 from __future__ import annotations
@@ -27,12 +32,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_azure_core_is_up(http):
-    r = http.get(f"{AZURE_CORE_URL}/healthz")
-    assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
-
-
 def test_azure_core_serves_the_hook_script(http):
     """The deployed core must hand out a runnable hook that points back at itself.
 
@@ -45,29 +44,22 @@ def test_azure_core_serves_the_hook_script(http):
     assert baked_url(r.text).rstrip("/") == AZURE_CORE_URL
 
 
-def test_azure_dashboard_is_up(http):
-    r = http.get(f"{AZURE_APP_URL}/healthz")
-    assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+def test_azure_dashboard_links_feedback_to_its_trajectory(http):
+    """The deployed dashboard's snapshot must carry the transcripts of the rows it shows.
 
-
-def test_azure_dashboard_shows_trajectories(http):
-    """The deployed dashboard's snapshot must link feedback rows to their transcripts.
-
-    This is the exact symptom that was reported: the live dashboard showed no
-    trajectory. The snapshot's transcripts must correlate to its feedback rows.
+    /snapshot is what the UI renders, so a feedback row whose transcript is
+    missing from the same payload opens with an empty trajectory.
     """
     r = http.get(f"{AZURE_APP_URL}/snapshot")
     assert r.status_code == 200
     data = r.json()
-    assert data.get("feedback"), "no feedback on the deployed dashboard"
+    if not data["feedback"]:
+        pytest.skip("nothing rated on the deployed dashboard yet")
 
-    tx_ids = {t.get("request_id") for t in data["transcripts"]} | {
-        t.get("session_id") for t in data["transcripts"]
-    }
-    linked = [
-        f
-        for f in data["feedback"]
-        if f.get("request_id") in tx_ids or f.get("session_id") in tx_ids
-    ]
-    assert linked, "no feedback row has a matching transcript - trajectories would show empty"
+    # Either id links the two; both are optional, so a missing one must not match.
+    tx_ids = {t["request_id"] for t in data["transcripts"]}
+    tx_ids |= {t["session_id"] for t in data["transcripts"]}
+    tx_ids.discard(None)
+    assert any(f["request_id"] in tx_ids or f["session_id"] in tx_ids for f in data["feedback"]), (
+        "no feedback row has a matching transcript - trajectories would show empty"
+    )

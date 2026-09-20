@@ -22,11 +22,6 @@ import pytest
 CORE_URL = os.environ.get("RATEXP_CORE_URL", "http://localhost:8000").rstrip("/")
 APP_URL = os.environ.get("RATEXP_APP_URL", "http://localhost:8001").rstrip("/")
 
-# Deployed Azure endpoints for the opt-in live smoke tests.
-AZURE_LIVE = os.environ.get("RATEXP_AZURE_LIVE") == "1"
-AZURE_CORE_URL = os.environ.get("RATEXP_AZURE_CORE_URL", "").rstrip("/")
-AZURE_APP_URL = os.environ.get("RATEXP_AZURE_APP_URL", "").rstrip("/")
-
 
 def _reachable(url: str) -> bool:
     """True if the service answers /healthz with 200."""
@@ -53,7 +48,7 @@ def app_url() -> str:
 
 
 @pytest.fixture
-def http() -> httpx.Client:
+def http():
     """A short-timeout HTTP client, closed automatically after each test."""
     with httpx.Client(timeout=10) as client:
         yield client

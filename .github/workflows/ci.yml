@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uvx ruff check core/ app/ seeder/
-      - run: uvx ruff format --check core/ app/ seeder/
+      - run: uvx ruff check core/ app/ seeder/ tests/
+      - run: uvx ruff format --check core/ app/ seeder/ tests/
 
   test:
     runs-on: ubuntu-latest

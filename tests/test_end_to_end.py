@@ -116,8 +116,8 @@ def test_trajectory_round_trip(app_url, http, post_feedback, post_transcript):
     """A feedback row and its stored transcript must stay linked on the dashboard.
 
     The dashboard's /snapshot is what the UI shows; it must return the feedback row
-    together with the matching transcript (the "Trajectory"). This guards the bug
-    where snapshot fetched the newest transcripts unrelated to the shown feedback.
+    together with the matching transcript (the "Trajectory"), not whichever
+    transcripts happen to be newest.
     """
     session_id = str(uuid.uuid4())
     request_id = str(uuid.uuid4())
