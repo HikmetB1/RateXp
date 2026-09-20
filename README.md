@@ -108,7 +108,7 @@ short original poem:
 - [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
   a plain skill: `SKILL.md` plus its `ratexp-skill.sh`.
 - [`core/examples/example_plugin_poem_creator/`](./core/examples/example_plugin_poem_creator/) -
-  a plugin with its skill: `SKILL.md` plus its `ratexp-skill.sh`.
+  a plugin with its skill: `SKILL.md` plus its `ratexp-plugin.sh`.
 
 For a blank starting point, copy [`core/template/`](./core/template/).
 
@@ -118,8 +118,8 @@ For a blank starting point, copy [`core/template/`](./core/template/).
    skill gets the hooks with it, and each rating comes back named after that skill.
 2. **Coding agent admin: hand it to your users** - give them `ratexp-coding-agent.sh` and
    the hooks to paste into `settings.json`. Rating is then on from their first turn, and each rating covers the whole session.
-3. **Ratings and comments** - a quick good/bad rating with an optional comment, asked on every
-   Nth run of the skill so it never nags (`RATEXP_EVERY`, default every 2nd run).
+3. **Ratings and comments** - a quick good/bad rating with an optional comment, and never
+   more than one question, so it never gets in the way.
 4. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
    format (ATIF). The hook uploads it straight from the user's machine.
 5. **PII redaction** - personal data is masked before storage by a pluggable adapter
