@@ -23,7 +23,6 @@ The whole stack - PostgreSQL + core + dashboard - comes up with one command:
 
 ```bash
 git clone <repo-url> ratexp && cd ratexp
-cp .env.example .env          # optional - defaults work out of the box
 cp core/.env.example core/.env  # only to send feedback somewhere besides PostgreSQL
 docker compose up --build -d
 ```
@@ -70,17 +69,19 @@ Azure, Terraform sets the database wiring plus core's `RATEXP_PUBLIC_URL` /
 `DT_QUERY_URL` / `DT_ACCESS_TOKEN`, and the seeder's `MODEL` / `RATEXP_CORE_URL` /
 `SEED_SCHEDULE`.
 
-Each service keeps its own values: the root `.env` holds stack wiring (ports,
-`DATABASE_URL`, `RATEXP_PUBLIC_URL`) and the dashboard's read source; `core/.env`
-holds the tenant URLs, DSNs and tokens core writes to; `seeder/.env` holds the
-seeder's model key. All three are gitignored, each with an `.env.example` beside it.
+Each service keeps its own values: `core/.env` holds the tenant URLs, DSNs and
+tokens core writes to; `app/.env` holds the dashboard's read source; `seeder/.env`
+holds the seeder's model key. All three are gitignored, each with an `.env.example`
+beside it. Stack wiring (ports, `DATABASE_URL`, `RATEXP_PUBLIC_URL`) has working
+defaults in [`docker-compose.yml`](./docker-compose.yml); to override one, put it in
+a root `.env`, which compose reads automatically.
 
 Two groups you supply by hand:
 
 - The **custom / Bluebox destinations**, and only for the adapters you enable
   yourself - `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL`, `CUSTOM_DT_TOKEN`,
   `BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN` in `core/.env`, and
-  `CUSTOM_DT_QUERY_URL` in the root `.env` for the read side. Terraform never sets
+  `CUSTOM_DT_QUERY_URL` in `app/.env` for the read side. Terraform never sets
   these; an adapter whose value is missing is skipped with a warning.
 - The **optional demo seeder**, and only if you choose to run it - it needs an LLM.
   You pick which one in [`seeder/config.yaml`](./seeder/config.yaml); `seeder/.env`

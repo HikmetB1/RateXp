@@ -7,8 +7,8 @@
 #   http://localhost:8000/feedback      # where installed hooks post ratings
 #   http://localhost:8000/transcript    # where they post consented transcripts
 #
-# Values default to a working local setup; override via a .env file (see
-# .env.example), which compose reads automatically.
+# Values default to a working local setup; to override one, put it in a root .env
+# file, which compose reads automatically.
 #
 # Add the demo feedback seeder with the opt-in `seed` profile (costs API credits):
 #   docker compose --profile seed up --build -d
