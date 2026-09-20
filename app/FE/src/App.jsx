@@ -15,24 +15,45 @@ const WS_BASE =
 // Core base URL shown in the "Ship RateXp" popup. Update if the core URL changes.
 const CORE_URL = 'https://ratexp-core.azurewebsites.net'
 
-// How-to shown in the "Ship RateXp" popup, rendered as Markdown (see Md).
-const SKILL_GUIDE_MD = `### Ship RateXp with your skill/plugin
-
-Install a skill:
+// The two tabs of the "Ship RateXp" popup, rendered as Markdown (see Md). A skill or
+// plugin is rated on its own runs; a coding agent on the session it is running in.
+const SKILL_GUIDE_MD = `Install a skill:
 
 \`\`\`bash
 curl -fsSL ${CORE_URL}/install.sh | bash -s skill my-skill
 \`\`\`
 
-Or a plugin:
+Or the same thing packaged as a plugin:
 
 \`\`\`bash
 curl -fsSL ${CORE_URL}/install.sh | bash -s plugin my-plugin
 \`\`\`
 
-Now open \`SKILL.md\`, write your skill instructions in the body, and ship it.
+Now open \`SKILL.md\`, write your skill instructions in the body, and ship it. The
+rating is about that skill's own runs, so it arrives named after the skill.
 
 Congratulations - your skill is live at RateXp! 🎉`
+
+const AGENT_GUIDE_MD = `\`claude\` is supported for now:
+
+\`\`\`bash
+curl -fsSL ${CORE_URL}/install.sh | bash -s session claude
+\`\`\`
+
+That drops \`ratexp-coding-agent.sh\` and \`/rate\` into \`.claude/\`, then prints the
+hooks to add. **It never edits your settings file** - every agent keeps its hooks
+somewhere different, and yours is yours. Paste the printed block into:
+
+\`\`\`text
+.claude/settings.json
+\`\`\`
+
+\`RATEXP_EVERY\` counts **turns** here, so the survey lands wherever the Nth falls -
+part way through a long session, at the end of a short one.
+
+\`/rate\` asks on the spot.
+
+Congratulations - your agentic experience is live at RateXp! 🎉`
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
 // more details" links), rendered as Markdown (see Md). The example query + its code-fence
@@ -189,6 +210,16 @@ export default function App() {
     return index[`r:${r.request_id}`] || index[`s:${r.session_id}`] || null
   }
 
+  // A rating does not carry the model: the hook posts only the runtime it ran in.
+  // The model is recorded per turn inside the trajectory, so it is known for rows
+  // whose conversation was consented. Runtimes that put it in the agent label
+  // instead (the seeder posts "langchain gpt-4o-mini") are read from there.
+  const modelFor = (r) => {
+    const fromTrajectory = transcriptFor(r)?.atif?.agent?.model_name
+    if (fromTrajectory) return fromTrajectory
+    return String(r.agent || '').split(' ')[1] || null
+  }
+
   // A filter replaces the table's rows in place (with their own transcripts); Clear restores
   // the full list.
   const applyFilter = (resultRows, transcripts, meta) => {
@@ -212,11 +243,11 @@ export default function App() {
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Opens the how-to popup for skill authors. */}
+          {/* Opens the how-to popup for skill, plugin and coding-agent authors. */}
           <button
             className="btn-edge"
             onClick={() => setGuideOpen(true)}
-            title="How to send your skill's or plugin's feedback to RateXp"
+            title="How to send your skill's, plugin's or coding agent's feedback to RateXp"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -227,7 +258,7 @@ export default function App() {
               lineHeight: 1.2,
             }}
           >
-            Ship RateXp with your skill/plugin
+            Ship RateXp with your skill/plugin/coding agent
           </button>
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
@@ -278,6 +309,7 @@ export default function App() {
                   <Th>When</Th>
                   <Th>Skill</Th>
                   <Th>Agent</Th>
+                  <Th>Model</Th>
                   <Th>Score</Th>
                   <Th>Comment</Th>
                   <Th>Trajectory</Th>
@@ -290,6 +322,7 @@ export default function App() {
                     <Td label="When">{r.created_at}</Td>
                     <Td label="Skill"><code>{r.skill_name}</code></Td>
                     <Td label="Agent"><code>{r.agent}</code></Td>
+                    <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
                     <Td label="Score">{scoreLabel(r.score)}</Td>
                     <Td label="Comment">{r.comment ?? <Dash />}</Td>
                     <Td label="Trajectory"><Trajectory transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
@@ -751,8 +784,18 @@ function TrajectoryDrawer({ data, onClose }) {
   )
 }
 
-// Centered how-to popup for skill authors (SKILL_GUIDE_MD). Closes on the backdrop, the X, or Escape.
+// Centered how-to popup, one tab per thing you can rate: a skill or plugin
+// (SKILL_GUIDE_MD) or the coding agent itself (AGENT_GUIDE_MD). The two install
+// differently enough - frontmatter hooks vs the agent's own settings file - that
+// showing both at once buried the one the reader wanted.
+const GUIDE_TABS = [
+  { key: 'skill', label: 'Skill / plugin', md: SKILL_GUIDE_MD },
+  { key: 'agent', label: 'Coding agent', md: AGENT_GUIDE_MD },
+]
+
+// Closes on the backdrop, the X, or Escape.
 function SkillGuideModal({ open, onClose }) {
+  const [tab, setTab] = useState(GUIDE_TABS[0].key)
   useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
@@ -762,15 +805,35 @@ function SkillGuideModal({ open, onClose }) {
   }, [open, onClose])
 
   if (!open) return null
+  const active = GUIDE_TABS.find((t) => t.key === tab) ?? GUIDE_TABS[0]
   // Portal to <body> so the fixed backdrop anchors to the viewport, not #root
   // (whose load animation would otherwise offset the centered popup on mobile).
   return createPortal(
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="modal-wrap" onClick={onClose}>
-        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill/plugin" onClick={(e) => e.stopPropagation()}>
+        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill/plugin/coding agent" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-          <Md className="md modal-md">{SKILL_GUIDE_MD}</Md>
+          <h3 style={{ margin: '0 0 12px' }}>Ship RateXp with your skill/plugin/coding agent</h3>
+          <div role="tablist" aria-label="What to rate" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {GUIDE_TABS.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={t.key === active.key}
+                className="btn-edge"
+                onClick={() => setTab(t.key)}
+                style={{
+                  padding: '7px 14px',
+                  lineHeight: 1.2,
+                  opacity: t.key === active.key ? 1 : 0.55,
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <Md className="md modal-md">{active.md}</Md>
         </div>
       </div>
     </>,

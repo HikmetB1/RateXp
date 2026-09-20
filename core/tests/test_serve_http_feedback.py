@@ -39,6 +39,15 @@ def test_a_form_post_stores_the_rating(client, captured_writes):
     assert record.request_id == "req-1"
 
 
+def test_a_rating_for_a_whole_session_carries_no_skill(client, captured_writes):
+    # Nothing but the session hook posts this shape: the run being rated is the
+    # session itself, so there is no skill to name.
+    response = client.post("/feedback", files=_multipart(skill_name=None))
+    assert response.status_code == 201
+    assert captured_writes[-1].skill_name is None
+    assert captured_writes[-1].agent == "claude-code"
+
+
 def test_a_json_post_stores_the_rating(client, captured_writes):
     response = client.post("/feedback", json={**FORM, "score": 1})
     assert response.status_code == 201

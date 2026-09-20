@@ -146,6 +146,9 @@ class PhoenixReadAdapter:
         for span in self._newest_first("feedback", LIST_MAX_LIMIT):
             attributes = span.get("attributes") or {}
             skill_name = attributes.get(f"{_PREFIX}skill_name")
+            # A whole-session rating names no skill, so it belongs to no skill's tally.
+            if not skill_name:
+                continue
             counts = tally.setdefault(
                 skill_name, {"skill_name": skill_name, "total": 0, "good": 0, "bad": 0}
             )
@@ -154,7 +157,7 @@ class PhoenixReadAdapter:
                 counts["good"] += 1
             elif attributes.get(f"{_PREFIX}score") == 2:
                 counts["bad"] += 1
-        ranked = sorted(tally.values(), key=lambda row: (-row["total"], row["skill_name"] or ""))
+        ranked = sorted(tally.values(), key=lambda row: (-row["total"], row["skill_name"]))
         return ranked[:limit]
 
     def run_query(

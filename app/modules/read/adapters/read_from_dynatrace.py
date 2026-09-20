@@ -178,6 +178,7 @@ class DynatraceReadAdapter:
     def select_top_skills(self, limit: int) -> list[dict]:
         recs = self._dql(
             f'fetch logs, from:{_LOOKBACK} | filter ratexp.record_type == "feedback" '
+            "and isNotNull(ratexp.skill_name) "
             "| summarize total=count(), good=countIf(ratexp.score == 1), "
             "bad=countIf(ratexp.score == 2), by:{skill_name=ratexp.skill_name} "
             f"| sort total desc, skill_name asc | limit {int(limit)}"

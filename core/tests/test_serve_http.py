@@ -6,6 +6,7 @@ The security middleware, the health check, and the hook script core hands out.
 
 from __future__ import annotations
 
+import pytest
 from api import serve_http
 from api.limit_request_rate import RateLimiter
 
@@ -112,20 +113,33 @@ def test_a_caller_over_its_budget_gets_429(client, monkeypatch):
     assert client.get("/healthz").status_code == 429
 
 
-def test_the_served_hook_script_has_this_deployments_url_baked_in(client):
-    # A skill works as soon as its ratexp.sh is copied, with nothing to configure.
-    response = client.get("/ratexp.sh")
+# One script per thing that can be rated, each served under its own name.
+HOOKS = ("ratexp-skill.sh", "ratexp-plugin.sh", "ratexp-coding-agent.sh")
+
+
+@pytest.mark.parametrize("hook", HOOKS)
+def test_every_served_hook_has_this_deployments_url_baked_in(client, hook):
+    # A hook works as soon as it is copied into place, with nothing to configure.
+    response = client.get(f"/{hook}")
     assert response.status_code == 200
     assert response.text.startswith("#!/bin/bash")
     assert "__RATEXP_URL__" not in response.text
     assert serve_http.PUBLIC_URL in response.text
 
 
-def test_the_served_hook_script_has_the_configured_survey_frequency_baked_in(client):
+@pytest.mark.parametrize("hook", HOOKS)
+def test_every_served_hook_has_the_configured_survey_frequency_baked_in(client, hook):
     # How often to ask is a deployment setting, stamped in as the script's own
     # default. A user's RATEXP_EVERY still wins at run time.
     from load_config import DEFAULT_SURVEY_EVERY
 
-    text = client.get("/ratexp.sh").text
+    text = client.get(f"/{hook}").text
     assert "__RATEXP_EVERY__" not in text
     assert f"DEFAULT_EVERY={DEFAULT_SURVEY_EVERY}" in text
+
+
+def test_the_installer_is_not_mistaken_for_a_hook(client):
+    # /install.sh and the hooks share a suffix; each must keep its own route.
+    assert client.get("/install.sh").text.startswith("#!/bin/bash")
+    assert client.get("/ratexp.sh").status_code == 404
+    assert client.get("/../etc/passwd.sh").status_code == 404

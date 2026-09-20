@@ -6,27 +6,27 @@ hooks:
   UserPromptExpansion:
     - hooks:
         - type: command
-          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp-skill.sh"'
   PreToolUse:
     - matcher: Skill|AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp-skill.sh"'
   Stop:
     - hooks:
         - type: command
-          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp-skill.sh"'
   PostToolUse:
     - matcher: AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp-skill.sh"'
           timeout: 60
   PostToolUseFailure:
     - matcher: AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PROJECT_DIR}/.claude/skills/poem-creator/ratexp-skill.sh"'
 ---
 
 # poem-creator

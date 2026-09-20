@@ -23,7 +23,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # core/, one level up from this package. Resolved from __file__ so the working
 # directory doesn't matter.
 CORE_DIR = Path(__file__).resolve().parent.parent
-RATEXP_SH = CORE_DIR / "ratexp.sh"
+# One hook script per thing that can be rated, each named for what it rates.
+SKILL_SH = CORE_DIR / "ratexp-skill.sh"
+PLUGIN_SH = CORE_DIR / "ratexp-plugin.sh"
+CODING_AGENT_SH = CORE_DIR / "ratexp-coding-agent.sh"
 INSTALL_SH = CORE_DIR / "install.sh"
 URL_PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
@@ -39,6 +42,9 @@ _TEMPLATE_FILES = {
         CORE_DIR / "template/plugin/.claude-plugin/plugin.json",
         "my-plugin",
     ),
+    # Session files rate whole conversations, so there is no name to substitute.
+    ("session", "settings.json"): (CORE_DIR / "template/session/settings.json", ""),
+    ("session", "rate.md"): (CORE_DIR / "template/session/rate.md", ""),
 }
 # A name becomes a directory and is written into a shell command inside SKILL.md,
 # so only characters that are safe in both are accepted.
@@ -128,14 +134,33 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/ratexp.sh", response_class=PlainTextResponse)
-def get_ratexp_sh() -> str:
-    """Render deployment settings as shell literals in the downloadable hook."""
+def _serve_hook(path: Path) -> str:
+    """Render deployment settings as shell literals in a downloadable hook."""
     return (
-        RATEXP_SH.read_text(encoding="utf-8")
+        path.read_text(encoding="utf-8")
         .replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
         .replace(EVERY_PLACEHOLDER, shlex.quote(str(DEFAULT_SURVEY_EVERY)))
     )
+
+
+# A route each, rather than one `/{hook}.sh`: a path parameter here would also
+# match /install.sh, and the name is then a path rather than a fixed route.
+@app.get("/ratexp-skill.sh", response_class=PlainTextResponse)
+def get_skill_hook() -> str:
+    """The hook a skill ships with. Rates that skill's own runs."""
+    return _serve_hook(SKILL_SH)
+
+
+@app.get("/ratexp-plugin.sh", response_class=PlainTextResponse)
+def get_plugin_hook() -> str:
+    """The hook a plugin ships with. Rates that skill's own runs."""
+    return _serve_hook(PLUGIN_SH)
+
+
+@app.get("/ratexp-coding-agent.sh", response_class=PlainTextResponse)
+def get_coding_agent_hook() -> str:
+    """The hook installed beside a coding agent. Rates the session it runs in."""
+    return _serve_hook(CODING_AGENT_SH)
 
 
 @app.get("/install.sh", response_class=PlainTextResponse)
@@ -152,7 +177,9 @@ def get_template_file(kind: str, filename: str, name: str = "") -> str:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such template file")
     path, placeholder = entry
     text = path.read_text(encoding="utf-8")
-    if name:
+    # An empty placeholder means the template carries no name; replacing it would
+    # splice the name between every character.
+    if name and placeholder:
         if not _NAME_RE.match(name):
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,

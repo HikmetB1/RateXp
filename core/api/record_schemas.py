@@ -11,7 +11,7 @@ class Feedback(BaseModel):
 
     created_at: str | None = None  # ISO8601 UTC; server fills if missing
     session_id: str | None = None  # server fills if missing
-    skill_name: str
+    skill_name: str | None = None  # absent when the rating is for a whole session
     agent: str  # required; identifies the calling agent runtime
     score: int | None = Field(default=None, ge=1, le=2)  # 1 = good, 2 = bad
     comment: str | None = None
@@ -23,7 +23,7 @@ class Transcript(BaseModel):
 
     created_at: str | None = None  # ISO8601 UTC; server fills if missing
     session_id: str | None = None  # server fills if missing
-    skill_name: str
+    skill_name: str | None = None  # absent when the rating is for a whole session
     agent: str  # required; identifies the calling agent runtime
     schema_version: str = SCHEMA_VERSION  # from config.yaml
     atif: dict  # ATIF trajectory; required

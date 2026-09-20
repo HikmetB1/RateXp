@@ -17,7 +17,7 @@ its own README covering its layout, how to run it and what it reads:
 
 | Service | What it is |
 |---------|------------|
-| [core](./core/README.md) | Hands out the hook script, takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
+| [core](./core/README.md) | Hands out the hook scripts (`ratexp-skill.sh`, `ratexp-plugin.sh`, `ratexp-coding-agent.sh`), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
 | [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
 
@@ -66,7 +66,7 @@ docker compose up --build -d
 
 | Service | URL                     | What it is                                               |
 |---------|-------------------------|----------------------------------------------------------|
-| core    | <http://localhost:8000> | serves `/ratexp.sh`, ingests `/feedback` + `/transcript` |
+| core    | <http://localhost:8000> | serves `/ratexp-skill.sh`, `/ratexp-plugin.sh`, `/ratexp-coding-agent.sh`, ingests `/feedback` + `/transcript` |
 | app     | <http://localhost:8001> | the dashboard                                            |
 
 `docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
@@ -118,34 +118,36 @@ push `seeder_image` the same way as step 2.
 
 ```text
 .
-├── core/                Public ingestion service: serves the hook script, stores feedback
-│   ├── ratexp.sh        The hook itself - the source of every shipped copy
-│   ├── install.sh       What `curl … | bash -s skill my-skill` runs
-│   ├── api/             The HTTP surface: routes, schemas, rate limiting, ATIF building
+├── core/                       Public ingestion service: serves the hook scripts, stores feedback
+│   ├── ratexp-skill.sh         The hook a skill ships with - rates that skill's runs
+│   ├── ratexp-plugin.sh        The same, for a plugin
+│   ├── ratexp-coding-agent.sh  Rates the whole session; installed, never bundled
+│   ├── install.sh              What `curl … | bash -s skill my-skill` runs
+│   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   ├── modules/
-│   │   ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)
-│   │   └── write/       Write destinations + the fan-out + the SQL migrations
-│   ├── template/        Blank starting points: skill/ and plugin/
-│   ├── examples/        The poem skill packaged both ways, hooks already wired
-│   └── tools/           Dev-only, never shipped: sync_hooks.py regenerates the hook copies
-├── app/                 Dashboard service: read-only API, and it serves the UI
-│   ├── api/             The HTTP surface: routes, schemas, snapshots, the live feed
-│   ├── modules/read/    Read sources - the dashboard reads from the one enabled source
-│   └── FE/              React dashboard (source)
-├── seeder/              Optional demo seeder: an agent uses a skill, then rates it
-│   ├── api/             One run end to end, and the two ways one gets started
-│   ├── azure_function/  The deployed timer trigger + host.json
+│   │   ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
+│   │   └── write/              Write destinations + the fan-out + the SQL migrations
+│   ├── template/               Blank starting points: skill/ and plugin/
+│   ├── examples/               The poem skill packaged both ways, hooks already wired
+│   └── tools/                  Dev-only, never shipped: sync_hooks.py regenerates the hook copies
+├── app/                        Dashboard service: read-only API, and it serves the UI
+│   ├── api/                    The HTTP surface: routes, schemas, snapshots, the live feed
+│   ├── modules/read/           Read sources - the dashboard reads from the one enabled source
+│   └── FE/                     React dashboard (source)
+├── seeder/                     Optional demo seeder: an agent uses a skill, then rates it
+│   ├── api/                    One run end to end, and the two ways one gets started
+│   ├── azure_function/         The deployed timer trigger + host.json
 │   ├── modules/
-│   │   ├── agent/       The model, the skill pool, and the sandboxed run itself
-│   │   └── submit/      Messages → ATIF, and the two posts to core
-│   └── skills/          The skills the agent picks from (third-party, see ATTRIBUTION.md)
-├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
-├── tests/               Whole-app integration tests (run against a live/local stack)
-├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
-├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
-├── THIRD_PARTY_NOTICES.md  Licenses and citations for projects RateXp builds on
+│   │   ├── agent/              The model, the skill pool, and the sandboxed run itself
+│   │   └── submit/             Messages → ATIF, and the two posts to core
+│   └── skills/                 The skills the agent picks from (third-party, see ATTRIBUTION.md)
+├── infra/                      Terraform stack for Azure (two web apps + PostgreSQL)
+├── tests/                      Whole-app integration tests (run against a live/local stack)
+├── assets/                     Images the README shows (banner, demo GIF, dashboard shot)
+├── docker-compose.yml          Local stack: PostgreSQL + core + app (+ opt-in seed profile)
+├── THIRD_PARTY_NOTICES.md      Licenses and citations for projects RateXp builds on
 ├── CLA.md / LICENSE / CITATION.cff  Contributor agreement, license, how to cite
-└── pyproject.toml       Shared ruff config; each service has its own project file
+└── pyproject.toml              Shared ruff config; each service has its own project file
 ```
 
 `core/`, `app/` and `seeder/` are each self-contained - they deliberately duplicate small
@@ -171,8 +173,8 @@ uv run --no-project --with-requirements tests/requirements.txt pytest tests/
 
 | File | Checks |
 |------|--------|
-| `test_smoke.py` | Both services answer `/healthz`; core serves `/ratexp.sh` with its own URL baked in, and takes a `/feedback` post. |
-| `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the *shipped* hook script, so the bytes a real skill sends are the ones checked. |
+| `test_smoke.py` | Both services answer `/healthz`; core serves `/ratexp-skill.sh` with its own URL baked in, and takes a `/feedback` post. |
+| `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the *shipped* `ratexp-skill.sh`, so the bytes a real skill sends are the ones checked. |
 | `test_azure_live.py` | Read-only checks against a deployed stack. Skipped unless you opt in, see below. |
 
 The stack need not be local: the tests read `RATEXP_CORE_URL` and `RATEXP_APP_URL`, defaulting

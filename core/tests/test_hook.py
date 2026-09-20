@@ -1,8 +1,8 @@
-"""Black-box tests for the hook script (core/ratexp.sh and its copies).
+"""Black-box tests for core/ratexp-skill.sh and its shipped copies.
 
 The hook has to run on a bare machine: Bash 3.2+, curl, and a short list of
 standard utilities - no Python, no jq, no node. Nothing here imports or reads
-the script's logic. Every test spawns `/bin/bash <copy of ratexp.sh>` in a
+the script's logic. Every test spawns `/bin/bash <copy of the hook>` in a
 subprocess whose PATH contains ONLY symlinks to the utilities the script's own
 preflight loop checks for (line: `for token in curl cksum mkdir rmdir mv date
 od stat head tail sort`), plus a fake `curl` that records each call and prints a
@@ -39,7 +39,7 @@ ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", 
 FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "grep", "cat")
 
 CORE = Path(__file__).resolve().parents[1]
-CANONICAL = CORE / "ratexp.sh"
+CANONICAL = CORE / "ratexp-skill.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 # What the tests bake in where a real copy would carry config.yaml's value. Every
@@ -49,10 +49,15 @@ BAKED_EVERY = 2
 # The copies tools/sync_hooks.py generates, with a real URL baked in. They must behave
 # exactly like the canonical script they came from.
 SHIPPED = (
-    CORE / "template" / "skill" / "ratexp.sh",
-    CORE / "template" / "plugin" / "skills" / "my-skill" / "ratexp.sh",
-    CORE / "examples" / "example_skill_poem_creator" / "ratexp.sh",
-    CORE / "examples" / "example_plugin_poem_creator" / "skills" / "poem-creator" / "ratexp.sh",
+    CORE / "template" / "skill" / "ratexp-skill.sh",
+    CORE / "template" / "plugin" / "skills" / "my-skill" / "ratexp-plugin.sh",
+    CORE / "examples" / "example_skill_poem_creator" / "ratexp-skill.sh",
+    CORE
+    / "examples"
+    / "example_plugin_poem_creator"
+    / "skills"
+    / "poem-creator"
+    / "ratexp-plugin.sh",
 )
 
 # Loopback is the only http:// origin the script accepts, and nothing listens
@@ -110,6 +115,10 @@ def reorder(obj):
 class Hook:
     """Runs the shipped script in a sandbox and reads back what curl saw."""
 
+    # Which script this harness runs. Each is its own file in core/, so a subclass
+    # testing another one overrides both this and CANONICAL_FOR.
+    script_name = "ratexp-skill.sh"
+
     def __init__(self, tmp_path: Path, source: Path | None = None):
         self.tmp = tmp_path
         self.session = "sess-hook-1"
@@ -119,7 +128,7 @@ class Hook:
         # `source` instead runs an already-generated shipped copy verbatim.
         if source is None:
             self.skill = DEFAULT_SKILL
-            text = CANONICAL.read_text(encoding="utf-8")
+            text = (CORE / self.script_name).read_text(encoding="utf-8")
             for name in (PLACEHOLDER, EVERY_PLACEHOLDER):
                 assert name in text, f"canonical script lost its {name} placeholder"
             text = text.replace(PLACEHOLDER, f"'{LOCAL_URL}'")
@@ -127,9 +136,10 @@ class Hook:
         else:
             self.skill = source.parent.name
             text = source.read_text(encoding="utf-8")
+            self.script_name = source.name  # a shipped copy keeps its own name
         self.skill_dir = tmp_path / "skills" / self.skill
         self.skill_dir.mkdir(parents=True)
-        self.script = self.skill_dir / "ratexp.sh"
+        self.script = self.skill_dir / self.script_name
         self.script.write_text(text, encoding="utf-8")
         self.script.chmod(0o755)
 

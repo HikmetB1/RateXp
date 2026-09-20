@@ -93,6 +93,35 @@ def test_a_tool_result_with_no_text_becomes_a_system_observation():
     assert step["observation"] == "a.txt"
 
 
+def test_the_agents_own_notes_are_part_of_the_trajectory():
+    """Claude Code writes notes of its own - an away summary, say - as `system`
+    lines. They are part of what happened and belong in the trajectory."""
+    raw = json.dumps(
+        {"type": "system", "subtype": "away_summary", "content": "picked up where we left off"}
+    )
+    (step,) = _steps(raw)
+    assert step["source"] == "system"
+    assert step["message"] == "picked up where we left off"
+
+
+def test_session_state_lines_are_not_conversation_and_stay_out():
+    """These carry UI state, not what happened - and a file-history-snapshot
+    carries whole file contents, which must never ride along in an upload."""
+    raw = "\n".join(
+        json.dumps(line)
+        for line in [
+            {"type": "mode", "mode": "acceptEdits"},
+            {"type": "ai-title", "aiTitle": "Refactor the uploader"},
+            {"type": "last-prompt", "lastPrompt": "do the thing"},
+            {"type": "attachment", "attachment": {"type": "deferred_tools_delta"}},
+            {"type": "file-history-snapshot", "snapshot": {"secret.py": "API_KEY = 'hunter2'"}},
+            {"type": "system", "subtype": "turn_duration", "content": None},
+        ]
+    )
+    assert _steps(raw) == []
+    assert "hunter2" not in json.dumps(claude_jsonl_to_atif(raw, session_id="s", agent="x"))
+
+
 def test_final_metrics_total_the_steps_and_tokens():
     metrics = claude_jsonl_to_atif(SESSION, session_id="s", agent="x")["final_metrics"]
     assert metrics == {"total_prompt_tokens": 12, "total_completion_tokens": 5, "total_steps": 4}

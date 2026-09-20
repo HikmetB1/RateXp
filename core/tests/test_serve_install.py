@@ -41,13 +41,13 @@ def test_a_name_replaces_the_placeholder_in_the_skill_template(client):
     assert "name: poem-creator" in body
     assert "<your-skill-name>" not in body
     # The hook has to point at the folder the skill is installed into.
-    assert '.claude/skills/poem-creator/ratexp.sh"' in body
+    assert '.claude/skills/poem-creator/ratexp-skill.sh"' in body
 
 
 def test_a_name_replaces_the_placeholder_in_the_plugin_template(client):
     body = client.get("/template/plugin/SKILL.md", params={"name": "poem-creator"}).text
     assert "name: poem-creator" in body
-    assert "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp.sh" in body
+    assert "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh" in body
 
     manifest = client.get("/template/plugin/plugin.json", params={"name": "poem-creator"}).text
     assert '"name": "poem-creator"' in manifest
@@ -83,7 +83,7 @@ def test_a_name_that_is_not_a_plain_skill_name_is_refused(client, name):
     "path",
     [
         "/template/skill/plugin.json",  # real file, wrong kind
-        "/template/skill/ratexp.sh",  # served from /ratexp.sh instead
+        "/template/skill/ratexp-skill.sh",  # served from /ratexp-skill.sh instead
         "/template/nope/SKILL.md",
         "/template/skill/config.yaml",
         "/template/skill/..%2f..%2fconfig.yaml",

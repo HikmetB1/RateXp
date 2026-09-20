@@ -280,6 +280,14 @@ def test_an_unrated_run_still_becomes_a_span():
     assert "ratexp.score" not in attributes
 
 
+def test_a_whole_session_rating_reaches_phoenix_without_a_skill():
+    adapter, posted = _phoenix()
+    adapter.write_feedback(Feedback(agent="claude-code", score=1, session_id="s"))
+    attributes = posted[0]["attributes"]
+    assert "ratexp.skill_name" not in attributes
+    assert attributes["ratexp.agent"] == "claude-code"
+
+
 def test_a_trajectory_goes_into_a_phoenix_span_whole():
     adapter, posted = _phoenix()
     adapter.write_transcript(

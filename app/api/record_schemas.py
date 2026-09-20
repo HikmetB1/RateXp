@@ -11,7 +11,7 @@ class Feedback(BaseModel):
 
     created_at: str | None = None  # ISO8601 UTC
     session_id: str | None = None
-    skill_name: str
+    skill_name: str | None = None  # absent when the rating is for a whole session
     agent: str
     score: int | None = Field(default=None, ge=1, le=2)  # 1 = good, 2 = bad
     comment: str | None = None
@@ -23,7 +23,7 @@ class Transcript(BaseModel):
 
     created_at: str | None = None
     session_id: str | None = None
-    skill_name: str
+    skill_name: str | None = None  # absent when the rating is for a whole session
     agent: str
     schema_version: str = SCHEMA_VERSION
     atif: dict

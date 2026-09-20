@@ -35,10 +35,10 @@ pytestmark = pytest.mark.skipif(
 def test_azure_core_serves_the_hook_script(http):
     """The deployed core must hand out a runnable hook that points back at itself.
 
-    A skill installs ratexp.sh from here, so a leftover placeholder - or a stale
+    A skill installs its hook from here, so a leftover placeholder - or a stale
     RATEXP_PUBLIC_URL - would send every rating to the wrong place, or nowhere.
     """
-    r = http.get(f"{AZURE_CORE_URL}/ratexp.sh")
+    r = http.get(f"{AZURE_CORE_URL}/ratexp-skill.sh")
     assert r.status_code == 200
     assert "__RATEXP_URL__" not in r.text
     assert baked_url(r.text).rstrip("/") == AZURE_CORE_URL

@@ -21,9 +21,15 @@
   <a href="#license-what-you-may-do-with-it">License</a>
 </p>
 
-RateXp collects user ratings and opt-in conversations for Claude Code skills: ship
-`SKILL.md` and `ratexp.sh` with your skill, then read the feedback on the
-[live dashboard](https://ratexp-app.azurewebsites.net/) or on your custom storage adapter.
+Dear skill or plugin author and coding-agent admin, who would like to stay close to your
+users - and dear user, who would like to stay close to whoever built the skill, plugin or
+coding agent you use:
+
+RateXp rates the **agentic experience, by the human who had it** - asked immediately in the
+terminal where the work happened, not somewhere afterwards. The person using your skill,
+plugin or coding agent is the one who rates it: a skill or plugin on its own runs, a coding
+agent session by session. The feedback lands on the
+[live dashboard](https://ratexp-app.azurewebsites.net/) or your own storage adapter.
 
 <p align="center">
   <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
@@ -31,26 +37,36 @@ RateXp collects user ratings and opt-in conversations for Claude Code skills: sh
 
 ## Quick start: install in one command
 
-One command, two files, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
+Pick the command that satisfies your use case, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
 from your project root:
 
 ```bash
-# Pick one - you only need one of these.
+# Pick one
 
-# A plain skill  ->  creates .claude/skills/my-skill/
+# Use case: A skill Author would like to stay close to the skill users and get their feedback
+# A plain skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
 
-# The same, as a plugin  ->  creates my-plugin/ with the skill nested inside
+# Use case: A plugin Author would like to stay close to the plugin users and get their feedback
+# A plugin  ->  creates my-plugin/ with the skill nested inside -> Update your SKILL.md in your plugin folder as usual
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s plugin my-plugin
 
-# Then go update your skill  ->  write it in SKILL.md, leave the frontmatter alone
+# Use case: A coding agent provider or access admin would like to stay close to the coding agent users and get their feedback
+# The coding agent itself  ->  creates .claude/ratexp-coding-agent.sh -> then paste the hooks it prints into .claude/settings.json
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s session claude
 ```
 
 That is the whole setup. Ratings land on the
 [dashboard](https://ratexp-app.azurewebsites.net/).
 
-*Asks every 2nd run by default - change `DEFAULT_EVERY` at the top of `ratexp.sh` to ask more
-or less often.*
+### How often it asks: every 2nd run or turn
+
+- **Skill or plugin** - every 2nd **run** of that skill, so it never nags.
+- **Coding agent** - every 2nd **turn** of the session, and `/rate` asks on the spot.
+
+Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
+`ratexp-skill.sh`, `ratexp-plugin.sh` or `ratexp-coding-agent.sh` - to change the default
+for everyone you ship it to.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
@@ -58,63 +74,69 @@ Want to run your own core instead of the hosted one? See
 ## How it works
 
 core hands out the hook script, takes back whatever the hook posts, masks anything personal,
-and writes the result to every destination switched on - `ratexp.sh` only ever posts to the
-same two endpoints and never knows where the data ends up.
+and writes the result to every destination switched on - the hook only ever posts to the same
+two endpoints and never knows where the data ends up. That is true whether it is rating one
+skill or a whole coding-agent session; only what arms it, and how much of the conversation it
+covers, differ.
 
 ```mermaid
 sequenceDiagram
-    participant A as Skill author
-    participant H as ratexp.sh
+    participant A as Skill author or coding agent user
+    participant H as the hook script
     participant C as core
     participant D as Destinations
 
-    Note over A,C: once, while setting up a skill
+    Note over A,C: once, while setting up
     A->>C: GET /install.sh, then run it
-    C-->>A: SKILL.md + ratexp.sh, named and pointing back at this core
-    A->>H: written into the skill folder
+    C-->>A: the hook, named for what it rates, pointing back at this core
+    A->>H: a skill or plugin folder, or .claude/ with its hooks pasted into settings.json
 
-    Note over H,D: then on every Nth run of that skill
+    Note over H,D: then every Nth run of that skill, or every Nth turn of the session
     H->>C: POST /feedback (rating, optional comment)
     opt user consented
-        H->>C: POST /transcript
+        H->>C: POST /transcript (the skill's run, or the session so far)
         C->>C: rebuild the conversation, then mask personal data
     end
     C->>D: write to every enabled destination
     C-->>H: 201 stored, or 503 if none accepted
 ```
 
-## Examples: skills you can copy
+## Examples: skills/plugins you can copy
 The same poem-writing skill packaged both ways, hooks already wired - ask for a mood, get a
 short original poem:
 
 - [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
-  a plain skill: `SKILL.md` plus its `ratexp.sh`.
+  a plain skill: `SKILL.md` plus its `ratexp-skill.sh`.
 - [`core/examples/example_plugin_poem_creator/`](./core/examples/example_plugin_poem_creator/) -
-  the same skill as a plugin, hooks resolved from `${CLAUDE_PLUGIN_ROOT}`.
+  a plugin with its skill: `SKILL.md` plus its `ratexp-skill.sh`.
 
 For a blank starting point, copy [`core/template/`](./core/template/).
 
 ## Features: what you get
-1. **Two-file setup** - drop `SKILL.md` + `ratexp.sh` into your skill folder; the frontmatter
-   carries the hooks that collect the feedback.
-2. **Ratings and comments** - a quick good/bad rating with an optional comment, asked on every
+1. **Skill or plugin author: ship it inside your skill** - drop `SKILL.md` +
+   `ratexp-skill.sh` into the skill folder and publish as usual. Everyone who installs your
+   skill gets the hooks with it, and each rating comes back named after that skill.
+2. **Coding agent admin: hand it to your users** - give them `ratexp-coding-agent.sh` and
+   the hooks to paste into `settings.json`. Rating is then on from their first turn, and each rating covers the whole session.
+3. **Ratings and comments** - a quick good/bad rating with an optional comment, asked on every
    Nth run of the skill so it never nags (`RATEXP_EVERY`, default every 2nd run).
-3. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
+4. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
    format (ATIF). The hook uploads it straight from the user's machine.
-4. **PII redaction** - personal data is masked before storage by a pluggable adapter
+5. **PII redaction** - personal data is masked before storage by a pluggable adapter
    (self-hosted Presidio or Azure AI Language), and dropped rather than stored unmasked.
-5. **Write adapters** - storage is an adapter architecture: core writes each submission to
+6. **Write adapters** - storage is an adapter architecture: core writes each submission to
    every adapter you switch on, and they run independently, so one failing never blocks the
    others. Six ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
    PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
    Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
-6. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
+7. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
    JSON export. Reading is one more adapter, and you enable exactly one of five:
    `app_be_psql` or `custom_psql` (queried with SQL), `app_be_dynatrace` or
    `custom_dynatrace` (queried with DQL), or `phoenix` (queried with `key:value` filters).
    Bluebox is write-only, so it has no read adapter.
-7. **Responsive UI** - the table reflows into cards on phones.
-8. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
+8. **Responsive UI** - the table reflows into cards on phones.
+9. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
+10. **Tested coding agents** - Claude CLI
 
 ## The dashboard: read and export the feedback
 <p align="center">

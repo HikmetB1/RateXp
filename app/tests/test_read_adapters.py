@@ -248,6 +248,12 @@ def test_phoenix_top_skills_are_tallied_here():
     ]
 
 
+def test_phoenix_top_skills_leaves_out_whole_session_ratings():
+    # A session rating names no skill, so it would otherwise tally under a blank one.
+    a = _phoenix([_span(skill_name="demo", score=1), _span(score=1)])
+    assert a.select_top_skills(10) == [{"skill_name": "demo", "total": 1, "good": 1, "bad": 0}]
+
+
 def test_phoenix_transcripts_by_ids_matches_either_id():
     a = _phoenix([_span(request_id="r1", session_id="s1"), _span(request_id="r2", session_id="s2")])
     assert [row[6] for row in a.select_transcripts_by_ids(["r2"], [])] == ["r2"]

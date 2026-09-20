@@ -65,7 +65,7 @@ def _form(fields: dict) -> dict:
 
 
 def baked_url(script: str) -> str:
-    """The URL compiled into a copy of ratexp.sh, read off its DEFAULT_URL line.
+    """The URL compiled into a copy of a hook script, read off its DEFAULT_URL line.
 
     core serves the script with its own public URL substituted for the
     `'__RATEXP_URL__'` placeholder; shlex strips whatever quoting was used.

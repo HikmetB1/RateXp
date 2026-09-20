@@ -152,8 +152,24 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
         if not isinstance(entry, dict):
             continue
 
-        msg = entry.get("message")
         etype = entry.get("type")
+        if etype == "system":
+            # Claude Code's own notes inside the conversation, such as the summary
+            # it writes when the user steps away. Its other record types are session
+            # state rather than conversation - `mode`, `permission-mode`, `ai-title`,
+            # `last-prompt`, `queue-operation`, `attachment` (internal tool-registry
+            # deltas) - and `file-history-snapshot` carries whole file contents, so
+            # including it would put untouched source into every upload.
+            text = _text_from_content(entry.get("content"))
+            if not text or _is_survey_turn(text):
+                continue
+            step = {"step_id": len(steps) + 1, "source": "system", "message": text}
+            if entry.get("timestamp"):
+                step["timestamp"] = entry["timestamp"]
+            steps.append(step)
+            continue
+
+        msg = entry.get("message")
         if etype not in ("user", "assistant") or not isinstance(msg, dict):
             continue  # skip summaries, meta, and anything non-conversational
 

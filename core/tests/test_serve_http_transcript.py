@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from api import ingest_records
 
 RAW_JSONL = "\n".join(
@@ -123,8 +122,15 @@ def test_a_trajectory_no_destination_accepted_answers_503(client, no_destination
     assert client.post("/transcript", files=_multipart()).status_code == 503
 
 
-@pytest.mark.parametrize("missing", ["skill_name", "agent"])
-def test_the_fields_that_identify_the_run_are_required(client, captured_writes, missing):
-    fields = {name: value for name, value in _multipart().items() if name != missing}
+def test_the_agent_that_produced_the_run_is_required(client, captured_writes):
+    """Nothing can be made of a trajectory that does not say which runtime wrote it."""
+    fields = {name: value for name, value in _multipart().items() if name != "agent"}
     assert client.post("/transcript", files=fields).status_code == 422
     assert captured_writes == []
+
+
+def test_a_trajectory_for_a_whole_session_carries_no_skill(client, captured_writes):
+    """A session is not rated against any one skill, so it arrives without a name."""
+    fields = {name: value for name, value in _multipart().items() if name != "skill_name"}
+    assert client.post("/transcript", files=fields).status_code == 201
+    assert captured_writes[-1].skill_name is None

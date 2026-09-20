@@ -41,6 +41,12 @@ def _compact(record: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in record.items() if v is not None}
 
 
+def _subject(record: Any) -> str:
+    """What the record is about, for the human-readable log line: a named skill,
+    or the whole session when the rating is not about any one skill."""
+    return f"skill={record.skill_name}" if record.skill_name else "whole session"
+
+
 class DynatraceWriteAdapter:
     def __init__(self, name: str, tenant_url: str, token: str, *, timeout: float = 10.0) -> None:
         if not tenant_url:
@@ -98,7 +104,7 @@ class DynatraceWriteAdapter:
             _compact(
                 {
                     "timestamp": record.created_at,
-                    "content": f"RateXp rating: {label} · skill={record.skill_name} · agent={record.agent}",
+                    "content": f"RateXp rating: {label} · {_subject(record)} · agent={record.agent}",
                     "severity": "INFO",
                     "log.source": "ratexp-core",
                     "ratexp.record_type": "feedback",
@@ -121,7 +127,7 @@ class DynatraceWriteAdapter:
                 {
                     "timestamp": record.created_at,
                     "content": (
-                        f"RateXp transcript · skill={record.skill_name} · "
+                        f"RateXp transcript · {_subject(record)} · "
                         f"agent={record.agent} · session={record.session_id}"
                     ),
                     "severity": "INFO",

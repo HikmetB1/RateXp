@@ -18,9 +18,9 @@ def test_dashboard_healthz(app_url, http):
 
 
 def test_core_serves_the_hook_script(core_url, http):
-    # A skill's ratexp.sh is fetched from here, so it must arrive ready to run:
+    # A skill's hook is fetched from here, so it must arrive ready to run:
     # a bash script with core's own URL already baked in.
-    r = http.get(f"{core_url}/ratexp.sh")
+    r = http.get(f"{core_url}/ratexp-skill.sh")
     assert r.status_code == 200
     assert r.text.startswith("#!/bin/bash")
     assert "__RATEXP_URL__" not in r.text

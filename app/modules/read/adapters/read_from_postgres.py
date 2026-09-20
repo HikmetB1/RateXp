@@ -101,6 +101,7 @@ class PostgresReadAdapter:
                        COUNT(*) FILTER (WHERE score = 1) AS good,
                        COUNT(*) FILTER (WHERE score = 2) AS bad
                 FROM feedback
+                WHERE skill_name IS NOT NULL
                 GROUP BY skill_name
                 ORDER BY total DESC, skill_name ASC
                 LIMIT %s

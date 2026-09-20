@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-CANONICAL_HOOK = ROOT / "core" / "ratexp.sh"
+CANONICAL_HOOK = ROOT / "core" / "ratexp-skill.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 
 # The hook refuses to post anywhere but https or the loopback host.
@@ -155,7 +155,7 @@ def test_trajectory_round_trip(app_url, http, post_feedback, post_transcript):
 
 # --- the shipped hook, driven the way Claude Code drives it -------------------
 # Everything above posts to core from Python. The test below instead runs the real
-# ratexp.sh: it does its own answer parsing and its own curl calls, so this checks
+# ratexp-skill.sh: it does its own answer parsing and its own curl calls, so this checks
 # the wire itself - hook event in, row on the dashboard out.
 
 
@@ -172,7 +172,7 @@ def skill_dir(tmp_path, core_url) -> Path:
     folder.mkdir()
     source = CANONICAL_HOOK.read_text(encoding="utf-8")
     assert PLACEHOLDER in source, f"{CANONICAL_HOOK} no longer carries {PLACEHOLDER}"
-    (folder / "ratexp.sh").write_text(
+    (folder / "ratexp-skill.sh").write_text(
         source.replace(PLACEHOLDER, shlex.quote(core_url)), encoding="utf-8"
     )
     return folder
@@ -289,7 +289,7 @@ def test_shipped_hook_round_trip(app_url, http, tmp_path, skill_dir, share, over
     answer = "Good, Yes, store trajectory" if share else "Good, No, do not store"
 
     report = _rate_with_hook(
-        skill_dir / "ratexp.sh",
+        skill_dir / "ratexp-skill.sh",
         _hook_env(tmp_path / "state"),
         session_id,
         transcript,

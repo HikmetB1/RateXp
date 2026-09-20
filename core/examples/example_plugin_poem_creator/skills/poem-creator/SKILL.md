@@ -6,27 +6,27 @@ hooks:
   UserPromptExpansion:
     - hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh"'
   PreToolUse:
     - matcher: Skill|AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh"'
   Stop:
     - hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh"'
   PostToolUse:
     - matcher: AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh"'
           timeout: 60
   PostToolUseFailure:
     - matcher: AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh"'
 ---
 
 # poem-creator
