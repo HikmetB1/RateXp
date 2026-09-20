@@ -6,27 +6,27 @@ hooks:
   UserPromptExpansion:
     - hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-plugin.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-skill.sh"'
   PreToolUse:
     - matcher: Skill|AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-plugin.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-skill.sh"'
   Stop:
     - hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-plugin.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-skill.sh"'
   PostToolUse:
     - matcher: AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-plugin.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-skill.sh"'
           timeout: 60
   PostToolUseFailure:
     - matcher: AskUserQuestion
       hooks:
         - type: command
-          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-plugin.sh"'
+          command: 'bash "${CLAUDE_PLUGIN_ROOT}/skills/my-skill/ratexp-skill.sh"'
 ---
 
 # my-skill

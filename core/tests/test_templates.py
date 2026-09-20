@@ -80,10 +80,10 @@ def test_skill_has_no_once_flag(path):
 
 @pytest.mark.parametrize("path", SKILLS, ids=_ids)
 def test_every_hook_runs_the_sibling_script(path):
-    # The file name is what picks the hook's behaviour, so a plugin's copy is
-    # named -plugin and a plain skill's -skill. Each hook must name its own.
+    # A plugin ships a skill, so both ship the same hook. Each SKILL.md must name
+    # the copy sitting beside it.
     (script,) = path.parent.glob("ratexp-*.sh")
-    assert script.name in ("ratexp-skill.sh", "ratexp-plugin.sh"), script
+    assert script.name == "ratexp-skill.sh", script
     front = _frontmatter(path)
     commands = [
         hook["command"]

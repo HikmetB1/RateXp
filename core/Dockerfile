@@ -39,7 +39,7 @@ RUN python -m spacy download en_core_web_sm && \
 # One hook script per thing that can be rated; core serves each at its own name.
 # modules/ carries the migration .sql files alongside the code that applies them.
 COPY load_config.py config.yaml install.sh ./
-COPY ratexp-skill.sh ratexp-plugin.sh ratexp-coding-agent.sh ./
+COPY ratexp-skill.sh ratexp-coding-agent.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/
 # Served to skill authors by GET /template/... - install.sh downloads from here.

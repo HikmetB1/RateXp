@@ -47,7 +47,7 @@ def test_a_name_replaces_the_placeholder_in_the_skill_template(client):
 def test_a_name_replaces_the_placeholder_in_the_plugin_template(client):
     body = client.get("/template/plugin/SKILL.md", params={"name": "poem-creator"}).text
     assert "name: poem-creator" in body
-    assert "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-plugin.sh" in body
+    assert "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-skill.sh" in body
 
     manifest = client.get("/template/plugin/plugin.json", params={"name": "poem-creator"}).text
     assert '"name": "poem-creator"' in manifest

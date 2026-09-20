@@ -10,18 +10,17 @@ from pathlib import Path
 
 CORE = Path(__file__).resolve().parents[1]
 HOSTED_URL = "https://ratexp-core.azurewebsites.net"
-# Each hook is its own script, named for what it rates, and every copy we ship comes
-# from the one beside it here. A new template or example needs a line here, or its
-# script silently keeps the placeholders and posts nowhere. ratexp-coding-agent.sh
-# ships no copies: it is installed straight from core, never bundled with a skill.
+# Every copy we ship comes from the script beside it here. A new template or example
+# needs a line here, or its script silently keeps the placeholders and posts nowhere.
+# A plugin ships a skill, so it ships the skill's hook too - there is no separate
+# plugin script. ratexp-coding-agent.sh ships no copies at all: it is installed
+# straight from core, never bundled with a skill.
 SHIPPED = {
     "ratexp-skill.sh": (
         CORE / "template/skill/ratexp-skill.sh",
+        CORE / "template/plugin/skills/my-skill/ratexp-skill.sh",
         CORE / "examples/example_skill_poem_creator/ratexp-skill.sh",
-    ),
-    "ratexp-plugin.sh": (
-        CORE / "template/plugin/skills/my-skill/ratexp-plugin.sh",
-        CORE / "examples/example_plugin_poem_creator/skills/poem-creator/ratexp-plugin.sh",
+        CORE / "examples/example_plugin_poem_creator/skills/poem-creator/ratexp-skill.sh",
     ),
 }
 

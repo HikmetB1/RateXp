@@ -17,7 +17,7 @@ its own README covering its layout, how to run it and what it reads:
 
 | Service | What it is |
 |---------|------------|
-| [core](./core/README.md) | Hands out the hook scripts (`ratexp-skill.sh`, `ratexp-plugin.sh`, `ratexp-coding-agent.sh`), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
+| [core](./core/README.md) | Hands out the hook scripts (`ratexp-skill.sh`, `ratexp-coding-agent.sh`), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
 | [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
 
@@ -66,7 +66,7 @@ docker compose up --build -d
 
 | Service | URL                     | What it is                                               |
 |---------|-------------------------|----------------------------------------------------------|
-| core    | <http://localhost:8000> | serves `/ratexp-skill.sh`, `/ratexp-plugin.sh`, `/ratexp-coding-agent.sh`, ingests `/feedback` + `/transcript` |
+| core    | <http://localhost:8000> | serves `/ratexp-skill.sh`, `/ratexp-coding-agent.sh`, ingests `/feedback` + `/transcript` |
 | app     | <http://localhost:8001> | the dashboard                                            |
 
 `docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
@@ -119,8 +119,7 @@ push `seeder_image` the same way as step 2.
 ```text
 .
 ├── core/                       Public ingestion service: serves the hook scripts, stores feedback
-│   ├── ratexp-skill.sh         The hook a skill ships with - rates that skill's runs
-│   ├── ratexp-plugin.sh        The same, for a plugin
+│   ├── ratexp-skill.sh         The hook a skill ships with, plugins included
 │   ├── ratexp-coding-agent.sh  Rates the whole session; installed, never bundled
 │   ├── install.sh              What `curl … | bash -s skill my-skill` runs
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building

@@ -23,9 +23,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # core/, one level up from this package. Resolved from __file__ so the working
 # directory doesn't matter.
 CORE_DIR = Path(__file__).resolve().parent.parent
-# One hook script per thing that can be rated, each named for what it rates.
+# One hook script per thing that can be rated. A plugin ships a skill, so it ships
+# the skill's hook - there is no separate plugin script.
 SKILL_SH = CORE_DIR / "ratexp-skill.sh"
-PLUGIN_SH = CORE_DIR / "ratexp-plugin.sh"
 CODING_AGENT_SH = CORE_DIR / "ratexp-coding-agent.sh"
 INSTALL_SH = CORE_DIR / "install.sh"
 URL_PLACEHOLDER = "'__RATEXP_URL__'"
@@ -147,14 +147,8 @@ def _serve_hook(path: Path) -> str:
 # match /install.sh, and the name is then a path rather than a fixed route.
 @app.get("/ratexp-skill.sh", response_class=PlainTextResponse)
 def get_skill_hook() -> str:
-    """The hook a skill ships with. Rates that skill's own runs."""
+    """The hook a skill ships with, plugins included. Rates that skill's own runs."""
     return _serve_hook(SKILL_SH)
-
-
-@app.get("/ratexp-plugin.sh", response_class=PlainTextResponse)
-def get_plugin_hook() -> str:
-    """The hook a plugin ships with. Rates that skill's own runs."""
-    return _serve_hook(PLUGIN_SH)
 
 
 @app.get("/ratexp-coding-agent.sh", response_class=PlainTextResponse)

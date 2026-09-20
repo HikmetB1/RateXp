@@ -83,8 +83,8 @@ elif [[ $kind == plugin ]]; then
     made=$dir
     fetch "template/plugin/plugin.json?name=$name" "$dir/.claude-plugin/plugin.json"
     fetch "template/plugin/SKILL.md?name=$name" "$dir/skills/$name/SKILL.md"
-    fetch "ratexp-plugin.sh" "$dir/skills/$name/ratexp-plugin.sh"
-    chmod +x "$dir/skills/$name/ratexp-plugin.sh"
+    fetch "ratexp-skill.sh" "$dir/skills/$name/ratexp-skill.sh"
+    chmod +x "$dir/skills/$name/ratexp-skill.sh"
 else
     # The hooks belong in the agent's own settings file, so they are on from the
     # first turn instead of waiting for some skill to be invoked.

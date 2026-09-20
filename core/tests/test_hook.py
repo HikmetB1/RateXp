@@ -50,14 +50,14 @@ BAKED_EVERY = 2
 # exactly like the canonical script they came from.
 SHIPPED = (
     CORE / "template" / "skill" / "ratexp-skill.sh",
-    CORE / "template" / "plugin" / "skills" / "my-skill" / "ratexp-plugin.sh",
+    CORE / "template" / "plugin" / "skills" / "my-skill" / "ratexp-skill.sh",
     CORE / "examples" / "example_skill_poem_creator" / "ratexp-skill.sh",
     CORE
     / "examples"
     / "example_plugin_poem_creator"
     / "skills"
     / "poem-creator"
-    / "ratexp-plugin.sh",
+    / "ratexp-skill.sh",
 )
 
 # Loopback is the only http:// origin the script accepts, and nothing listens

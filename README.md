@@ -65,8 +65,8 @@ That is the whole setup. Ratings land on the
 - **Coding agent** - every 2nd **turn** of the session, and `/rate` asks on the spot.
 
 Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
-`ratexp-skill.sh`, `ratexp-plugin.sh` or `ratexp-coding-agent.sh` - to change the default
-for everyone you ship it to.
+`ratexp-skill.sh` or `ratexp-coding-agent.sh` - to change the default for everyone you
+ship it to.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
@@ -108,7 +108,7 @@ short original poem:
 - [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
   a plain skill: `SKILL.md` plus its `ratexp-skill.sh`.
 - [`core/examples/example_plugin_poem_creator/`](./core/examples/example_plugin_poem_creator/) -
-  a plugin with its skill: `SKILL.md` plus its `ratexp-plugin.sh`.
+  a plugin with its skill: `SKILL.md` plus the same `ratexp-skill.sh`.
 
 For a blank starting point, copy [`core/template/`](./core/template/).
 

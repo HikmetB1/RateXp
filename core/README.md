@@ -58,8 +58,8 @@ That is the whole setup. Ratings land on the
 - **Coding agent** - every 2nd **turn** of the session, and `/rate` asks on the spot.
 
 Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
-`ratexp-skill.sh`, `ratexp-plugin.sh` or `ratexp-coding-agent.sh` - to change the default
-for everyone you ship it to.
+`ratexp-skill.sh` or `ratexp-coding-agent.sh` - to change the default for everyone you
+ship it to.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
@@ -68,8 +68,7 @@ Want to run your own core instead of the hosted one? See
 
 ```text
 core/
-├── ratexp-skill.sh      the hook a skill ships with - source of the copies below
-├── ratexp-plugin.sh     the same, for a plugin
+├── ratexp-skill.sh      the hook a skill ships with, plugins included - source of the copies
 ├── ratexp-coding-agent.sh  the hook that rates a whole session; installed, never bundled
 ├── install.sh           what `curl … | bash -s skill my-skill` runs
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
@@ -159,14 +158,14 @@ core is one of the two web apps in the Terraform stack - see
 Each hook in this folder is an original. Each has two blanks in it: where to post, and how
 often to ask. Those blanks get filled in two different ways:
 
-- `GET /ratexp-skill.sh`, `/ratexp-plugin.sh` and `/ratexp-coding-agent.sh` fill them in while
-  serving the file, so every download points back at the core that served it.
+- `GET /ratexp-skill.sh` and `/ratexp-coding-agent.sh` fill them in while serving the file,
+  so every download points back at the core that served it.
 - `tools/sync_hooks.py` fills them in and writes four ready-made copies under `template/` and
   `examples/`, all pointing at the hosted core.
 
 The copies are named for what they rate, because the file name is what picks the hook's
-behaviour: `ratexp-skill.sh` and `ratexp-plugin.sh` rate their own runs, and
-`ratexp-coding-agent.sh` rates the session it is running in.
+behaviour: `ratexp-skill.sh` rates the skill's own runs - a plugin ships a skill, so it
+ships the same hook - and `ratexp-coding-agent.sh` rates the session it is running in.
 
 Those four copies are generated, so editing one is pointless - the next sync overwrites it.
 Edit the original in this folder instead, then regenerate:
