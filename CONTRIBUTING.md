@@ -6,7 +6,6 @@
 - [Deploy to Azure](#deploy-to-azure-from-zero-to-live)
 - [Repository layout](#repository-layout-what-each-folder-holds)
 - [Tests](#tests-per-service-and-whole-app)
-- [TODO](#todo-what-is-still-open)
 - [README rules](#readme-rules-what-belongs-in-a-folder-readme)
 - [Code rules](#code-rules-how-code-should-read)
 - [Contributor License Agreement](#contributor-license-agreement-what-you-agree-to)
@@ -185,19 +184,6 @@ export RATEXP_AZURE_APP_URL=https://<your-app>.azurewebsites.net
 pytest tests/test_azure_live.py
 ```
 
-## TODO: what is still open
-
-- [ ] Expand to more coding agents (e.g. GitHub Copilot).
-- [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif`
-      exceeds Dynatrace's per-attribute storage cap, so it is truncated on ingest → invalid
-      JSON → the read adapter returns an empty stub (`dynatrace_truncated`) → the viewer shows
-      nothing (PostgreSQL still shows it in full). Fix by shipping transcripts as **one log
-      line per step**, and/or surfacing `dynatrace_truncated` in the UI. Normal-sized
-      transcripts are unaffected.
-- [ ] Build a Dynatrace dashboard over the fanned-out `ratexp.*` logs, so ratings and
-      trajectories can be viewed natively in Dynatrace. Open question: dashboard or a
-      Dynatrace App.
-
 ## README rules: what belongs in a folder README
 
 These are about the README inside a folder. Your reader knows the project but has never
@@ -285,13 +271,3 @@ Before your contribution can be merged, you agree to the
 request; sign your commits with `git commit -s` (adds a `Signed-off-by` line) to confirm. In
 short: you keep your own rights, but you grant the owner a license to your contribution -
 including the right to relicense it later.
-
-
-
-check tests on main if they really make sense
-go through readmes 
-adapter for arize
-pitch deck add to git ignore
-pitch deck arize offer annotation from the ui the human feedback I am on the go
-add it to every session ened of claude not just skills for claude admins
-add to readmes configs boundary values if any
