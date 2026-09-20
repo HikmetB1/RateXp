@@ -271,7 +271,7 @@ summary:hover { opacity: 0.8; }
 }
 .link-btn:hover:not(:disabled) { transform: none; box-shadow: none; text-decoration: underline; }
 
-/* "i" badge next to the "Filter with SQL" heading - mirrors the heading's box
+/* "i" badge next to the "Filter feedback with SQL" heading - mirrors the heading's box
    (font, size, padding, border) so the two read as the same size. */
 .info-badge {
   flex: none;

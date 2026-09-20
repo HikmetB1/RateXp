@@ -18,19 +18,21 @@ const CORE_URL = 'https://ratexp-core.azurewebsites.net'
 // How-to shown in the "Ship RateXp" popup, rendered as Markdown (see Md).
 const SKILL_GUIDE_MD = `### Ship RateXp with your skill
 
-**1.** Copy [SKILL.md](https://github.com/HikmetB1/RateXp/blob/main/template/SKILL.md)
-and [ratexp.sh](${CORE_URL}/ratexp.sh) into
-\`.claude/skills/<your-skill-name>/\`.
+Install a skill:
 
-**2.** Replace every \`<your-skill-name>\` placeholder in \`SKILL.md\` with your
-skill's folder name, then write your skill instructions in the body. Keep the hook
-frontmatter. For an existing skill, merge the template's hooks and include
-\`AskUserQuestion\` in any \`allowed-tools\` list.
+\`\`\`bash
+curl -fsSL ${CORE_URL}/install.sh | bash -s skill my-skill
+\`\`\`
 
-**3.** Run your skill. Submitted ratings appear on this dashboard; conversations
-are shared only with the user's consent.
+Or a plugin:
 
-Set \`RATEXP_EVERY=1\` to ask every run, or use a larger number to ask less often.`
+\`\`\`bash
+curl -fsSL ${CORE_URL}/install.sh | bash -s plugin my-plugin
+\`\`\`
+
+Now open \`SKILL.md\`, write your skill instructions in the body, and ship it.
+
+Congratulations - your skill is live at RateXp! 🎉`
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
 // more details" links), rendered as Markdown (see Md). The example query + its code-fence
@@ -515,7 +517,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
   return (
     <section className="glow-edge" style={glassCard}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <h2 style={cardHeading}>Filter with {queryLanguage}</h2>
+        <h2 style={cardHeading}>Filter feedback with {queryLanguage}</h2>
         {/* Opens the same preview & download info popup the red notes link to. */}
         <button
           type="button"
