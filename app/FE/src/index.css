@@ -4,7 +4,7 @@
 
 /* Midnight (data-theme="dark"): deep navy, slate boxes, orange buttons. */
 :root[data-theme='dark'] {
-  --bg: #04203f;
+  --bg: #001848;       /* page background — the brand navy, sampled off the cover art */
   --text: #e7eef7;
   --muted: #a6b3c7;
   --faint: #6f7d93;
@@ -31,10 +31,11 @@
   --blur: none;
 }
 
-/* Sunburst (default / data-theme="light"): denim sky, yellow boxes, red buttons. */
+/* Sunburst (default / data-theme="light"): yellow boxes, red buttons, on the same
+   dark blue page as Midnight — the background is shared by both themes. */
 :root,
 :root[data-theme='light'] {
-  --bg: #3f7fcf;
+  --bg: #001848;       /* same brand navy as Midnight */
   --text: #14233a;
   --muted: #5a6678;
   --faint: #94a1b4;
