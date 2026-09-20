@@ -1,82 +1,34 @@
-# core runtime config. Every key is required - a missing key fails loudly at startup.
+# core settings. Every key is required; see ./README.md (## Config) for what each one does.
 
-# ATIF schema version stamped on every stored transcript. Bump when api/build_trajectory.py's shape changes.
 schema_version: ATIF-v1.7
 
-# Largest request body core accepts, in bytes (guards /transcript). 5 MiB.
-max_body_bytes: 5242880
-
-# Largest trajectory we actually store, in bytes (measured on the converted ATIF JSON).
-# Bigger ones are NOT written in full: their step-by-step trajectory is dropped and only
-# a light meta-only stub (token/step totals + an "oversized" note) is stored, so a few
-# huge conversations can't bloat the database or slow the dashboard. 256 KiB.
-max_transcript_bytes: 262144
-
-# Per-IP request budget per minute (token bucket). 0 disables the limiter.
+max_body_bytes: 5242880        # 5 MiB
+max_transcript_bytes: 262144   # 256 KiB
 rate_limit_per_minute: 120
-
-# Ask on every Nth skill run. Baked into distributed hooks; RATEXP_EVERY overrides.
 default_survey_every: 2
 
-# PII redaction for consented transcripts. The conversation text is masked before
-# storage; on error the upload is dropped (fail-closed). This file is the only
-# switch - both adapters ship in the image, so nothing else needs changing.
 redaction:
   enabled: true
-  # Which adapter masks the text (see core/modules/redaction/adapters/):
-  #   presidio - self-hosted, runs inside core, no per-call cost (default).
-  #   azure    - Azure AI Language; needs azure_endpoint + the Managed Identity,
-  #              and is billed per 1,000 text records.
-  # Overridable per deployment by the RATEXP_REDACTION_PROVIDER env var (flip without
-  # a rebuild - both adapters ship in the cloud image).
-  provider: presidio
-  # PII model languages; each message is auto-detected, falling back to the first.
-  # Azure uses the whole list; Presidio covers the subset spaCy has plain models
-  # for (en, es, fr, pt, ru) and detects each message's language.
-  # The 10 most-spoken languages (BCP-47 codes).
-  languages:
-    - en       # English
-    - zh-hans  # Mandarin Chinese
-    - hi       # Hindi
-    - es       # Spanish
-    - fr       # French
-    - ar       # Arabic
-    - bn       # Bengali
-    - pt       # Portuguese
-    - ru       # Russian
-    - ur       # Urdu
-  # Only used when provider is "azure": the Language account endpoint (custom
-  # subdomain so Entra ID token auth works).
+  provider: presidio           # presidio | azure
+  # Azure uses this whole list; presidio only covers en, es, fr, pt, ru.
+  languages: [en, zh-hans, hi, es, fr, ar, bn, pt, ru, ur]
   azure_endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
 
-# Write destinations. Every submission is validated + redacted once, then written to
-# every adapter whose `enabled` is true (see core/modules/write/).
-# Adapters are independent: one failing is logged and never blocks the others, but the
-# request fails (503) if none of them accepted. Enable any combination. Secrets (DB
-# passwords, tokens) are never in this file - each adapter names the env var to read
-# them from.
+# Secrets live in the env vars named below, never in this file.
 write_adapters:
-  # RateXp's own PostgreSQL - the one the live dashboard reads. Uses core's
-  # DATABASE_URL / RATEXP_DB_AUTH.
   app_be_psql:
     enabled: true
-  # An adopter's own PostgreSQL. Connection string read from this env var.
   custom_psql:
     enabled: false
     dsn_env: CUSTOM_PSQL_DSN
-  # RateXp's own Dynatrace tenant, over OpenTelemetry (OTLP). Tenant URL and token
-  # both come from the env vars named here (nothing environment-specific in this
-  # file). Needs core built with the `dynatrace-otlp` extra; inert without the token.
   app_be_dynatrace:
     enabled: true
     tenant_url_env: DT_TENANT_URL
     token_env: DT_ACCESS_TOKEN
-  # An adopter's own Dynatrace tenant, over OpenTelemetry (OTLP).
   custom_dynatrace:
     enabled: false
     tenant_url_env: CUSTOM_DT_TENANT_URL
     token_env: CUSTOM_DT_TOKEN
-  # A Bluebox workspace, over OpenTelemetry (OTLP). Write-only - no read adapter.
   bluebox:
     enabled: false
     endpoint_env: BLUEBOX_OTLP_ENDPOINT

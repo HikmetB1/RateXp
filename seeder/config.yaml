@@ -1,28 +1,15 @@
-# seeder runtime config. Every key is required - a missing key fails loudly at startup.
-# Skills come from skills/*/SKILL.md; the model's key comes from .env.
+# seeder settings. Every key is required; see ./README.md (## Config) for what each one does.
 
-# ATIF schema version stamped on every seeded trajectory (matches core's value).
 schema_version: ATIF-v1.7
 
-# Any init_chat_model id, e.g. azure_openai:<deployment>. Only the matching key goes
-# in .env. Both of these take an env override so a deployment can point elsewhere
-# without editing the file - Terraform sets both on the Function App.
-model: openai:gpt-4o-mini          # env MODEL overrides
+model: openai:gpt-4o-mini          # any init_chat_model id; env MODEL overrides
 core_url: http://localhost:8000    # env RATEXP_CORE_URL overrides
 
 temperature: 0.7
-max_rounds: 40                     # agent turns per task before it must rate
-critical_ratio: 0.3                # share of runs that take the tough-reviewer stance below
-                                   # (0 = always lenient, 1 = always tough); keeps some bad ratings flowing
-oversized_ratio: 0.2               # share of runs whose trajectory is bloated past core's
-                                   # max_transcript_bytes, so core stores a meta-only stub
-                                   # instead of the full steps (0 = never, 1 = always)
-
-# Gap between runs for the local loop, `python -m api.run_continuously`. The deployed
-# Azure timer ignores this and takes its cadence from the SEED_SCHEDULE app setting
-# instead (NCRONTAB with seconds, e.g. "*/30 * * * * *" = every 30s), which Terraform
-# sets from its seed_schedule variable.
-interval_seconds: 3
+max_rounds: 40
+critical_ratio: 0.3                # 0 = always lenient, 1 = always tough
+oversized_ratio: 0.2               # 0 = never oversized, 1 = always
+interval_seconds: 3                # local loop only; the deployed timer uses SEED_SCHEDULE
 
 # {name} = the skill for this call, {max_rounds} = turn budget.
 system_prompt: |

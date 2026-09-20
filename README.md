@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
   <a href="#examples">Examples</a> ·
   <a href="#features">Features</a> ·
   <a href="#the-dashboard">Dashboard</a> ·
@@ -53,6 +54,34 @@ or less often.*
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure).
+
+## How it works
+
+core hands out the hook script, takes back whatever the hook posts, masks anything personal,
+and writes the result to every destination switched on - `ratexp.sh` only ever posts to the
+same two endpoints and never knows where the data ends up.
+
+```mermaid
+sequenceDiagram
+    participant A as Skill author
+    participant H as ratexp.sh
+    participant C as core
+    participant D as Destinations
+
+    Note over A,C: once, while setting up a skill
+    A->>C: GET /install.sh, then run it
+    C-->>A: SKILL.md + ratexp.sh, named and pointing back at this core
+    A->>H: written into the skill folder
+
+    Note over H,D: then on every Nth run of that skill
+    H->>C: POST /feedback (rating, optional comment)
+    opt user consented
+        H->>C: POST /transcript
+        C->>C: rebuild the conversation, then mask personal data
+    end
+    C->>D: write to every enabled destination
+    C-->>H: 201 stored, or 503 if none accepted
+```
 
 ## Examples
 The same poem-writing skill packaged both ways, hooks already wired - ask for a mood, get a

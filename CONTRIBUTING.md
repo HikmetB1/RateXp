@@ -277,3 +277,4 @@ adapter for arize
 pitch deck add to git ignore
 pitch deck arize offer annotation from the ui the human feedback I am on the go
 add it to every session ened of claude not just skills for claude admins
+add to readmes configs boundary values if any
