@@ -16,7 +16,7 @@ const WS_BASE =
 const CORE_URL = 'https://ratexp-core.azurewebsites.net'
 
 // How-to shown in the "Ship RateXp" popup, rendered as Markdown (see Md).
-const SKILL_GUIDE_MD = `### Ship RateXp with your skill
+const SKILL_GUIDE_MD = `### Ship RateXp with your skill/plugin
 
 Install a skill:
 
@@ -216,7 +216,7 @@ export default function App() {
           <button
             className="btn-edge"
             onClick={() => setGuideOpen(true)}
-            title="How to send your skill's feedback to RateXp"
+            title="How to send your skill's or plugin's feedback to RateXp"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -227,7 +227,7 @@ export default function App() {
               lineHeight: 1.2,
             }}
           >
-            Ship RateXp with your skill
+            Ship RateXp with your skill/plugin
           </button>
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
@@ -768,7 +768,7 @@ function SkillGuideModal({ open, onClose }) {
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="modal-wrap" onClick={onClose}>
-        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill" onClick={(e) => e.stopPropagation()}>
+        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill/plugin" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
           <Md className="md modal-md">{SKILL_GUIDE_MD}</Md>
         </div>
