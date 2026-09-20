@@ -94,7 +94,9 @@ DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
 
 - `schema_version`: ATIF version stamped on every stored transcript
-- `max_body_bytes`: largest request body accepted, in bytes (this is what guards `/transcript`)
+- `max_body_bytes`: biggest request body core accepts, in bytes - the cap that guards
+  `/transcript`. A bigger one is turned away with `413` and nothing is kept, not even a stub,
+  so set it higher than `max_transcript_bytes`. The hook never sends more than 4 MiB at once
 - `max_transcript_bytes`: largest trajectory stored in full; a bigger one keeps only a
   meta-only stub, so a few huge conversations can't bloat the database
 - `rate_limit_per_minute`: per-IP budget; `0` turns the limiter off
