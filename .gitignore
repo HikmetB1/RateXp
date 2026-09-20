@@ -27,9 +27,7 @@ tfplan
 /.idea
 /.vscode
 
-# Shell and tool config belonging to the machine, not the repo. These appear at
-# the root as empty read-only placeholders under some sandboxes. Rooted with a
-# leading slash so a real file of the same name deeper in the tree still counts.
+# Machine config, not the repo
 /.bashrc
 /.bash_profile
 /.profile
@@ -39,10 +37,8 @@ tfplan
 /.ripgreprc
 /.mcp.json
 
-# Your own ignore rules, for whatever only you have on this machine - agent files,
-# recordings, scratch work. Git reads it because this repo's local config points
-# at it; the notes inside the file explain the one-time setup.
+# Personal rules
 .local.gitignore
 
-# Archive (local UI style mockups, not tracked)
+# Archive
 archive/
