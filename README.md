@@ -11,154 +11,52 @@
 </p>
 
 <p align="center">
-  <a href="#what-is-ratexp">What it is</a> ·
-  <a href="#the-problem-defintion">The problem</a> ·
-  <a href="#who-its-for">Who it's for</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#how-it-works">How it works</a>
-</p>
-<p align="center">
-  <a href="#quick-start---ship-ratexp-with-your-skill">Quick start</a> ·
-  <a href="#how-often-it-asks">How often it asks</a> ·
-  <a href="#privacy">Privacy</a> ·
+  <a href="#quick-start">Quick start</a> ·
   <a href="#examples">Examples</a> ·
+  <a href="#features">Features</a> ·
   <a href="#the-dashboard">Dashboard</a> ·
   <a href="#contact">Contact</a> ·
   <a href="#acknowledgements-and-citations">Acknowledgements</a> ·
   <a href="#license">License</a>
 </p>
 
-## One-line pitch
-RateXp collects user ratings and opt-in conversations for Claude Code skills.
-Ship `SKILL.md` and `ratexp.sh` with your skill, then view feedback on the
-[live dashboard](https://ratexp-app.azurewebsites.net/).
+RateXp collects user ratings and opt-in conversations for Claude Code skills: ship
+`SKILL.md` and `ratexp.sh` with your skill, then read the feedback on the
+[live dashboard](https://ratexp-app.azurewebsites.net/) or on your custom storage adapter.
 
-## Demo
 <p align="center">
   <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
 </p>
 
-## The problem defintion
-Once you ship a skill, you're flying blind - there's no easy way to see how it's actually used or to hear back from the people using it. Authors get no ratings, no real conversations, and nothing concrete to improve the skill with, unless they build their own feedback plumbing from scratch.
+## Quick start
 
-## What is RateXp
-RateXp helps skill authors learn from real use. A hook asks users for a good/bad
-rating and an optional comment after a skill runs. Users can also share the
-conversation; RateXp masks personal information before storing it.
-
-## Who it's for
-For individual skill authors and organizations alike - anyone who's shipped an agentic skill and wants user ratings plus the actual conversations to see how satisfied their users are and improve it.
-
-## Features
-1. **Two-file setup** - drop `SKILL.md` + `ratexp.sh` into your skill folder. The template includes the hooks that collect feedback.
-2. **Tested models** - tested and working with Claude Opus (4.8, 4.7, 4.6, 4.5) and Sonnet (4.6, 4.5).
-3. **Ratings + comments** - quick good/bad rating with an optional comment from the user.
-4. **Opt-in transcripts** - with the user's consent, stores that run of your skill in a standard format (ATIF) for review. The hook uploads it straight from the user's machine, so it never passes through the model.
-5. **PII redaction** - personal info is masked before storage via a pluggable adapter (self-hosted Presidio or Azure AI Language), fail-closed (drops rather than saves unredacted).
-6. **Adjustable sampling** - `RATEXP_EVERY` controls how often the survey shows, so you don't nag every run.
-7. **Live dashboard** - read-only view of feedback as it arrives, with a filter box (SQL for PostgreSQL, DQL for Dynatrace) and JSON export.
-8. **Responsive UI** - the table reflows into cards on phones.
-9. **Pluggable destinations** - a submission fans out to any combination of adapters you enable in config: RateXp's PostgreSQL (the live dashboard), your own PostgreSQL, RateXp's Dynatrace, your own Dynatrace, or a Bluebox workspace. Each is independent, and at least one must accept.
-
-## How it works
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant S as Skill
-    participant H as ratexp.sh
-    participant C as Core
-    participant DB as Storage
-    participant D as Dashboard
-
-    U->>S: Run skill
-    S->>H: Skill hooks
-    H-->>S: Ask for feedback on every Nth run
-    S->>U: Rating, comment, transcript consent
-    U->>H: Answer via AskUserQuestion
-    H->>C: POST /feedback
-    opt User consents to sharing
-        H->>C: POST /transcript
-        C->>C: Convert to ATIF and redact PII
-    end
-    C->>DB: Store in enabled destinations
-    D->>DB: Read feedback via dashboard API
-```
-
-The hook sends feedback directly from the user's machine. Core stores it, and a
-separate read-only dashboard API reads the selected data source and streams updates
-to the UI.
-
-### Where your data goes
-core validates and redacts each submission once, then writes it to **every
-destination you enable** in `core/config.yaml` (the `write_adapters` block) -
-PostgreSQL, Dynatrace or [Bluebox](https://bluebox.ai), RateXp's own or your own:
-
-| | PostgreSQL | Dynatrace (OpenTelemetry) | Bluebox (OpenTelemetry) |
-|--|--|--|--|
-| **RateXp's** | `app_be_psql` - RateXp's DB, the live dashboard reads it | `app_be_dynatrace` - RateXp's Dynatrace tenant | — |
-| **Your own** | `custom_psql` - your database (`CUSTOM_PSQL_DSN`) | `custom_dynatrace` - your tenant (`CUSTOM_DT_TOKEN`) | `bluebox` - your workspace (`BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN`) |
-
-Enable any combination - the adapters are **independent**, so one failing (or a
-Dynatrace token being absent) is logged and never blocks the others. A submission
-is **accepted once at least one destination takes it**; if none do, core answers
-`503` and the hook tells the user it could not be sent. Secrets (DB strings, tokens)
-come from env vars named in the config, never from the file itself. See
-[`core/modules/write/adapters/`](./core/modules/write/adapters/) and
-[`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py).
-
-The read side is a single source you pick: the live dashboard reads from **one** read
-adapter ([`app/modules/read/`](./app/modules/read/)) - **PostgreSQL**
-(queried with SQL) or **Dynatrace** (the fanned-out logs, queried with DQL). The
-dashboard's **filter box speaks that source's own language** - SQL when reading
-PostgreSQL, DQL when reading Dynatrace - so the box works either way. So writes fan
-out to many destinations; reads come from one source you pick.
-
-**Bluebox is write-only**, so it's the one destination with no read adapter: it
-deliberately exposes no query language, and you read it back by asking in plain
-English (`bluebox ask "which skills got the most bad ratings this week"`) rather
-than through the dashboard.
-
-## Quick start - ship RateXp with your skill or plugin
-Needs Claude Code, Bash 3.2+ and curl. From your project root:
+One command, two files, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
+from your project root:
 
 ```bash
+# Pick one - you only need one of these.
+
+# A plain skill  ->  creates .claude/skills/my-skill/
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
+
+# The same, as a plugin  ->  creates my-plugin/ with the skill nested inside
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s plugin my-plugin
+
+# Then go update your skill  ->  write it in SKILL.md, leave the frontmatter alone
 ```
 
-The first creates `.claude/skills/my-skill/`, the second `my-plugin/` with the skill nested
-inside; each holds a `SKILL.md` with the hooks wired and a ready-to-run `ratexp.sh`. Write
-your skill in the body of `SKILL.md`, keep the frontmatter, and ratings land on the
-[dashboard](https://ratexp-app.azurewebsites.net/). `RATEXP_EVERY=1 claude` asks every run,
-and a self-hosted core works the same with its own URL.
+That is the whole setup. Ratings land on the
+[dashboard](https://ratexp-app.azurewebsites.net/).
 
-**Existing skill?** Put `ratexp.sh` beside its `SKILL.md` with
-`curl -fsSL https://ratexp-core.azurewebsites.net/ratexp.sh -o ratexp.sh`, copy the `hooks`
-block from [the template](./core/template/skill/SKILL.md), and list `AskUserQuestion` in
-`allowed-tools`.
+*Asks every 2nd run by default - change `DEFAULT_EVERY` at the top of `ratexp.sh` to ask more
+or less often.*
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) covers local development and deployment.
-
-## How often it asks
-The hook asks on every Nth run of each skill within a session. The shipped default
-is **2**, set by `default_survey_every` in [`core/config.yaml`](./core/config.yaml).
-Set `RATEXP_EVERY=1` to ask every run, or choose a larger number to ask less often.
-`RATEXP_URL` overrides the destination.
-
-## Privacy
-Submitted feedback includes the skill name, rating, optional comment, agent name,
-session ID, and request ID. Transcript sharing requires **“Yes, store trajectory”**
-in the survey; **“No, do not store”** keeps it private.
-
-When the hook observes the skill starting, it uploads the conversation from that
-point through the survey response. If the initial start event is unavailable, the
-upload includes the session so far. Core masks personal information before storage
-and drops the transcript if redaction fails.
+Want to run your own core instead of the hosted one? See
+[CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure).
 
 ## Examples
-The same poem-writing skill, packaged both ways, with the feedback hooks already
-wired up - ask for a mood, get a short original poem:
+The same poem-writing skill packaged both ways, hooks already wired - ask for a mood, get a
+short original poem:
 
 - [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
   a plain skill: `SKILL.md` plus its `ratexp.sh`.
@@ -167,38 +65,70 @@ wired up - ask for a mood, get a short original poem:
 
 For a blank starting point, copy [`core/template/`](./core/template/).
 
+## Features
+1. **Two-file setup** - drop `SKILL.md` + `ratexp.sh` into your skill folder; the frontmatter
+   carries the hooks that collect the feedback.
+2. **Ratings and comments** - a quick good/bad rating with an optional comment, asked on every
+   Nth run of the skill so it never nags (`RATEXP_EVERY`, default every 2nd run).
+3. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
+   format (ATIF). The hook uploads it straight from the user's machine.
+4. **PII redaction** - personal data is masked before storage by a pluggable adapter
+   (self-hosted Presidio or Azure AI Language), and dropped rather than stored unmasked.
+5. **Write adapters** - storage is an adapter architecture: core writes each submission to
+   every adapter you switch on, and they run independently, so one failing never blocks the
+   others. Five ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
+   PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
+   Dynatrace) and `bluebox` (a Bluebox workspace).
+6. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
+   JSON export. Reading is one more adapter, and you enable exactly one of four:
+   `app_be_psql` or `custom_psql` (queried with SQL), `app_be_dynatrace` or
+   `custom_dynatrace` (queried with DQL). Bluebox is write-only, so it has no read adapter.
+7. **Responsive UI** - the table reflows into cards on phones.
+8. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
+
 ## The dashboard
-The [dashboard](https://ratexp-app.azurewebsites.net/) is a read-only, real-time view of the feedback as it arrives. It shows
-only the latest entries and the most-rated skills (both capped by `list_view_limit` / `top_skills_limit` in `app/config.yaml`, default 10 each). The layout is responsive. Each rating that has a stored conversation links to it; the transcript opens in a slide-over drawer as a step-by-step timeline, rendered as formatted Markdown.
+<p align="center">
+  <img src="./assets/dashboard.png" alt="The RateXp dashboard" width="720">
+</p>
 
-To pull more than the preview shows, use the **filter box** - it speaks the read
-source's own language (SQL for PostgreSQL, DQL for Dynatrace) - and **Download JSON**:
+The [dashboard](https://ratexp-app.azurewebsites.net/) updates as feedback arrives. It shows
+the latest ratings and the most-rated skills; a rating with a stored conversation opens it in
+a slide-over timeline.
 
-- No query → the 10 most recent rows.
-- A query that returns a single skill → *all* of that skill's rows.
-- A query spanning several skills → the 10 most recent.
+To narrow things down, type an **SQL** query into the filter box.
 
-So to grab everything for one skill, query it (e.g. `SELECT * FROM feedback WHERE
-skill_name = '...'`) then Download JSON. The export carries each row's full ATIF
-transcript alongside its rating.
+The box only ever shows the most recent matches. To get more than that, use **Download JSON**.
+What it writes depends on what is in the box when you click it:
+
+| In the filter box | What the download contains |
+|---|---|
+| *(left empty)* | The 10 most recent ratings. |
+| `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **Every** rating for that skill, up to 1000. |
+
+Every exported row carries its full trajectory beside the rating.
 
 ## Contact
-Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.com) or on [LinkedIn](https://www.linkedin.com/in/hikmetb/).
-
+Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.com) or on
+[LinkedIn](https://www.linkedin.com/in/hikmetb/).
 
 ## Acknowledgements and citations
-We're grateful to the open-source projects that RateXp leveraged; for their licenses and formal citations see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+We're grateful to the open-source projects that RateXp leveraged; for their licenses and
+formal citations see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). To cite RateXp
+itself, use [CITATION.cff](./CITATION.cff).
 
 ## License
-
 [PolyForm Shield 1.0.0](./LICENSE) - source-available.
 
-Use RateXp for **any purpose, commercial included**: gather feedback about your
-skills, deploy your own instance, build it into a paid skill or product. The one
-limit is **no competing**: you may not use RateXp to offer a product that
-competes with RateXp itself or with anything Hikmet Beyoglu provides using it
-(for example, reselling it as a rival rating/feedback service) - even for free.
+Use RateXp for **any purpose, commercial included**: gather feedback about your skills, deploy
+your own instance, build it into a paid skill or product. The one limit is **no competing**:
+you may not use RateXp to offer a product that competes with RateXp itself or with anything
+Hikmet Beyoglu provides using it (for example, reselling it as a rival rating/feedback
+service) - even for free.
 
-Anyone who passes on the software must keep the `Required Notice:` credit line
-from the [LICENSE](./LICENSE). The software comes **as is, with no warranty**.
-Questions: Hikmet Beyoglu (hikmet.beyoglu@hotmail.com).
+Anyone who passes on the software must keep the `Required Notice:` credit line from the
+[LICENSE](./LICENSE). The software comes **as is, with no warranty**. Questions:
+[email me here](mailto:hikmet.beyoglu@hotmail.com).
+
+---
+
+Want to run it yourself or contribute? See [CONTRIBUTING.md](./CONTRIBUTING.md).

@@ -1,280 +1,170 @@
 # Contributing to RateXp
 
-## Table of contents
+- [The three services](#the-three-services)
+- [Config and env](#config-and-env)
 - [Running locally](#running-locally)
-- [Configuration](#configuration)
-  - [Environment variables](#environment-variables)
-  - [`core/config.yaml`](#coreconfigyaml)
-  - [`app/config.yaml`](#appconfigyaml)
-  - [`seeder/config.yaml`](#seederconfigyaml)
-- [The hook script](#the-hook-script)
 - [Deploy to Azure](#deploy-to-azure)
-- [Tests](#tests)
 - [Repository layout](#repository-layout)
+- [Tests](#tests)
 - [TODO](#todo)
+- [README rules](#readme-rules)
+- [Code rules](#code-rules)
 - [Contributor License Agreement](#contributor-license-agreement)
+
+## The three services
+
+The repo stands on three services. Each one builds, tests and deploys on its own, and each has
+its own README covering its layout, how to run it and what it reads:
+
+| Service | What it is |
+|---------|------------|
+| [core](./core/README.md) | Hands out the hook script, takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
+| [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives. |
+| [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
+
+Both use adapters, switched on in `config.yaml`: core **writes** to every one enabled, app
+**reads** from exactly one - today PostgreSQL, so the filter box takes SQL.
+
+## Config and env
+
+Each service carries its own settings in two files beside its code:
+
+| Service  | Settings                                  | Secrets                            |
+|----------|-------------------------------------------|------------------------------------|
+| core     | [`core/config.yaml`](./core/config.yaml)     | `core/.env` ([example](./core/.env.example))     |
+| app      | [`app/config.yaml`](./app/config.yaml)       | `app/.env` ([example](./app/.env.example))       |
+| seeder   | [`seeder/config.yaml`](./seeder/config.yaml) | `seeder/.env` ([example](./seeder/.env.example)) |
+
+- `config.yaml` holds the non-secret tunables. **Every key is required** - a missing one fails
+  loudly at startup, so the file is the single source of truth.
+- `.env` holds the secrets and per-environment wiring; all three are gitignored.
+- What each key and variable means is listed in that service's README:
+  [core](./core/README.md), [app](./app/README.md), [seeder](./seeder/README.md).
+
+	> Stack wiring that spans services (ports, `DATABASE_URL`, `RATEXP_PUBLIC_URL`) has working
+defaults in [`docker-compose.yml`](./docker-compose.yml); to override one, put it in a root
+`.env`, which compose reads automatically.
 
 ## Running locally
 
-**Prerequisite:** Docker with Docker Compose **v2** (the `docker compose` command, with a space).
-
-### 1. Start the stack
-The whole stack - PostgreSQL + core + dashboard - comes up with one command:
+**Prerequisite:** Docker with Docker Compose **v2** (the `docker compose` command, with a
+space). The whole stack - PostgreSQL + core + dashboard - comes up with one command:
 
 ```bash
 git clone <repo-url> ratexp && cd ratexp
-cp core/.env.example core/.env  # only to send feedback somewhere besides PostgreSQL
 docker compose up --build -d
 ```
 
-| Service | URL                     | What it is                                          |
-|---------|-------------------------|-----------------------------------------------------|
+| Service | URL                     | What it is                                               |
+|---------|-------------------------|----------------------------------------------------------|
 | core    | <http://localhost:8000> | serves `/ratexp.sh`, ingests `/feedback` + `/transcript` |
-| app     | <http://localhost:8001> | the dashboard                                       |
+| app     | <http://localhost:8001> | the dashboard                                            |
 
-Handy commands: `docker compose logs -f core` follows a service's logs, and
-`docker compose down -v` stops everything and wipes the data.
+`docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
+everything and wipes the data.
 
-### 2. Send your own ratings (optional)
-Install a test skill using the [quick start](./README.md#quick-start---ship-ratexp-with-your-skill),
-then launch Claude Code with your local core and a survey on every run:
-
-```bash
-RATEXP_URL=http://localhost:8000 RATEXP_EVERY=1 claude
-```
-
-Local skills under `.claude/skills/` are gitignored.
-
-### 3. Seed demo feedback (optional)
-To auto-fill the dashboard with realistic demo feedback, run the seeder. It needs
-an LLM, so put that model's key (e.g. `OPENAI_API_KEY`) in `seeder/.env`, then bring
-it up with the `seed` profile (kept out of a plain run because it spends API credits):
-
-```bash
-cp seeder/.env.example seeder/.env   # set the key for the model in seeder/config.yaml
-docker compose --profile seed up --build -d
-```
-
-## Configuration
-Settings come from two places:
-- **`config.yaml`** - non-secret tunables, per service. Every key is required; a
-  missing key fails loudly at startup, so the file is the single source of truth.
-- **Environment variables** - secrets and per-environment wiring.
-
-### Environment variables
-
-Locally every environment variable has a working default (the stack runs as-is). On
-Azure, Terraform sets the database wiring plus core's `RATEXP_PUBLIC_URL` /
-`RATEXP_REDACTION_PROVIDER` / `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, the dashboard's
-`DT_QUERY_URL` / `DT_ACCESS_TOKEN`, and the seeder's `MODEL` / `RATEXP_CORE_URL` /
-`SEED_SCHEDULE`.
-
-Each service keeps its own values: `core/.env` holds the tenant URLs, DSNs and
-tokens core writes to; `app/.env` holds the dashboard's read source; `seeder/.env`
-holds the seeder's model key. All three are gitignored, each with an `.env.example`
-beside it. Stack wiring (ports, `DATABASE_URL`, `RATEXP_PUBLIC_URL`) has working
-defaults in [`docker-compose.yml`](./docker-compose.yml); to override one, put it in
-a root `.env`, which compose reads automatically.
-
-Two groups you supply by hand:
-
-- The **custom / Bluebox destinations**, and only for the adapters you enable
-  yourself - `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL`, `CUSTOM_DT_TOKEN`,
-  `BLUEBOX_OTLP_ENDPOINT`, `BLUEBOX_OTLP_TOKEN` in `core/.env`, and
-  `CUSTOM_DT_QUERY_URL` in `app/.env` for the read side. Terraform never sets
-  these; an adapter whose value is missing is skipped with a warning.
-- The **optional demo seeder**, and only if you choose to run it - it needs an LLM.
-  You pick which one in [`seeder/config.yaml`](./seeder/config.yaml); `seeder/.env`
-  holds only that model's credentials:
-
-| Variable                | Required when…                        | What to put                                            |
-|-------------------------|---------------------------------------|--------------------------------------------------------|
-| `OPENAI_API_KEY`        | `model` starts `openai:`              | your OpenAI key                                        |
-| `AZURE_OPENAI_ENDPOINT` | `model` starts `azure_openai:`        | your Azure OpenAI endpoint (with `OPENAI_API_VERSION`) |
-| `AZURE_OPENAI_API_KEY`  | `azure_openai:`, no Managed Identity  | your Azure OpenAI key (optional if using Managed Identity) |
-
-
-
-### `core/config.yaml`
-*Where to set:* [`core/config.yaml`](./core/config.yaml).
-
-| Key                     | Default     | Meaning                                                          |
-|-------------------------|-------------|------------------------------------------------------------------|
-| `schema_version`        | `ATIF-v1.7` | ATIF version stamped on every stored transcript                  |
-| `max_body_bytes`        | `5242880`   | Largest accepted request body (guards `/transcript`)            |
-| `max_transcript_bytes`  | `262144`    | Largest trajectory stored in full; bigger ones keep a meta-only stub |
-| `rate_limit_per_minute` | `120`       | Per-IP request budget (`0` disables the limiter)                 |
-| `default_survey_every`  | `2`         | Ask on every Nth run; baked into distributed hooks. `RATEXP_EVERY` overrides it. |
-
-#### Redaction
-
-Masks PII before storage (see [`core/modules/redaction/`](./core/modules/redaction/)).
-
-| Key                       | Meaning                                                                 |
-|---------------------------|-------------------------------------------------------------------------|
-| `redaction.enabled`       | Turn redaction on. Set here and nowhere else — both adapters are already in the image. |
-| `redaction.provider`      | `presidio` (in-process, free) or `azure` (Language account). `RATEXP_REDACTION_PROVIDER` overrides — cloud sets it from Terraform's `redaction_provider`. |
-| `redaction.languages`     | PII model languages; the first is the fallback.                         |
-| `redaction.azure_endpoint`| Language account endpoint — only for the `azure` provider.              |
-
-The cloud image ships both adapters, so flipping provider is one setting + a restart (no rebuild).
-
-#### Write destinations (`write_adapters.*`)
-
-Each submission is written to **every** adapter whose `enabled` is true — independent of one another (one failing is logged and never blocks the others), and the submission counts as accepted once **at least one** takes it; if none do, core answers `503`. See [`core/modules/write/adapters/`](./core/modules/write/adapters/) + [`core/modules/write/dispatch_to_adapters.py`](./core/modules/write/dispatch_to_adapters.py). This is the *write* side (many destinations); the *read* side — where the dashboard reads back from — is the single enabled `read_adapters` source whose filter box speaks its own language, documented under [`app/config.yaml`](#appconfigyaml) below.
-
-| Adapter            | Where it writes                              | Connection (env var named in config)          |
-|--------------------|----------------------------------------------|-----------------------------------------------|
-| `app_be_psql`      | RateXp's DB — the live dashboard reads it     | `DATABASE_URL` / `RATEXP_DB_AUTH`             |
-| `custom_psql`      | An adopter's own PostgreSQL                   | DSN from `dsn_env`                            |
-| `app_be_dynatrace` | RateXp's Dynatrace tenant (OTLP)              | URL from `tenant_url_env`, token from `token_env` |
-| `custom_dynatrace` | An adopter's own Dynatrace tenant (OTLP)      | URL from `tenant_url_env`, token from `token_env` |
-| `bluebox`          | A Bluebox workspace (OTLP) — **write-only**   | URL from `endpoint_env`, token from `token_env` |
-
-- **No secrets or URLs in this file** — only the *names* of the env vars that hold them.
-- **Missing values are safe** — an adapter enabled but without its tenant/token/DSN is skipped with a warning.
-- **Nothing to install** — every adapter's dependencies are already in the image; enabling one here is the whole step.
-- **Bluebox takes either URL form** — the full OTLP base, or a bare tenant URL.
-- **Bluebox is write-only** — no query language, so no read adapter; read it with `bluebox ask`.
-- **Cloud values** — `app_be_dynatrace` gets `DT_TENANT_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_tenant_url` / `dynatrace_access_token`.
-
-### `app/config.yaml`
-*Where to set:* [`app/config.yaml`](./app/config.yaml).
-
-| Key                        | Default     | Meaning                                       |
-|----------------------------|-------------|-----------------------------------------------|
-| `schema_version`           | `ATIF-v1.7` | ATIF version expected on stored transcripts   |
-| `list_view_limit`          | `10`        | Rows the dashboard shows by default           |
-| `list_max_limit`           | `1000`      | Hard ceiling on any single response           |
-| `top_skills_limit`         | `10`        | Skills shown in the "Top skills" panel        |
-| `query_enabled`            | `true`      | Turn the read-only filter box (SQL or DQL) on/off |
-| `query_timeout_ms`         | `5000`      | Per-query statement timeout                   |
-| `query_max_rows`           | `1000`      | Hard cap on rows a filter/JSON export returns |
-| `ws_enabled`               | `true`      | Turn the live-updates WebSocket on/off        |
-| `ws_broadcast_interval_ms` | `2000`      | How often the live feed checks for changes    |
-
-#### Read source (`read_adapters`)
-
-The dashboard reads from **one** source ([`app/modules/read/`](./app/modules/read/)) — the one with `enabled: true` in `read_adapters` (like the write side's `enabled` flags, but **exactly one** may be on). It **mirrors the write side's 2×2** (RateXp's own vs. a custom adopter store × PostgreSQL vs. Dynatrace). Like the write side, the choice lives only in `config.yaml`, so changing it needs a rebuild. The dashboard's **filter box speaks that source's own query language** — SQL for PostgreSQL, DQL for Dynatrace — which the adapter validates + row-caps + runs read-only. The UI learns the language from `GET /meta`.
-
-| Source             | Query lang. | Reads from                               | Settings (env var named in config)                          |
-|--------------------|-------------|------------------------------------------|-------------------------------------------------------------|
-| `app_be_psql`      | **SQL**     | RateXp's own database                    | uses the dashboard's `DATABASE_URL` / `RATEXP_DB_AUTH`      |
-| `custom_psql`      | **SQL**     | An adopter's own PostgreSQL              | `dsn_env` (their connection string)                        |
-| `app_be_dynatrace` | **DQL**     | RateXp's Dynatrace tenant (fanned-out logs) | `query_url_env` (apps/DQL host), `token_env` (needs `storage:logs:read`) |
-| `custom_dynatrace` | **DQL**     | An adopter's Dynatrace tenant            | `query_url_env` (apps/DQL host), `token_env`               |
-
-- **The `*_psql` sources are the full experience** — transcripts, top-skills, the live feed, and a SQL filter box.
-- **The `*_dynatrace` sources** read the fanned-out logs; the filter box then accepts DQL. Transcripts come back **truncated** (the `ratexp.atif` attribute is capped on ingest), and each read is an async DQL query (slower/costlier than SQL). See [`modules/read/adapters/read_from_dynatrace.py`](./app/modules/read/adapters/read_from_dynatrace.py).
-- **No secrets or URLs in this file** — only env var *names*. For the Dynatrace sources, `query_url_env` must point at the **apps/DQL** host (e.g. `…apps.dynatrace.com`), not the ingest host.
-- **Cloud values** — the app gets `DT_QUERY_URL` / `DT_ACCESS_TOKEN` from Terraform's `dynatrace_query_url` / `dynatrace_access_token`, used only when `config.yaml` has a Dynatrace source enabled (RateXp's deployment reads its own store — `app_be_psql` or `app_be_dynatrace`; the `custom_*` sources are for adopters wiring their own).
-
-### `seeder/config.yaml`
-*Where to set:* [`seeder/config.yaml`](./seeder/config.yaml) (demo seeder only).
-
-| Key                | Default                 | Meaning                                                       |
-|--------------------|-------------------------|---------------------------------------------------------------|
-| `schema_version`   | `ATIF-v1.7`             | ATIF version stamped on every seeded trajectory (matches core's) |
-| `model`            | `openai:gpt-4o-mini`    | LangChain `init_chat_model` id; env `MODEL` overrides it      |
-| `core_url`         | `http://localhost:8000` | Core to submit to; env `RATEXP_CORE_URL` overrides it         |
-| `temperature`      | `0.7`                   | Sampling temperature for the agent                            |
-| `max_rounds`       | `40`                    | Agent turns per task before it must rate                      |
-| `interval_seconds` | `3`                     | Pause between runs, local loop only (Azure uses `SEED_SCHEDULE`) |
-| `critical_ratio`   | `0.3`                   | Share of runs that take the tough-reviewer stance (0–1)       |
-| `oversized_ratio`  | `0.2`                   | Share of runs whose trajectory is bloated past the limit (0–1)|
-| `system_prompt`, `task_prompt`, `critical_prompt` | – | The agent's instructions               |
-
-## The hook script
-[`core/ratexp.sh`](./core/ratexp.sh) runs from skill frontmatter:
-
-| Event | Purpose |
-|-------|---------|
-| `UserPromptExpansion` | Count a slash-command invocation |
-| `PreToolUse` (`Skill\|AskUserQuestion`) | Count a Skill invocation or validate the survey |
-| `Stop` | Request the survey on a sampled run |
-| `PostToolUse` (`AskUserQuestion`) | Send feedback and a consented transcript |
-| `PostToolUseFailure` (`AskUserQuestion`) | Close a failed survey |
-
-The hook uses Bash 3.2+, curl, and standard macOS/Linux utilities. Per-session state
-lives under `${XDG_STATE_HOME:-~/.local/state}/ratexp`. Uploads are limited to 4 MiB
-and require consent from the matching tool response.
-
-After editing the script or `default_survey_every`, regenerate its template and
-example copies:
-
-```bash
-python3 core/tools/sync_hooks.py
-python3 core/tools/sync_hooks.py --check
-```
-
-Copies use the hosted core URL and configured survey frequency. `GET /ratexp.sh`
-renders the same script using the server's `RATEXP_PUBLIC_URL`. Users can override
-these settings with `RATEXP_URL` and `RATEXP_EVERY`.
+> You can also run just one service on its own - outside compose, the UI with live reload, or
+> the demo seeder. Each service's README shows how:
+> [core](./core/README.md#running-locally), [app](./app/README.md#running-locally),
+> [seeder](./seeder/README.md#running-locally).
 
 ## Deploy to Azure
-The provided deployment is **Azure-based**. One Terraform stack builds everything -
-two web apps (`core` + `app`), a managed PostgreSQL server, and a container registry, with **passwordless** database access via Microsoft
-Entra ID (no DB secrets to manage).
 
-**Prerequisites:**
+One Terraform stack creates the whole thing on Azure: two web apps (`core` + `app`), a managed
+PostgreSQL server, and a container registry to hold the images. The apps sign in to the
+database through Microsoft Entra ID, so there is **no database password** to store anywhere.
 
-- Azure CLI (run `az login` first)
-- Terraform
-- Docker
+**Before you start**, install the Azure CLI (and run `az login`), Terraform and Docker.
+
+**1. Create the Azure resources.**
 
 ```bash
 cd infra
-cp terraform.tfvars.example terraform.tfvars   # set subscription_id
-terraform init && terraform apply              # create the Azure resources
-
-# build + push the two images
-az acr login --name "$(terraform output -raw acr_name)"
-docker build -t "$(terraform output -raw core_image)" ../core && docker push "$(terraform output -raw core_image)"
-docker build -t "$(terraform output -raw app_image)" --build-arg EXTRAS=entra -f ../app/Dockerfile ../app && docker push "$(terraform output -raw app_image)"
+cp terraform.tfvars.example terraform.tfvars   # put your subscription_id in it
+terraform init && terraform apply
 ```
 
-Grant the app identities database access using
-[`infra/grant-db-access.sql`](./infra/grant-db-access.sql), then stop and start each
-app to load the pushed image. Azure's `restart` keeps the cached image.
-`terraform output` provides the app names, identity IDs, and service URLs.
-
-Optional tfvars enable redaction (`enable_redaction`) and the demo seeder
-(`enable_seeder`).
-
-## Tests
-There are two layers. **Per-service** tests are fast and mocked - no network or
-database needed:
+**2. Build the images and push them to the registry.**
 
 ```bash
-(cd core && uv sync --extra test && uv run pytest)                       # core
-(cd app && uv sync --extra test && uv run pytest)                 # dashboard API
-(cd seeder && uv sync --extra test && uv run pytest)              # demo seeder
+az acr login --name "$(terraform output -raw acr_name)"
+docker build -t "$(terraform output -raw core_image)" ../core && docker push "$(terraform output -raw core_image)"
+docker build -t "$(terraform output -raw app_image)" -f ../app/Dockerfile ../app && docker push "$(terraform output -raw app_image)"
 ```
 
-Core's tests also exercise the hook with a fake curl and check that all shipped
-scripts and skill frontmatter are consistent.
+**3. Let the two apps into the database.** Run
+[`infra/grant-db-access.sql`](./infra/grant-db-access.sql) once, connected as the database's
+Entra admin. It needs the app names and identity ids, which `terraform output` prints - along
+with the URLs your services will be reachable on.
 
-**Whole-app** tests in `tests/` check the services working together over HTTP - core
-writes feedback, the dashboard reads it back:
+**4. Stop each web app, then start it again.** That is what makes Azure pull the image you
+just pushed. `az webapp restart` does **not** - it keeps running the old cached one.
 
-| File | Checks |
-|------|--------|
-| `test_smoke.py` | Both services answer `/healthz`; core serves `/ratexp.sh` with its URL baked in and accepts a `/feedback` post. |
-| `test_end_to_end.py` | A rating (and a consented trajectory) posted to core appears on the dashboard and in its top-skills stats; the last test drives the *shipped* hook script itself, so the exact bytes a real skill puts on the wire are the ones checked. |
-| `test_azure_live.py` | Opt-in smoke test against the deployed Azure web apps (skipped by default). |
+**Optional extras**, switched on in `terraform.tfvars`: `enable_redaction` masks personal data
+in transcripts, and `enable_seeder` deploys the demo seeder. With the seeder on, build and
+push `seeder_image` the same way as step 2.
 
-Bring the stack up first:
+## Repository layout
+
+```text
+.
+├── core/                Public ingestion service: serves the hook script, stores feedback
+│   ├── ratexp.sh        The hook itself - the source of every shipped copy
+│   ├── install.sh       What `curl … | bash -s skill my-skill` runs
+│   ├── api/             The HTTP surface: routes, schemas, rate limiting, ATIF building
+│   ├── modules/
+│   │   ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)
+│   │   └── write/       Write destinations + the fan-out + the SQL migrations
+│   ├── template/        Blank starting points: skill/ and plugin/
+│   ├── examples/        The poem skill packaged both ways, hooks already wired
+│   └── tools/           Dev-only, never shipped: sync_hooks.py regenerates the hook copies
+├── app/                 Dashboard service: read-only API, and it serves the UI
+│   ├── api/             The HTTP surface: routes, schemas, snapshots, the live feed
+│   ├── modules/read/    Read sources - the dashboard reads from the one enabled source
+│   └── FE/              React dashboard (source)
+├── seeder/              Optional demo seeder: an agent uses a skill, then rates it
+│   ├── api/             One run end to end, and the two ways one gets started
+│   ├── azure_function/  The deployed timer trigger + host.json
+│   ├── modules/
+│   │   ├── agent/       The model, the skill pool, and the sandboxed run itself
+│   │   └── submit/      Messages → ATIF, and the two posts to core
+│   └── skills/          The skills the agent picks from (third-party, see ATTRIBUTION.md)
+├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
+├── tests/               Whole-app integration tests (run against a live/local stack)
+├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
+├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
+├── THIRD_PARTY_NOTICES.md  Licenses and citations for projects RateXp builds on
+├── CLA.md / LICENSE / CITATION.cff  Contributor agreement, license, how to cite
+└── pyproject.toml       Shared ruff config; each service has its own project file
+```
+
+`core/`, `app/` and `seeder/` are each self-contained - they deliberately duplicate small
+helpers (database connection, config loading) so any one of them can be built and deployed on
+its own.
+
+## Tests
+
+**Per-service** tests are fast and mocked - no network or database needed. Each one runs the
+same way from its own folder; the command is in that service's README:
+[core](./core/README.md#tests), [app](./app/README.md#tests), [seeder](./seeder/README.md#tests).
+
+**Whole-app** tests in `tests/` check the services working together over HTTP - core writes
+feedback, the dashboard reads it back. Bring the stack up first:
 
 ```bash
 docker compose up --build -d
 uv run --no-project --with pytest --with httpx pytest tests/
 ```
 
-If the stack isn't running, these skip with a hint. They default to the compose ports
-(`8000`/`8001`); point elsewhere with `RATEXP_CORE_URL` / `RATEXP_APP_URL`.
+| File                | Checks                                                                     |
+|---------------------|-----------------------------------------------------------------------------|
+| `test_smoke.py`     | Both services answer `/healthz`; core serves `/ratexp.sh` with its URL baked in and accepts a `/feedback` post. |
+| `test_end_to_end.py`| A rating (and a consented trajectory) posted to core appears on the dashboard and in its top-skills stats; the last test drives the *shipped* hook script, so the exact bytes a real skill puts on the wire are the ones checked. |
+| `test_azure_live.py`| Opt-in smoke test against the deployed Azure web apps (skipped by default). |
 
-An opt-in smoke test can also hit the **deployed Azure apps** (skipped by default).
-Enable it by supplying their URLs:
+If the stack isn't running, these skip with a hint. They default to the compose ports
+(`8000`/`8001`); point elsewhere with `RATEXP_CORE_URL` / `RATEXP_APP_URL`. To smoke the
+deployed apps instead:
 
 ```bash
 export RATEXP_AZURE_LIVE=1
@@ -283,57 +173,107 @@ export RATEXP_AZURE_APP_URL=https://<your-app>.azurewebsites.net
 pytest tests/test_azure_live.py
 ```
 
-## Repository layout
-
-```text
-.
-├── core/                Public FastAPI service: serves the hook script (/ratexp.sh), ingests feedback → PostgreSQL
-│   ├── ratexp.sh        The canonical hook, source of every shipped copy
-│   ├── tools/           Dev-only, never shipped: sync_hooks.py regenerates the hook copies
-│   ├── api/             The HTTP surface: routes, record schemas, trajectory building
-│   ├── modules/
-│   │   ├── redaction/   PII masking: presidio (in-process) or azure (AI Language)
-│   │   └── write/       Write destinations (each submission goes to every enabled one) + the SQL schema
-│   ├── template/        Copy-and-fill starting points: skill/ and plugin/
-│   └── examples/        The same poem skill packaged both ways, hooks already wired
-├── app/                 Dashboard FastAPI service: read-only API; also serves the UI
-│   ├── api/             The HTTP surface: routes, record schemas, snapshots, the live feed
-│   ├── modules/
-│   │   └── read/        Read sources - the dashboard reads from the one enabled source
-│   ├── FE/              React dashboard (source)
-│   └── Dockerfile       Builds the app image (UI bundled in)
-├── seeder/              Optional Azure Function: a timer has an agent use a skill, then rate it
-│   ├── azure_function/  The timer trigger + host.json; the Dockerfile flattens it into the image root
-│   ├── api/             One run end to end, and the two ways one gets started
-│   ├── modules/
-│   │   ├── agent/       The model, the skill pool, and the sandboxed run itself
-│   │   └── submit/      Messages → ATIF, and the two posts to core
-│   └── skills/          The skills the agent picks from (third-party, see ATTRIBUTION.md)
-├── infra/               Terraform stack for Azure (two web apps + PostgreSQL)
-├── assets/              Images the README shows (banner, demo GIF, dashboard shot)
-├── tests/               Whole-app integration tests (run against a live/local stack)
-├── docker-compose.yml   Local stack: PostgreSQL + core + app (+ opt-in seed profile)
-├── CONTRIBUTING.md      This file
-├── THIRD_PARTY_NOTICES.md  Licenses and citations for projects RateXp builds on
-├── CLA.md / LICENSE     Contributor agreement and license
-└── pyproject.toml       Shared Python tooling config
-```
-
-`core/`, `app/` and `seeder/` are each self-contained - they deliberately duplicate
-small helpers (database connection, config loading) so any one of them can be built
-and deployed on its own.
-
 ## TODO
 
-- [ ] Expand to more coding agents (e.g. GitHub Copilot)
-- [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif` exceeds Dynatrace's per-attribute storage cap, so it's truncated on ingest → invalid JSON → the read adapter returns an empty stub (`dynatrace_truncated`) → the trajectory viewer shows nothing (PostgreSQL still shows it in full). Fix by shipping transcripts to Dynatrace as **one log line per step** (each step's text fits the content field, avoiding the single-attribute cap), and/or surface `dynatrace_truncated` in the UI ("full copy in PostgreSQL"). Normal-sized transcripts are unaffected.
-- [ ] Build a Dynatrace dashboard (over the fanned-out `ratexp.*` logs) so ratings and trajectories can be viewed natively in Dynatrace — not just through RateXp's own dashboard reading via DQL. Open question from earlier: dashboard vs. a Dynatrace App.
+- [ ] Expand to more coding agents (e.g. GitHub Copilot).
+- [ ] Fix truncated trajectories when the dashboard reads from Dynatrace: a very large `atif`
+      exceeds Dynatrace's per-attribute storage cap, so it is truncated on ingest → invalid
+      JSON → the read adapter returns an empty stub (`dynatrace_truncated`) → the viewer shows
+      nothing (PostgreSQL still shows it in full). Fix by shipping transcripts as **one log
+      line per step**, and/or surfacing `dynatrace_truncated` in the UI. Normal-sized
+      transcripts are unaffected.
+- [ ] Build a Dynatrace dashboard over the fanned-out `ratexp.*` logs, so ratings and
+      trajectories can be viewed natively in Dynatrace. Open question: dashboard or a
+      Dynatrace App.
+
+## README rules
+
+These are about the README inside a folder. Your reader knows the project but has never
+opened this folder. The root [README.md](./README.md) and this file are the two exceptions -
+they are read front to back by someone who knows nothing yet, so they may run long.
+
+1. **Write only what the folder cannot show by itself.**
+   `ls` lists the files, docstrings explain the functions, `--help` prints the flags.
+   Write down what stays hidden: a rule that fails silently, a generated file, an order
+   that must not change. Nothing hidden, no README.
+
+2. **Say each fact once.**
+   A fact is anything that can quietly go out of date: a path, a command, a flag, a
+   default, a version. Keep it in the one file closest to what it describes, and link to
+   it from everywhere else. Check the code before writing it down.
+
+3. **Keep every section to a line or two.**
+   A folder README answers the same six questions in the same order: what happens here,
+   layout, running locally, config and env, tests, deploy. Anything longer than two lines
+   is documentation and belongs where that subject already lives.
+
+4. **Fix it in the same commit that breaks it, or delete it.**
+   The trigger is "I changed something this README states". So name exact paths and
+   commands: a rename you can grep for is the only warning you get. When the folder can
+   speak for itself, delete the file.
+
+5. **Describe how things are now, not what changed.**
+   The reader never saw the old version, so nothing here has to correct it. No
+   "previously", no old versus new. That story belongs in the commit message.
+
+6. **Copy the shape of the README next door.**
+   Folders get read side by side, so the same question should carry the same heading in
+   each: `core/README.md` puts its settings under `## Config`, one bullet per key, and
+   `app/README.md` follows it. A second shape for one job costs the reader a re-read.
+
+## Code rules
+
+Code has two readers who read the same way: a person skimming fast, and an agent holding
+a few hundred lines, never the whole project. One pass should be enough for both.
+
+1. **Write the least code that does the job.**
+   No layer without a caller, no option nobody passes, no abstraction for a second case
+   that does not exist. Two callers are a pattern, one is a guess.
+
+2. **Make the call readable without opening the function.**
+   The name has to carry what it returns, what it changes, and what it costs. A long
+   name beats a comment explaining a short one.
+
+3. **Name a file for the action it performs, where it performs one.**
+   `redact_trajectory.py` and `apply_migrations.py` say what the file does before you
+   open it. `utils.py` and `helpers.py` say nothing. Where a file is a thing rather
+   than an action, name it that thing: `record_schemas.py`.
+
+4. **Keep each file understandable on its own.**
+   Import explicitly and keep the flow on the page. No relying on import order or a side
+   effect three folders away. If a second file is required reading, say so once at the top.
+
+5. **Comments say why, not what.**
+   The code already says what it does. Comment a choice that looks wrong but is not, a
+   constraint from outside the file, an order that must not change.
+
+6. **Delete dead code instead of keeping it.**
+   Commented-out blocks, unused helpers, dead flags, shims for callers that are gone.
+   Remove them in the commit that kills them. Git remembers, readers assume it matters.
+
+7. **Leave nothing that only makes sense against the old design.**
+   Rule 6 for a whole feature. You are done when no name, branch, or comment points at
+   what used to be there: no `v2` or `new_` beside the thing it replaced, no old path
+   kept alive.
+
+8. **Find the convention before you invent one.**
+   The repo has usually answered your question already, so read a sibling before naming a
+   file, shaping a module, or reaching for a path. `modules/read/` mirrors `modules/write/`
+   file for file because of it. Follow what you find, or change every copy in one commit.
 
 ## Contributor License Agreement
 
 Before your contribution can be merged, you agree to the
-[Contributor License Agreement](./CLA.md). You accept it automatically by
-submitting a pull request; sign your commits with `git commit -s` (adds a
-`Signed-off-by` line) to confirm. In short: you keep your own rights, but you
-grant the owner a license to your contribution - including the right to
-relicense it later.
+[Contributor License Agreement](./CLA.md). You accept it automatically by submitting a pull
+request; sign your commits with `git commit -s` (adds a `Signed-off-by` line) to confirm. In
+short: you keep your own rights, but you grant the owner a license to your contribution -
+including the right to relicense it later.
+
+
+
+check tests on main if they really make sense
+go through readmes 
+adapter for arize
+pitch deck add to git ignore
+pitch deck arize offer annotation from the ui the human feedback I am on the go
+add it to every session ened of claude not just skills for claude admins
