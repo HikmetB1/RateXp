@@ -62,7 +62,7 @@ plus a note only where one matters.
 - Microsoft Entra ID — https://www.microsoft.com/security/business/identity-access/microsoft-entra-id
 - GNU Bash — https://www.gnu.org/software/bash/
 - curl — https://curl.se/
-  *Note:* `ratexp.sh` uses the user's installed Bash and curl; neither is bundled.
+  *Note:* the hook scripts use the user's installed Bash and curl; neither is bundled.
 
 ## Skills & data format
 

@@ -2,10 +2,11 @@
 # your machine, using password auth instead of Entra ID.
 #
 #   docker compose up --build -d
-#   open http://localhost:8001          # dashboard
-#   http://localhost:8000/ratexp.sh     # the hook script skills download
-#   http://localhost:8000/feedback      # where installed hooks post ratings
-#   http://localhost:8000/transcript    # where they post consented transcripts
+#   open http://localhost:8001                    # dashboard
+#   http://localhost:8000/ratexp-skill.sh         # the hook script skills download
+#   http://localhost:8000/ratexp-coding-agent.sh  # the one whole sessions download
+#   http://localhost:8000/feedback                # where installed hooks post ratings
+#   http://localhost:8000/transcript              # where they post consented transcripts
 #
 # Values default to a working local setup; to override one, put it in a root .env
 # file, which compose reads automatically.
@@ -42,11 +43,12 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
-      # Base URL baked into the hook script core serves at /ratexp.sh; installed
-      # hooks post back here. Must be reachable from the host running the skill.
+      # Base URL baked into the hook scripts core serves at /ratexp-skill.sh and
+      # /ratexp-coding-agent.sh; installed hooks post back here. Must be reachable
+      # from the host running the skill or session.
       # Stays here because it follows the port compose publishes.
       RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
-    # Live-reload the API on source edits; ratexp.sh is read per request.
+    # Live-reload the API on source edits; the hook scripts are read per request.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
     command: uvicorn api.serve_http:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"
     volumes:
