@@ -243,22 +243,15 @@ export default function App() {
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Opens the how-to popup for skill, plugin and coding-agent authors. */}
+          {/* Opens the how-to popup for skill, plugin and coding-agent authors. The label is
+              two spans so a narrow screen breaks it between them, not mid-phrase (.btn-ship). */}
           <button
-            className="btn-edge"
+            className="btn-edge btn-ship"
             onClick={() => setGuideOpen(true)}
             title="How to send your skill's, plugin's or coding agent's feedback to RateXp"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 7,
-              whiteSpace: 'nowrap',
-              padding: '9px 16px',
-              lineHeight: 1.2,
-            }}
           >
-            Ship RateXp with your skill/plugin/coding agent
+            <span>Ship RateXp with your</span>{' '}
+            <span>skill/plugin/coding agent</span>
           </button>
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
