@@ -44,7 +44,7 @@ _TEMPLATE_FILES = {
     ),
     # Session files rate whole conversations, so there is no name to substitute.
     ("session", "settings.json"): (CORE_DIR / "template/session/settings.json", ""),
-    ("session", "rate.md"): (CORE_DIR / "template/session/rate.md", ""),
+    ("session", "ratexp.md"): (CORE_DIR / "template/session/ratexp.md", ""),
 }
 # A name becomes a directory and is written into a shell command inside SKILL.md,
 # so only characters that are safe in both are accepted.

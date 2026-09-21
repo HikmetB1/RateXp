@@ -227,9 +227,9 @@ main() {
     mkdir -p -- "$base" || return
     now=$(date +%s)
     if [[ $event == UserPromptExpansion ]]; then
-        # /rate asks for the survey by name, instead of waiting for the count.
+        # /ratexp asks for the survey by name, instead of waiting for the count.
         get 0 command_name; token=$found
-        [[ $token == rate || $token == *:rate ]] || return
+        [[ $token == ratexp || $token == *:ratexp ]] || return
         mkdir -- "$base/rate-now" 2>/dev/null
         return
     fi
@@ -241,7 +241,7 @@ main() {
         get 0 transcript_path
         token=$(file_info "$found") || return
         force=''
-        # rmdir consumes the /rate request, so it arms exactly one survey.
+        # rmdir consumes the /ratexp request, so it arms exactly one survey.
         rmdir -- "$base/rate-now" 2>/dev/null && force=now
         arm "turn-${token//:/-}" 0 "$force"
     fi

@@ -3,7 +3,7 @@
 Its own script, beside ratexp-skill.sh in core/. It rates whole conversations
 rather than one skill's runs: it counts turns, so the survey lands wherever the
 Nth turn falls - part way through a long session, at the end of a short one - and
-`/rate` asks for it by name. What is rated is always the session so far, from byte
+`/ratexp` asks for it by name. What is rated is always the session so far, from byte
 zero. The sandbox, fake curl and event helpers all come from test_hook.py.
 """
 
@@ -28,9 +28,9 @@ class SessionHook(Hook):
         self.append(type="assistant", text=text)
         return self.stop(env)
 
-    def rate_command(self, env=None):
-        """The user typing /rate."""
-        return self.run_hook(self.event("UserPromptExpansion", command_name="rate"), env)
+    def ratexp_command(self, env=None):
+        """The user typing /ratexp."""
+        return self.run_hook(self.event("UserPromptExpansion", command_name="ratexp"), env)
 
 
 @pytest.fixture
@@ -69,28 +69,28 @@ def test_a_short_session_is_never_asked(s):
 
 
 # --------------------------------------------------------------------------
-# /rate
+# /ratexp
 # --------------------------------------------------------------------------
 
 
-def test_rate_asks_without_waiting_for_the_count(s):
+def test_ratexp_asks_without_waiting_for_the_count(s):
     """The user can ask for the survey by name at any point."""
     env = {"RATEXP_EVERY": "50"}  # far out of reach on its own
     assert s.turn(env=env) is None
-    s.rate_command(env)
-    assert s.turn(env=env) is not None, "/rate must bring the survey forward"
+    s.ratexp_command(env)
+    assert s.turn(env=env) is not None, "/ratexp must bring the survey forward"
 
 
-def test_rate_arms_exactly_one_survey(s):
+def test_ratexp_arms_exactly_one_survey(s):
     """Asking once must not leave every later turn asking too."""
     env = {"RATEXP_EVERY": "50"}
-    s.rate_command(env)
+    s.ratexp_command(env)
     assert s.turn(env=env) is not None
-    assert s.turn(env=env) is None, "the turn after /rate must be quiet again"
+    assert s.turn(env=env) is None, "the turn after /ratexp must be quiet again"
 
 
 def test_another_command_does_not_arm_a_survey(s):
-    """Only /rate asks; every other slash command is none of this hook's business."""
+    """Only /ratexp asks; every other slash command is none of this hook's business."""
     env = {"RATEXP_EVERY": "50"}
     s.run_hook(s.event("UserPromptExpansion", command_name="clear"), env)
     assert s.turn(env=env) is None

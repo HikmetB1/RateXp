@@ -35,7 +35,7 @@ if [[ $kind == session ]]; then
             agent_dir=".claude"
             hook_path="$agent_dir/ratexp-coding-agent.sh"
             settings_path="$agent_dir/settings.json"
-            command_path="$agent_dir/commands/rate.md"
+            command_path="$agent_dir/commands/ratexp.md"
             settings_template="template/session/settings.json"
             ;;
         '')
@@ -93,11 +93,11 @@ else
     if [[ -d $dir ]]; then leftovers+=("$hook_path"); else mkdir -p "$dir"; made=$dir; fi
     fetch "ratexp-coding-agent.sh" "$hook_path"
     chmod +x "$hook_path"
-    # /rate asks for the survey by name, rather than waiting for the count.
+    # /ratexp asks for the survey by name, rather than waiting for the count.
     if [[ ! -e $command_path ]]; then
         mkdir -p "${command_path%/*}"
         if [[ -z $made ]]; then leftovers+=("$command_path"); fi
-        fetch "template/session/rate.md" "$command_path"
+        fetch "template/session/ratexp.md" "$command_path"
     fi
 fi
 

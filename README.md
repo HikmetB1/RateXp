@@ -62,7 +62,7 @@ That is the whole setup. Ratings land on the
 ### How often it asks: every 2nd run or turn
 
 - **Skill or plugin** - every 2nd **run** of that skill, so it never nags.
-- **Coding agent** - every 2nd **turn** of the session, and `/rate` asks on the spot.
+- **Coding agent** - every 2nd **turn** of the session, and `/ratexp` asks on the spot.
 
 Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
 `ratexp-skill.sh` or `ratexp-coding-agent.sh` - to change the default for everyone you

@@ -40,7 +40,7 @@ const AGENT_GUIDE_MD = `\`claude\` is supported for now:
 curl -fsSL ${CORE_URL}/install.sh | bash -s session claude
 \`\`\`
 
-That drops \`ratexp-coding-agent.sh\` and \`/rate\` into \`.claude/\`, then prints the
+That drops \`ratexp-coding-agent.sh\` and \`/ratexp\` into \`.claude/\`, then prints the
 hooks to add. **It never edits your settings file** - every agent keeps its hooks
 somewhere different, and yours is yours. Paste the printed block into:
 
@@ -51,7 +51,7 @@ somewhere different, and yours is yours. Paste the printed block into:
 \`RATEXP_EVERY\` counts **turns** here, so the survey lands wherever the Nth falls -
 part way through a long session, at the end of a short one.
 
-\`/rate\` asks on the spot.
+\`/ratexp\` asks on the spot.
 
 Congratulations - your agentic experience is live at RateXp! 🎉`
 
