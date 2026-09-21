@@ -15,18 +15,12 @@ const WS_BASE =
 // Core base URL shown in the "Ship RateXp" popup. Update if the core URL changes.
 const CORE_URL = 'https://ratexp-core.azurewebsites.net'
 
-// The two tabs of the "Ship RateXp" popup, rendered as Markdown (see Md). A skill or
-// plugin is rated on its own runs; a coding agent on the session it is running in.
+// The two tabs of the "Ship RateXp" popup, rendered as Markdown (see Md). A skill is
+// rated on its own runs; a coding agent on the session it is running in.
 const SKILL_GUIDE_MD = `Install a skill:
 
 \`\`\`bash
 curl -fsSL ${CORE_URL}/install.sh | bash -s skill my-skill
-\`\`\`
-
-Or the same thing packaged as a plugin:
-
-\`\`\`bash
-curl -fsSL ${CORE_URL}/install.sh | bash -s plugin my-plugin
 \`\`\`
 
 Now open \`SKILL.md\`, write your skill instructions in the body, and ship it. The
@@ -243,15 +237,15 @@ export default function App() {
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Opens the how-to popup for skill, plugin and coding-agent authors. The label is
+          {/* Opens the how-to popup for skill and coding-agent authors. The label is
               two spans so a narrow screen breaks it between them, not mid-phrase (.btn-ship). */}
           <button
             className="btn-edge btn-ship"
             onClick={() => setGuideOpen(true)}
-            title="How to send your skill's, plugin's or coding agent's feedback to RateXp"
+            title="How to send your skill's or coding agent's feedback to RateXp"
           >
             <span>Ship RateXp with your</span>{' '}
-            <span>skill/plugin/coding agent</span>
+            <span>skill/coding agent</span>
           </button>
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
@@ -300,7 +294,8 @@ export default function App() {
               <thead>
                 <tr>
                   <Th>When</Th>
-                  <Th>Skill</Th>
+                  <Th>Type</Th>
+                  <Th>Name</Th>
                   <Th>Agent</Th>
                   <Th>Model</Th>
                   <Th>Score</Th>
@@ -313,7 +308,8 @@ export default function App() {
                 {rows.map((r, i) => (
                   <tr key={i}>
                     <Td label="When">{r.created_at}</Td>
-                    <Td label="Skill"><code>{r.skill_name}</code></Td>
+                    <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
+                    <Td label="Name">{r.skill_name ? <code>{r.skill_name}</code> : <Dash />}</Td>
                     <Td label="Agent"><code>{r.agent}</code></Td>
                     <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
                     <Td label="Score">{scoreLabel(r.score)}</Td>
@@ -708,10 +704,12 @@ function TrajectoryDrawer({ data, onClose }) {
         <header className="drawer-head">
           <div className="drawer-head-main">
             <div className="drawer-title">Trajectory</div>
-            {/* Each fact gets a small KEY label (Skill, Agent, Model, Score, Steps, Tokens). */}
+            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, Score, Steps,
+                Tokens) - the same first two columns the table shows. */}
             <div className="drawer-meta">
               {[
-                row?.skill_name && { k: 'Skill', v: <code>{row.skill_name}</code> },
+                { k: 'Type', v: <TypeBadge skillName={row?.skill_name} /> },
+                row?.skill_name && { k: 'Name', v: <code>{row.skill_name}</code> },
                 row?.agent && { k: 'Agent', v: <code>{row.agent}</code> },
                 model && { k: 'Model', v: model },
                 row?.score && { k: 'Score', v: scoreLabel(row.score) },
@@ -777,12 +775,12 @@ function TrajectoryDrawer({ data, onClose }) {
   )
 }
 
-// Centered how-to popup, one tab per thing you can rate: a skill or plugin
-// (SKILL_GUIDE_MD) or the coding agent itself (AGENT_GUIDE_MD). The two install
-// differently enough - frontmatter hooks vs the agent's own settings file - that
-// showing both at once buried the one the reader wanted.
+// Centered how-to popup, one tab per thing you can rate: a skill (SKILL_GUIDE_MD)
+// or the coding agent itself (AGENT_GUIDE_MD). The two install differently enough -
+// frontmatter hooks vs the agent's own settings file - that showing both at once
+// buried the one the reader wanted.
 const GUIDE_TABS = [
-  { key: 'skill', label: 'Skill / plugin', md: SKILL_GUIDE_MD },
+  { key: 'skill', label: 'Skill', md: SKILL_GUIDE_MD },
   { key: 'agent', label: 'Coding agent', md: AGENT_GUIDE_MD },
 ]
 
@@ -805,9 +803,9 @@ function SkillGuideModal({ open, onClose }) {
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="modal-wrap" onClick={onClose}>
-        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill/plugin/coding agent" onClick={(e) => e.stopPropagation()}>
+        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill/coding agent" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-          <h3 style={{ margin: '0 0 12px' }}>Ship RateXp with your skill/plugin/coding agent</h3>
+          <h3 style={{ margin: '0 0 12px' }}>Ship RateXp with your skill/coding agent</h3>
           <div role="tablist" aria-label="What to rate" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
             {GUIDE_TABS.map((t) => (
               <button
@@ -879,6 +877,22 @@ function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
 function sourceStyle(source) {
   const color = source === 'user' ? 'var(--accent-2)' : source === 'agent' ? 'var(--good)' : 'var(--faint)'
   return { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color, fontWeight: 600 }
+}
+
+// What the rating is about. A skill rating is named after the skill; a whole-session
+// rating is about no one skill and arrives without a name, which is what tells the
+// two apart. Same plain-text look as ScoreBadge.
+function TypeBadge({ skillName }) {
+  const session = !skillName
+  return (
+    <span style={{
+      color: session ? 'var(--accent)' : 'var(--accent-2)',
+      fontWeight: 700,
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: '.04em',
+    }}>{session ? 'session' : 'skill'}</span>
+  )
 }
 
 // Colored label so good/bad reads at a glance - plain text, no bounding box.
