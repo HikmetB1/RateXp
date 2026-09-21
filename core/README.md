@@ -16,7 +16,7 @@ sequenceDiagram
     Note over A,C: once, while setting up
     A->>C: GET /install.sh, then run it
     C-->>A: the hook, named for what it rates, pointing back at this core
-    A->>H: a skill or plugin folder, or .claude/ with its hooks pasted into settings.json
+    A->>H: a skill folder, or .claude/ with its hooks pasted into settings.json
 
     Note over H,D: then every Nth run of that skill, or every Nth turn of the session
     H->>C: POST /feedback (rating, optional comment)
@@ -37,12 +37,8 @@ from your project root:
 # Pick one
 
 # Use case: A skill Author would like to stay close to the skill users and get their feedback
-# A plain skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
+# A skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
-
-# Use case: A plugin Author would like to stay close to the plugin users and get their feedback
-# A plugin  ->  creates my-plugin/ with the skill nested inside -> Update your SKILL.md in your plugin folder as usual
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s plugin my-plugin
 
 # Use case: A coding agent provider or access admin would like to stay close to the coding agent users and get their feedback
 # The coding agent itself  ->  creates .claude/ratexp-coding-agent.sh -> then paste the hooks it prints into .claude/settings.json
@@ -54,7 +50,7 @@ That is the whole setup. Ratings land on the
 
 ### How often it asks: every 2nd run or turn
 
-- **Skill or plugin** - every 2nd **run** of that skill, so it never nags.
+- **Skill** - every 2nd **run** of that skill, so it never nags.
 - **Coding agent** - every 2nd **turn** of the session, and `/ratexp` asks on the spot.
 
 Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
@@ -68,15 +64,15 @@ Want to run your own core instead of the hosted one? See
 
 ```text
 core/
-├── ratexp-skill.sh      the hook a skill ships with, plugins included - source of the copies
+├── ratexp-skill.sh      the hook a skill ships with - source of the copies
 ├── ratexp-coding-agent.sh  the hook that rates a whole session; installed, never bundled
 ├── install.sh           what `curl … | bash -s skill my-skill` runs
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
 ├── modules/
 │   ├── redaction/       masks PII before storage: the presidio or azure adapter
 │   └── write/           the destinations, the fan-out, and the SQL migrations
-├── template/            blank starting points: skill/, plugin/ and session/
-├── examples/            the poem skill packaged both ways, hooks already wired
+├── template/            blank starting points: skill/ and session/
+├── examples/            the poem skill, hooks already wired
 ├── tools/sync_hooks.py  regenerates the copies above (dev only, never in the image)
 ├── tests/               core's own tests: mocked, no network or database
 ├── config.yaml          the settings below; load_config.py reads it
@@ -160,18 +156,18 @@ often to ask. Those blanks get filled in two different ways:
 
 - `GET /ratexp-skill.sh` and `/ratexp-coding-agent.sh` fill them in while serving the file,
   so every download points back at the core that served it.
-- `tools/sync_hooks.py` fills them in and writes four ready-made copies under `template/` and
-  `examples/`, all pointing at the hosted core.
+- `tools/sync_hooks.py` fills them in and writes two ready-made copies under `template/` and
+  `examples/`, both pointing at the hosted core.
 
 The copies are named for what they rate, because the file name is what picks the hook's
-behaviour: `ratexp-skill.sh` rates the skill's own runs - a plugin ships a skill, so it
-ships the same hook - and `ratexp-coding-agent.sh` rates the session it is running in.
+behaviour: `ratexp-skill.sh` rates the skill's own runs, and `ratexp-coding-agent.sh` rates
+the session it is running in.
 
-Those four copies are generated, so editing one is pointless - the next sync overwrites it.
+Those two copies are generated, so editing one is pointless - the next sync overwrites it.
 Edit the original in this folder instead, then regenerate:
 
 ```bash
-python3 tools/sync_hooks.py          # rewrite the four copies
+python3 tools/sync_hooks.py          # rewrite the two copies
 python3 tools/sync_hooks.py --check  # only say which are out of date (the tests run this)
 ```
 

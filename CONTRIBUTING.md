@@ -119,15 +119,15 @@ push `seeder_image` the same way as step 2.
 ```text
 .
 ├── core/                       Public ingestion service: serves the hook scripts, stores feedback
-│   ├── ratexp-skill.sh         The hook a skill ships with, plugins included
+│   ├── ratexp-skill.sh         The hook a skill ships with
 │   ├── ratexp-coding-agent.sh  Rates the whole session; installed, never bundled
 │   ├── install.sh              What `curl … | bash -s skill my-skill` runs
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   ├── modules/
 │   │   ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
 │   │   └── write/              Write destinations + the fan-out + the SQL migrations
-│   ├── template/               Blank starting points: skill/ and plugin/
-│   ├── examples/               The poem skill packaged both ways, hooks already wired
+│   ├── template/               Blank starting points: skill/ and session/
+│   ├── examples/               The poem skill, hooks already wired
 │   └── tools/                  Dev-only, never shipped: sync_hooks.py regenerates the hook copies
 ├── app/                        Dashboard service: read-only API, and it serves the UI
 │   ├── api/                    The HTTP surface: routes, schemas, snapshots, the live feed

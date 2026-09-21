@@ -113,8 +113,7 @@ def test_a_caller_over_its_budget_gets_429(client, monkeypatch):
     assert client.get("/healthz").status_code == 429
 
 
-# One script per thing that can be rated. A plugin ships the skill hook, so a
-# plugin-specific one would only ever be a duplicate.
+# One script per thing that can be rated: a skill's own runs, or the whole session.
 HOOKS = ("ratexp-skill.sh", "ratexp-coding-agent.sh")
 
 
@@ -143,5 +142,4 @@ def test_the_installer_is_not_mistaken_for_a_hook(client):
     # /install.sh and the hooks share a suffix; each must keep its own route.
     assert client.get("/install.sh").text.startswith("#!/bin/bash")
     assert client.get("/ratexp.sh").status_code == 404
-    assert client.get("/ratexp-plugin.sh").status_code == 404
     assert client.get("/../etc/passwd.sh").status_code == 404

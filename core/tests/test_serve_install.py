@@ -30,7 +30,7 @@ def test_the_installer_is_a_bash_script(client):
 
 @pytest.mark.parametrize(
     ("kind", "filename"),
-    [("skill", "SKILL.md"), ("plugin", "SKILL.md"), ("plugin", "plugin.json")],
+    [("skill", "SKILL.md"), ("session", "settings.json"), ("session", "ratexp.md")],
 )
 def test_every_file_the_installer_asks_for_is_served(client, kind, filename):
     assert client.get(f"/template/{kind}/{filename}").status_code == 200
@@ -42,15 +42,6 @@ def test_a_name_replaces_the_placeholder_in_the_skill_template(client):
     assert "<your-skill-name>" not in body
     # The hook has to point at the folder the skill is installed into.
     assert '.claude/skills/poem-creator/ratexp-skill.sh"' in body
-
-
-def test_a_name_replaces_the_placeholder_in_the_plugin_template(client):
-    body = client.get("/template/plugin/SKILL.md", params={"name": "poem-creator"}).text
-    assert "name: poem-creator" in body
-    assert "${CLAUDE_PLUGIN_ROOT}/skills/poem-creator/ratexp-skill.sh" in body
-
-    manifest = client.get("/template/plugin/plugin.json", params={"name": "poem-creator"}).text
-    assert '"name": "poem-creator"' in manifest
 
 
 def test_without_a_name_the_template_keeps_its_placeholder(client):
@@ -82,7 +73,7 @@ def test_a_name_that_is_not_a_plain_skill_name_is_refused(client, name):
 @pytest.mark.parametrize(
     "path",
     [
-        "/template/skill/plugin.json",  # real file, wrong kind
+        "/template/session/SKILL.md",  # real file, wrong kind
         "/template/skill/ratexp-skill.sh",  # served from /ratexp-skill.sh instead
         "/template/nope/SKILL.md",
         "/template/skill/config.yaml",

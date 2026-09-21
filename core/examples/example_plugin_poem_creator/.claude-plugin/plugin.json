@@ -1,8 +1,0 @@
-{
-  "name": "poem-creator",
-  "description": "Picks a mood and writes a short original poem. Collects an optional good/bad rating via RateXp.",
-  "version": "1.0.0",
-  "author": {
-    "name": "RateXp"
-  }
-}

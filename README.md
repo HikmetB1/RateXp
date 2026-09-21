@@ -12,8 +12,8 @@
 
 <p align="center">
   <a href="#quick-start-install-in-one-command">Quick start</a> ·
-  <a href="#how-it-works-from-skill-to-storage">How it works</a> ·
-  <a href="#examples-skills-you-can-copy">Examples</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#examples-a-skill-you-can-copy">Examples</a> ·
   <a href="#features-what-you-get">Features</a> ·
   <a href="#the-dashboard-read-and-export-the-feedback">Dashboard</a> ·
   <a href="#contact-how-to-reach-me">Contact</a> ·
@@ -21,14 +21,13 @@
   <a href="#license-what-you-may-do-with-it">License</a>
 </p>
 
-Dear skill or plugin author and coding-agent admin, who would like to stay close to your
-users - and dear user, who would like to stay close to whoever built the skill, plugin or
-coding agent you use:
+Dear skill author and coding-agent admin, who would like to stay close to your users - and
+dear user, who would like to stay close to whoever built the skill or coding agent you use:
 
 RateXp rates the **agentic experience, by the human who had it** - asked immediately in the
-terminal where the work happened, not somewhere afterwards. The person using your skill,
-plugin or coding agent is the one who rates it: a skill or plugin on its own runs, a coding
-agent session by session. The feedback lands on the
+terminal where the work happened, not somewhere afterwards. The person using your skill or
+coding agent is the one who rates it: a skill on its own runs, a coding agent session by
+session. The feedback lands on the
 [live dashboard](https://ratexp-app.azurewebsites.net/) or your own storage adapter.
 
 <p align="center">
@@ -44,12 +43,8 @@ from your project root:
 # Pick one
 
 # Use case: A skill Author would like to stay close to the skill users and get their feedback
-# A plain skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
+# A skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
-
-# Use case: A plugin Author would like to stay close to the plugin users and get their feedback
-# A plugin  ->  creates my-plugin/ with the skill nested inside -> Update your SKILL.md in your plugin folder as usual
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s plugin my-plugin
 
 # Use case: A coding agent provider or access admin would like to stay close to the coding agent users and get their feedback
 # The coding agent itself  ->  creates .claude/ratexp-coding-agent.sh -> then paste the hooks it prints into .claude/settings.json
@@ -61,7 +56,7 @@ That is the whole setup. Ratings land on the
 
 ### How often it asks: every 2nd run or turn
 
-- **Skill or plugin** - every 2nd **run** of that skill, so it never nags.
+- **Skill** - every 2nd **run** of that skill, so it never nags.
 - **Coding agent** - every 2nd **turn** of the session, and `/ratexp` asks on the spot.
 
 Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
@@ -89,7 +84,7 @@ sequenceDiagram
     Note over A,C: once, while setting up
     A->>C: GET /install.sh, then run it
     C-->>A: the hook, named for what it rates, pointing back at this core
-    A->>H: a skill or plugin folder, or .claude/ with its hooks pasted into settings.json
+    A->>H: a skill folder, or .claude/ with its hooks pasted into settings.json
 
     Note over H,D: then every Nth run of that skill, or every Nth turn of the session
     H->>C: POST /feedback (rating, optional comment)
@@ -101,19 +96,16 @@ sequenceDiagram
     C-->>H: 201 stored, or 503 if none accepted
 ```
 
-## Examples: skills/plugins you can copy
-The same poem-writing skill packaged both ways, hooks already wired - ask for a mood, get a
-short original poem:
+## Examples: a skill you can copy
+A poem-writing skill with the hooks already wired - ask for a mood, get a short original poem:
 
 - [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
-  a plain skill: `SKILL.md` plus its `ratexp-skill.sh`.
-- [`core/examples/example_plugin_poem_creator/`](./core/examples/example_plugin_poem_creator/) -
-  a plugin with its skill: `SKILL.md` plus the same `ratexp-skill.sh`.
+  `SKILL.md` plus its `ratexp-skill.sh`.
 
 For a blank starting point, copy [`core/template/`](./core/template/).
 
 ## Features: what you get
-1. **Skill or plugin author: ship it inside your skill** - drop `SKILL.md` +
+1. **Skill author: ship it inside your skill** - drop `SKILL.md` +
    `ratexp-skill.sh` into the skill folder and publish as usual. Everyone who installs your
    skill gets the hooks with it, and each rating comes back named after that skill.
 2. **Coding agent admin: hand it to your users** - give them `ratexp-coding-agent.sh` and

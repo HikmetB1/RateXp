@@ -23,8 +23,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # core/, one level up from this package. Resolved from __file__ so the working
 # directory doesn't matter.
 CORE_DIR = Path(__file__).resolve().parent.parent
-# One hook script per thing that can be rated. A plugin ships a skill, so it ships
-# the skill's hook - there is no separate plugin script.
+# One hook script per thing that can be rated: a skill's own runs, or the whole
+# session the coding agent is running.
 SKILL_SH = CORE_DIR / "ratexp-skill.sh"
 CODING_AGENT_SH = CORE_DIR / "ratexp-coding-agent.sh"
 INSTALL_SH = CORE_DIR / "install.sh"
@@ -37,11 +37,6 @@ PUBLIC_URL = os.environ.get("RATEXP_PUBLIC_URL", "http://localhost:8000").rstrip
 # a directory - that is how traversal gets in.
 _TEMPLATE_FILES = {
     ("skill", "SKILL.md"): (CORE_DIR / "template/skill/SKILL.md", "<your-skill-name>"),
-    ("plugin", "SKILL.md"): (CORE_DIR / "template/plugin/skills/my-skill/SKILL.md", "my-skill"),
-    ("plugin", "plugin.json"): (
-        CORE_DIR / "template/plugin/.claude-plugin/plugin.json",
-        "my-plugin",
-    ),
     # Session files rate whole conversations, so there is no name to substitute.
     ("session", "settings.json"): (CORE_DIR / "template/session/settings.json", ""),
     ("session", "ratexp.md"): (CORE_DIR / "template/session/ratexp.md", ""),
@@ -147,7 +142,7 @@ def _serve_hook(path: Path) -> str:
 # match /install.sh, and the name is then a path rather than a fixed route.
 @app.get("/ratexp-skill.sh", response_class=PlainTextResponse)
 def get_skill_hook() -> str:
-    """The hook a skill ships with, plugins included. Rates that skill's own runs."""
+    """The hook a skill ships with. Rates that skill's own runs."""
     return _serve_hook(SKILL_SH)
 
 
@@ -165,7 +160,7 @@ def get_install_sh() -> str:
 
 @app.get("/template/{kind}/{filename}", response_class=PlainTextResponse)
 def get_template_file(kind: str, filename: str, name: str = "") -> str:
-    """One template file, with `?name=` substituted for the skill/plugin name."""
+    """One template file, with `?name=` substituted for the skill name."""
     entry = _TEMPLATE_FILES.get((kind, filename))
     if entry is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no such template file")

@@ -1,4 +1,4 @@
-"""Guards the shipped skill/plugin templates: hook copies and SKILL.md frontmatter.
+"""Guards the shipped skill templates: hook copies and SKILL.md frontmatter.
 
 A copied template must work as-is, so each one ships its own hook script (generated
 from the canonical script by tools/sync_hooks.py) and declares all five hooks.
@@ -18,9 +18,7 @@ CORE = Path(__file__).resolve().parents[1]
 # Every SKILL.md we ship. Each sits next to its own copy of the hook script.
 SKILLS = (
     CORE / "template" / "skill" / "SKILL.md",
-    CORE / "template" / "plugin" / "skills" / "my-skill" / "SKILL.md",
     CORE / "examples" / "example_skill_poem_creator" / "SKILL.md",
-    CORE / "examples" / "example_plugin_poem_creator" / "skills" / "poem-creator" / "SKILL.md",
 )
 
 # The five hook events the flow needs; see core/ratexp-skill.sh.
@@ -80,8 +78,7 @@ def test_skill_has_no_once_flag(path):
 
 @pytest.mark.parametrize("path", SKILLS, ids=_ids)
 def test_every_hook_runs_the_sibling_script(path):
-    # A plugin ships a skill, so both ship the same hook. Each SKILL.md must name
-    # the copy sitting beside it.
+    # Each SKILL.md must name the hook copy sitting beside it.
     (script,) = path.parent.glob("ratexp-*.sh")
     assert script.name == "ratexp-skill.sh", script
     front = _frontmatter(path)

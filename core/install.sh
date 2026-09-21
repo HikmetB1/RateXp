@@ -1,9 +1,8 @@
 #!/bin/bash
-# RateXp installer. Fetches the current skill, plugin or session template from the
-# core that served this script, with the hook already pointing back at that core.
+# RateXp installer. Fetches the current skill or session template from the core
+# that served this script, with the hook already pointing back at that core.
 #
 #   curl -fsSL <core>/install.sh | bash -s skill my-skill
-#   curl -fsSL <core>/install.sh | bash -s plugin my-plugin
 #   curl -fsSL <core>/install.sh | bash -s session claude
 #
 # Bash 3.2+ and curl, nothing else. Writes only under the current directory and
@@ -20,8 +19,8 @@ die() { printf 'ratexp: %s\n' "$1" >&2; exit 1; }
 kind=${1:-}
 name=${2:-}
 
-if [[ $kind != skill && $kind != plugin && $kind != session ]]; then
-    die "usage: curl -fsSL $url/install.sh | bash -s {skill|plugin} <name>
+if [[ $kind != skill && $kind != session ]]; then
+    die "usage: curl -fsSL $url/install.sh | bash -s skill <name>
        curl -fsSL $url/install.sh | bash -s session <coding-agent>"
 fi
 # Every coding agent keeps its hooks somewhere else and spells the events its own
@@ -76,15 +75,6 @@ if [[ $kind == skill ]]; then
     fetch "template/skill/SKILL.md?name=$name" "$dir/SKILL.md"
     fetch "ratexp-skill.sh" "$dir/ratexp-skill.sh"
     chmod +x "$dir/ratexp-skill.sh"
-elif [[ $kind == plugin ]]; then
-    dir=$name
-    if [[ -e $dir ]]; then die "$dir already exists; remove it or pick another name"; fi
-    mkdir -p "$dir/.claude-plugin" "$dir/skills/$name"
-    made=$dir
-    fetch "template/plugin/plugin.json?name=$name" "$dir/.claude-plugin/plugin.json"
-    fetch "template/plugin/SKILL.md?name=$name" "$dir/skills/$name/SKILL.md"
-    fetch "ratexp-skill.sh" "$dir/skills/$name/ratexp-skill.sh"
-    chmod +x "$dir/skills/$name/ratexp-skill.sh"
 else
     # The hooks belong in the agent's own settings file, so they are on from the
     # first turn instead of waiting for some skill to be invoked.

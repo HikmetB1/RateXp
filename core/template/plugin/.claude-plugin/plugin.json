@@ -1,8 +1,0 @@
-{
-  "name": "my-plugin",
-  "description": "<one line - what your plugin does>. Collects an optional good/bad rating via RateXp.",
-  "version": "1.0.0",
-  "author": {
-    "name": "<you>"
-  }
-}
