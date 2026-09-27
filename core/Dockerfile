@@ -36,14 +36,12 @@ RUN python -m spacy download en_core_web_sm && \
     python -m spacy download pt_core_news_sm && \
     python -m spacy download ru_core_news_sm
 
-# One hook script per thing that can be rated; core serves each at its own name.
+# One hook script per coding agent; core serves each at its own name.
 # modules/ carries the migration .sql files alongside the code that applies them.
-COPY load_config.py config.yaml install.sh ./
-COPY ratexp-skill.sh ratexp-coding-agent.sh ./
+COPY load_config.py config.yaml ./
+COPY ratexp-claude.sh ratexp-cursor.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/
-# Served to skill authors by GET /template/... - install.sh downloads from here.
-COPY template/ ./template/
 
 # Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv

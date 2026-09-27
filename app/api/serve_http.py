@@ -21,6 +21,7 @@ from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnec
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from load_config import (
+    CORE_URL,
     LIST_MAX_LIMIT,
     LIST_VIEW_LIMIT,
     QUERY_ENABLED,
@@ -91,10 +92,12 @@ def healthz() -> dict[str, str]:
 
 @app.get("/meta")
 def meta() -> dict:
-    """What the UI needs to render the filter box for the active read source:
-    whether the /query box is on, and the source's query language + an example."""
+    """What the UI needs to render the filter box for the active read source -
+    whether the /query box is on, and the source's query language + an example -
+    and the core its install popup tells users to install from."""
     read = app.state.read
     return {
+        "core_url": CORE_URL,
         "query_enabled": QUERY_ENABLED,
         "read_source": read.name,
         "query_language": read.query_language,

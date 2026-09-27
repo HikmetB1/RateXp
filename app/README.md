@@ -40,6 +40,7 @@ cd FE && npm install && npm run dev
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
 
 - `schema_version`: ATIF version expected on stored transcripts (matches core's)
+- `core_url`: the core the install popup tells users to install from
 - `list_view_limit` / `list_max_limit`: rows the list endpoints return by default, and the
   hard ceiling on any one response
 - `top_skills_limit`: how many skills the "Top skills" panel shows
@@ -65,6 +66,8 @@ Secrets and per-environment wiring, in `app/.env` ([example](./.env.example)):
   `storage:logs:read` scope
 - `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: the same three
   the Phoenix destination is written with, because the dashboard reads the same project back
+- `RATEXP_CORE_URL`: overrides `core_url`, so each deployment's install popup points at its
+  own core without editing the file
 - `RATEXP_ENV` / `RATEXP_CORS_ORIGINS`: `local` (the default) allows any origin; any other
   value makes `RATEXP_CORS_ORIGINS` mandatory and the app refuses to start without it
 

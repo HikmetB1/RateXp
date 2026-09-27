@@ -3,8 +3,8 @@
 #
 #   docker compose up --build -d
 #   open http://localhost:8001                    # dashboard
-#   http://localhost:8000/ratexp-skill.sh         # the hook script skills download
-#   http://localhost:8000/ratexp-coding-agent.sh  # the one whole sessions download
+#   http://localhost:8000/ratexp-claude.sh        # the hook Claude Code users install
+#   http://localhost:8000/ratexp-cursor.sh        # the one Cursor users install
 #   http://localhost:8000/feedback                # where installed hooks post ratings
 #   http://localhost:8000/transcript              # where they post consented transcripts
 #
@@ -43,9 +43,9 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
-      # Base URL baked into the hook scripts core serves at /ratexp-skill.sh and
-      # /ratexp-coding-agent.sh; installed hooks post back here. Must be reachable
-      # from the host running the skill or session.
+      # Base URL baked into the hook scripts core serves at /ratexp-claude.sh
+      # and /ratexp-cursor.sh; installed hooks post back here. Must be reachable
+      # from the machine running the coding agent.
       # Stays here because it follows the port compose publishes.
       RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
     # Live-reload the API on source edits; the hook scripts are read per request.
@@ -74,6 +74,9 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
       RATEXP_ENV: local
+      # The core the install popup names: the address installed hooks reach, so it
+      # follows core's RATEXP_PUBLIC_URL.
+      RATEXP_CORE_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
     depends_on:
       db:
         condition: service_healthy

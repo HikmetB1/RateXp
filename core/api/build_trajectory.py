@@ -1,4 +1,8 @@
-"""Convert a Claude Code session transcript (.jsonl) into ATIF.
+"""Convert a coding agent's session transcript (.jsonl) into ATIF.
+
+`jsonl_to_atif` picks the reader that matches the agent that produced the file.
+Each agent writes its own shape, so there is one reader per agent and no shared
+middle layer - the formats have too little in common to be worth one.
 
 ATIF - the Agent Trajectory Interchange Format (Harbor) - is a JSON shape for a
 whole agent conversation: an ordered list of `steps`, each from a `source`
@@ -21,11 +25,19 @@ Claude Code writes one JSON object per line. The shapes we care about:
 `content` is either a plain string or a list of typed blocks. Lines that are not
 conversation messages (e.g. "summary" entries) are skipped. The converter is
 permissive: unknown shapes degrade gracefully rather than raising.
+
+Cursor writes one JSON object per line as well, but carries far less: the role
+sits on the line itself instead of in a `type` field, user turns are wrapped in
+`<user_query>` and prefixed with an inline `<timestamp>`, tool calls are usually
+logged without their results, and there are no token counts anywhere in the file.
+Its token totals are therefore zero because Cursor never recorded them - not
+because nothing was spent.
 """
 
 from __future__ import annotations
 
 import json
+import re
 
 from load_config import SCHEMA_VERSION
 
@@ -120,11 +132,33 @@ def _has_block(content, block_type: str) -> bool:
 
 
 SURVEY_MARK = "check all that apply or type a comment."
+# Cursor's survey starts from a /ratexp command the user sent, so it reads as an
+# ordinary user message. The /ratexp command ratexp-cursor.sh writes, and its stop
+# hook's followup, open with this phrase; keep them in step.
+CURSOR_SURVEY_MARK = "RateXp survey"
+# The rest of the survey is worded by ratexp-cursor.sh as well: the consent question
+# `ask` has the agent put to the user, and the result `report` prints. Keep in step.
+CURSOR_SURVEY_MARKS = (
+    CURSOR_SURVEY_MARK,
+    "including messages and tool results, to",
+    "RateXp: feedback",
+)
+# The agent calling ratexp-cursor.sh to ask and report is the survey at work.
+_RATEXP_SCRIPT = "ratexp-cursor.sh"
+# Cursor wraps user turns and stamps them inline rather than in a JSON field.
+_CURSOR_TIMESTAMP = re.compile(r"<timestamp>([^<]*)</timestamp>")
+_CURSOR_TAGS = re.compile(r"</?(?:user_query|timestamp)>")
+
+
+# The /ratexp request as Claude Code logs it: the command's name, its expanded
+# body, and the one line the agent is told to answer with.
+CLAUDE_REQUEST_MARKS = ("<command-name>/ratexp", "RateXp target:", "Opening the RateXp survey.")
 
 
 def _is_survey_turn(content) -> bool:
-    """Exclude RateXp's questionnaire from the skill trajectory."""
-    return SURVEY_MARK in (content if isinstance(content, str) else json.dumps(content))
+    """Exclude RateXp's request and questionnaire from the trajectory being rated."""
+    text = content if isinstance(content, str) else json.dumps(content)
+    return SURVEY_MARK in text or any(mark in text for mark in CLAUDE_REQUEST_MARKS)
 
 
 def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None) -> dict:
@@ -239,3 +273,96 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
             "total_steps": len(steps),
         },
     }
+
+
+def cursor_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None) -> dict:
+    """Build an ATIF trajectory dict from raw Cursor agent-transcript .jsonl text.
+
+    Every step keeps what Cursor recorded for it: the text, any reasoning, the
+    tool calls with their arguments, and a tool result wherever one was logged.
+    Cursor records no token usage, so the totals stay zero.
+    """
+    harness, _, agent_model = (agent or "").partition(" ")
+    model_name: str | None = agent_model or None
+    steps: list[dict] = []
+
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(entry, dict):
+            continue
+
+        # The role and the body each sit either on the line or one level down:
+        # Cursor has shipped both shapes, and old transcripts stay on disk.
+        msg = entry.get("message")
+        msg = msg if isinstance(msg, dict) else {}
+        role = entry.get("role") or msg.get("role")
+        content = entry.get("content") if "content" in entry else msg.get("content")
+        if role not in ("user", "assistant", "system"):
+            continue
+        if msg.get("model"):
+            model_name = msg["model"]
+
+        text = _text_from_content(content)
+        stamp = _CURSOR_TIMESTAMP.search(text)
+        text = _CURSOR_TAGS.sub("", text)
+        if stamp:
+            text = text.replace(stamp.group(1), "", 1)
+        text = text.strip()
+        # The survey is not part of the run being rated: the request that starts it,
+        # the questions the agent asks - with AskQuestion or in plain text - and the
+        # result it relays. Only an answer the user types freely stays in.
+        if any(mark in json.dumps(content) for mark in CURSOR_SURVEY_MARKS):
+            continue
+        tool_calls = _tool_calls_from_content(content)
+        # The agent running the RateXp script is the survey too, not the work.
+        if any(_RATEXP_SCRIPT in json.dumps(call.get("arguments")) for call in tool_calls):
+            continue
+        reasoning = _reasoning_from_content(content)
+        observation = _observation_from_content(content)
+        if not (text or tool_calls or reasoning or observation):
+            continue
+
+        step: dict = {"step_id": len(steps) + 1}
+        timestamp = stamp.group(1).strip() if stamp else entry.get("timestamp")
+        if timestamp:
+            step["timestamp"] = timestamp
+        step["source"] = {"user": "user", "assistant": "agent"}.get(role, "system")
+        if observation is not None and not text:
+            step["source"] = "system"  # a tool result, not the user speaking
+        if text:
+            step["message"] = text
+        if reasoning:
+            step["reasoning_content"] = reasoning
+        if tool_calls:
+            step["tool_calls"] = tool_calls
+        if observation is not None:
+            step["observation"] = observation
+        steps.append(step)
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "session_id": session_id,
+        "agent": {"name": harness or "unknown", "model_name": model_name},
+        "steps": steps,
+        # Cursor writes no usage anywhere in the file, so these are zero rather
+        # than unknown. Do not read them as a session that cost nothing.
+        "final_metrics": {
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "total_steps": len(steps),
+        },
+    }
+
+
+def jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None) -> dict:
+    """Convert a transcript using the reader for whichever agent wrote it."""
+    harness, _, _ = (agent or "").partition(" ")
+    if harness == "cursor":
+        return cursor_jsonl_to_atif(raw, session_id=session_id, agent=agent)
+    return claude_jsonl_to_atif(raw, session_id=session_id, agent=agent)

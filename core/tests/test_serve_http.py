@@ -113,8 +113,8 @@ def test_a_caller_over_its_budget_gets_429(client, monkeypatch):
     assert client.get("/healthz").status_code == 429
 
 
-# One script per thing that can be rated: a skill's own runs, or the whole session.
-HOOKS = ("ratexp-skill.sh", "ratexp-coding-agent.sh")
+# One hook per coding agent, installed by the person using it.
+HOOKS = ("ratexp-claude.sh", "ratexp-cursor.sh")
 
 
 @pytest.mark.parametrize("hook", HOOKS)
@@ -129,8 +129,8 @@ def test_every_served_hook_has_this_deployments_url_baked_in(client, hook):
 
 @pytest.mark.parametrize("hook", HOOKS)
 def test_every_served_hook_has_the_configured_survey_frequency_baked_in(client, hook):
-    # How often to ask is a deployment setting, stamped in as the script's own
-    # default. A user's RATEXP_EVERY still wins at run time.
+    # How often the whole session is asked about is a deployment setting, stamped
+    # in as the script's own default. A user's RATEXP_EVERY still wins at run time.
     from load_config import DEFAULT_SURVEY_EVERY
 
     text = client.get(f"/{hook}").text
@@ -138,8 +138,7 @@ def test_every_served_hook_has_the_configured_survey_frequency_baked_in(client, 
     assert f"DEFAULT_EVERY={DEFAULT_SURVEY_EVERY}" in text
 
 
-def test_the_installer_is_not_mistaken_for_a_hook(client):
-    # /install.sh and the hooks share a suffix; each must keep its own route.
-    assert client.get("/install.sh").text.startswith("#!/bin/bash")
+def test_only_the_hooks_themselves_are_served(client):
+    # Each hook has a fixed route, so no other name or path reaches the disk.
     assert client.get("/ratexp.sh").status_code == 404
     assert client.get("/../etc/passwd.sh").status_code == 404

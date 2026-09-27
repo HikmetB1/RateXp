@@ -34,7 +34,7 @@ output "app_name" {
 }
 
 output "core_url" {
-  description = "Public URL of core - serves /ratexp.sh and is the RATEXP_URL the shipped hook posts to."
+  description = "Public URL of core - serves the hook scripts, and installed hooks post here."
   value       = local.core_url
 }
 

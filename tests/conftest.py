@@ -55,7 +55,7 @@ def http():
 
 
 # --- core ingestion helpers (core's surface is plain HTTP) --------------------
-# The shipped hook posts multipart form fields with `curl --form-string`, so the
+# The installed hooks post multipart form fields with `curl --form-string`, so the
 # fixtures below put the same shape on the wire, just from Python.
 
 

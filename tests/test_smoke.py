@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+
 
 def test_core_healthz(core_url, http):
     r = http.get(f"{core_url}/healthz")
@@ -17,10 +19,11 @@ def test_dashboard_healthz(app_url, http):
     assert r.json() == {"status": "ok"}
 
 
-def test_core_serves_the_hook_script(core_url, http):
-    # A skill's hook is fetched from here, so it must arrive ready to run:
-    # a bash script with core's own URL already baked in.
-    r = http.get(f"{core_url}/ratexp-skill.sh")
+@pytest.mark.parametrize("hook", ["ratexp-claude.sh", "ratexp-cursor.sh"])
+def test_core_serves_the_hook_scripts(core_url, http, hook):
+    # Each hook is fetched from here, so it must arrive ready to run: a bash
+    # script with core's own URL already baked in.
+    r = http.get(f"{core_url}/{hook}")
     assert r.status_code == 200
     assert r.text.startswith("#!/bin/bash")
     assert "__RATEXP_URL__" not in r.text

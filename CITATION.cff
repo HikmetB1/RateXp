@@ -9,11 +9,12 @@ authors:
 repository-code: "https://github.com/HikmetB1/RateXp"
 url: "https://github.com/HikmetB1/RateXp"
 abstract: >-
-  RateXp is a feedback collection solution for agentic skills. A skill author
-  ships RateXp with their skill - two files side by side, SKILL.md declaring the
-  hooks in its frontmatter and ratexp.sh running them - and it asks users for a
-  rating and, with consent, the full conversation, redacts personal information,
-  and shows the results on a live dashboard.
+  RateXp is a feedback collection solution for agentic work. The end user of a
+  coding agent, such as Claude Code or Cursor, installs it once and rates the
+  whole session, or any skill's most recent run, right where the work happened.
+  That keeps them close to their coding agent admin or skill author: the rating,
+  and with consent the full conversation with personal information redacted,
+  reaches those people on a live dashboard.
 keywords:
   - agentic skills
   - feedback

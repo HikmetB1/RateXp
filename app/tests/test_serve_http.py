@@ -1,10 +1,10 @@
-"""Read-only dashboard API: health, the list endpoints, and the top-skills stats."""
+"""Read-only dashboard API: health, meta, the list endpoints, and the top-skills stats."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from load_config import LIST_MAX_LIMIT, LIST_VIEW_LIMIT
+from load_config import CORE_URL, LIST_MAX_LIMIT, LIST_VIEW_LIMIT
 
 
 def test_healthz(app_with_fake_pool):
@@ -12,6 +12,11 @@ def test_healthz(app_with_fake_pool):
     r = client.get("/healthz")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
+
+
+def test_meta_names_the_core_the_install_popup_points_at(app_with_fake_pool):
+    client, _ = app_with_fake_pool
+    assert client.get("/meta").json()["core_url"] == CORE_URL
 
 
 # --- GET /feedback ------------------------------------------------------------

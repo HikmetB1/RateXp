@@ -1,14 +1,13 @@
-"""Serve the skill hook and accept feedback and consented transcripts over HTTP."""
+"""Serve the hook scripts; take feedback and consented transcripts."""
 
 from __future__ import annotations
 
 import os
-import re
 import shlex
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from api.build_trajectory import claude_jsonl_to_atif
+from api.build_trajectory import jsonl_to_atif
 from api.ingest_records import ingest_feedback, ingest_transcript
 from api.limit_request_rate import RateLimiter
 from api.record_schemas import Feedback, Transcript
@@ -23,27 +22,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # core/, one level up from this package. Resolved from __file__ so the working
 # directory doesn't matter.
 CORE_DIR = Path(__file__).resolve().parent.parent
-# One hook script per thing that can be rated: a skill's own runs, or the whole
-# session the coding agent is running.
-SKILL_SH = CORE_DIR / "ratexp-skill.sh"
-CODING_AGENT_SH = CORE_DIR / "ratexp-coding-agent.sh"
-INSTALL_SH = CORE_DIR / "install.sh"
+# One hook script per coding agent. Each is installed once by the person using
+# the agent, and rates the whole session or any skill's most recent run in it.
+CLAUDE_SH = CORE_DIR / "ratexp-claude.sh"
+CURSOR_SH = CORE_DIR / "ratexp-cursor.sh"
 URL_PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 PUBLIC_URL = os.environ.get("RATEXP_PUBLIC_URL", "http://localhost:8000").rstrip("/")
-
-# What install.sh may download, as an explicit allow-list: (kind, filename) -> the
-# file plus the placeholder `?name=` replaces in it. Never join a request path onto
-# a directory - that is how traversal gets in.
-_TEMPLATE_FILES = {
-    ("skill", "SKILL.md"): (CORE_DIR / "template/skill/SKILL.md", "<your-skill-name>"),
-    # Session files rate whole conversations, so there is no name to substitute.
-    ("session", "settings.json"): (CORE_DIR / "template/session/settings.json", ""),
-    ("session", "ratexp.md"): (CORE_DIR / "template/session/ratexp.md", ""),
-}
-# A name becomes a directory and is written into a shell command inside SKILL.md,
-# so only characters that are safe in both are accepted.
-_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
 BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -138,44 +123,18 @@ def _serve_hook(path: Path) -> str:
     )
 
 
-# A route each, rather than one `/{hook}.sh`: a path parameter here would also
-# match /install.sh, and the name is then a path rather than a fixed route.
-@app.get("/ratexp-skill.sh", response_class=PlainTextResponse)
-def get_skill_hook() -> str:
-    """The hook a skill ships with. Rates that skill's own runs."""
-    return _serve_hook(SKILL_SH)
+# A route each, rather than one `/{hook}.sh`: a path parameter would make the name
+# a path the request picks rather than a fixed route.
+@app.get("/ratexp-claude.sh", response_class=PlainTextResponse)
+def get_claude_hook() -> str:
+    """The Claude Code hook: rates the session, or any skill's most recent run in it."""
+    return _serve_hook(CLAUDE_SH)
 
 
-@app.get("/ratexp-coding-agent.sh", response_class=PlainTextResponse)
-def get_coding_agent_hook() -> str:
-    """The hook installed beside a coding agent. Rates the session it runs in."""
-    return _serve_hook(CODING_AGENT_SH)
-
-
-@app.get("/install.sh", response_class=PlainTextResponse)
-def get_install_sh() -> str:
-    """The installer, pointed at this deployment so a skill rates back to it."""
-    return INSTALL_SH.read_text(encoding="utf-8").replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
-
-
-@app.get("/template/{kind}/{filename}", response_class=PlainTextResponse)
-def get_template_file(kind: str, filename: str, name: str = "") -> str:
-    """One template file, with `?name=` substituted for the skill name."""
-    entry = _TEMPLATE_FILES.get((kind, filename))
-    if entry is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "no such template file")
-    path, placeholder = entry
-    text = path.read_text(encoding="utf-8")
-    # An empty placeholder means the template carries no name; replacing it would
-    # splice the name between every character.
-    if name and placeholder:
-        if not _NAME_RE.match(name):
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "name must be lowercase letters, digits and hyphens",
-            )
-        text = text.replace(placeholder, name)
-    return text
+@app.get("/ratexp-cursor.sh", response_class=PlainTextResponse)
+def get_cursor_hook() -> str:
+    """The Cursor hook: rates the session, or any skill's most recent run in it."""
+    return _serve_hook(CURSOR_SH)
 
 
 @app.post("/feedback", status_code=status.HTTP_201_CREATED)
@@ -203,9 +162,7 @@ async def post_transcript(request: Request) -> dict[str, str]:
         if not raw.strip():
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "empty transcript")
         session_id = str(data.get("session_id") or "") or None
-        data["atif"] = claude_jsonl_to_atif(
-            raw, session_id=session_id, agent=str(data.get("agent") or "")
-        )
+        data["atif"] = jsonl_to_atif(raw, session_id=session_id, agent=str(data.get("agent") or ""))
     try:
         record = Transcript(**data)
     except ValidationError as e:

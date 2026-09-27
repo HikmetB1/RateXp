@@ -3,7 +3,7 @@
 These are the tests that prove the whole app works together - core takes a
 rating (and a consented trajectory) over plain HTTP and writes it, the dashboard
 reads the same data back out. The last test goes one step further and drives the
-*shipped* hook script itself, so the exact bytes a real skill puts on the wire
+hook script a user installs, so the exact bytes a real install puts on the wire
 are the ones being checked.
 """
 
@@ -22,8 +22,9 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-CANONICAL_HOOK = ROOT / "core" / "ratexp-skill.sh"
+CANONICAL_HOOK = ROOT / "core" / "ratexp-claude.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
+EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 
 # The hook refuses to post anywhere but https or the loopback host.
 LOOPBACK_HTTP = re.compile(r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(/|$)")
@@ -36,7 +37,7 @@ OVERSIZE_PAD_BYTES = 600_000
 # Driving the hook means really running it: a POSIX shell plus the tools it uses.
 needs_shell = pytest.mark.skipif(
     os.name != "posix" or not (shutil.which("bash") and shutil.which("curl")),
-    reason="running the shipped hook needs a POSIX system with bash and curl",
+    reason="running the hook needs a POSIX system with bash and curl",
 )
 
 
@@ -153,29 +154,27 @@ def test_trajectory_round_trip(app_url, http, post_feedback, post_transcript):
     assert tx["atif"]["steps"][0]["message"] == "do the thing"
 
 
-# --- the shipped hook, driven the way Claude Code drives it -------------------
+# --- the real hook, driven the way Claude Code drives it -----------------------
 # Everything above posts to core from Python. The test below instead runs the real
-# ratexp-skill.sh: it does its own answer parsing and its own curl calls, so this checks
-# the wire itself - hook event in, row on the dashboard out.
+# ratexp-claude.sh rating a skill: it does its own answer parsing and its own
+# curl calls, so this checks the wire itself - hook event in, row on the dashboard out.
 
 
 @pytest.fixture
-def skill_dir(tmp_path, core_url) -> Path:
-    """A throwaway skill folder holding the canonical hook, aimed at the live core.
-
-    The hook takes its skill name from the folder it sits in, so this unique folder
-    name is also the name the rating lands under on the dashboard.
-    """
+def hook(tmp_path, core_url) -> Path:
+    """The canonical Claude Code hook in a throwaway .claude/, aimed at the live core."""
     if not (core_url.startswith("https://") or LOOPBACK_HTTP.match(core_url)):
         pytest.skip(f"the hook only posts to https or loopback - core is at {core_url}")
-    folder = tmp_path / f"e2e-hook-{uuid.uuid4().hex[:8]}"
+    folder = tmp_path / ".claude"
     folder.mkdir()
     source = CANONICAL_HOOK.read_text(encoding="utf-8")
     assert PLACEHOLDER in source, f"{CANONICAL_HOOK} no longer carries {PLACEHOLDER}"
-    (folder / "ratexp-skill.sh").write_text(
-        source.replace(PLACEHOLDER, shlex.quote(core_url)), encoding="utf-8"
+    script = folder / "ratexp-claude.sh"
+    script.write_text(
+        source.replace(PLACEHOLDER, shlex.quote(core_url)).replace(EVERY_PLACEHOLDER, "2"),
+        encoding="utf-8",
     )
-    return folder
+    return script
 
 
 def _session_jsonl(pad: str = "") -> str:
@@ -200,10 +199,9 @@ def _session_jsonl(pad: str = "") -> str:
 
 
 def _hook_env(state_dir: Path) -> dict:
-    """Environment for a hook run: its own state, and a survey on every run."""
+    """Environment for a hook run: its own state, and the URL baked into this copy."""
     env = dict(os.environ)
     env["XDG_STATE_HOME"] = str(state_dir)
-    env["RATEXP_EVERY"] = "1"  # ask on this run
     env.pop("RATEXP_URL", None)  # use the URL baked into this copy
     return env
 
@@ -223,20 +221,30 @@ def _run_hook(script: Path, env: dict, payload: dict) -> str:
     return done.stdout
 
 
-def _rate_with_hook(script: Path, env: dict, session_id: str, transcript: Path, answer: str) -> str:
-    """Replay the three hook events Claude Code fires around the rating picker.
+def _rate_with_hook(
+    script: Path, env: dict, session_id: str, transcript: Path, run: str, skill: str, answer: str
+) -> str:
+    """Replay the hook events Claude Code fires around a skill's run and its rating.
 
-    Stop hands the model a picker to draw, PreToolUse checks the model drew that
-    exact picker, and PostToolUse carries the user's answer - the one event that
-    posts anything. Returns the hook's PostToolUse output (its delivery report).
+    /<skill> starts the run, its turns land in the transcript, /ratexp:<skill> asks
+    for the survey, Stop hands the model a picker to draw, PreToolUse checks the
+    model drew that exact picker, and PostToolUse carries the user's answer - the
+    one event that posts anything. Returns the hook's delivery report.
     """
     # session_id, transcript_path and cwd ride on every hook event, so send them on
-    # all three - the upload reads the file to send from the event that consents.
+    # all of them - the upload reads the file to send from the event that consents.
     common = {
         "session_id": session_id,
         "transcript_path": str(transcript),
-        "cwd": str(script.parent),
+        "cwd": str(script.parent.parent),
     }
+    transcript.write_text("", encoding="utf-8")
+    _run_hook(
+        script, env, {"hook_event_name": "UserPromptExpansion", "command_name": skill, **common}
+    )
+    transcript.write_text(run, encoding="utf-8")
+    request = {"hook_event_name": "UserPromptExpansion", "command_name": f"ratexp:{skill}"}
+    _run_hook(script, env, {**request, **common})
     stop = _run_hook(script, env, {"hook_event_name": "Stop", **common})
     blocked = json.loads(stop)
     assert blocked["decision"] == "block", stop
@@ -275,24 +283,23 @@ def _rate_with_hook(script: Path, env: dict, session_id: str, transcript: Path, 
 @needs_shell
 @pytest.mark.parametrize("oversized", [False, True], ids=["normal", "oversized"])
 @pytest.mark.parametrize("share", [True, False], ids=["share", "no-share"])
-def test_shipped_hook_round_trip(app_url, http, tmp_path, skill_dir, share, oversized):
-    """The real hook script, run as Claude Code runs it, lands on the dashboard.
+def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
+    """The real hook script, rating a skill as Claude Code runs it, lands on the dashboard.
 
     The rating always goes; the transcript goes only when the user ticked consent.
     An oversized transcript still uploads, but core stores it as the meta-only stub.
     """
     session_id = str(uuid.uuid4())
-    transcript = tmp_path / "session.jsonl"
-    transcript.write_text(
-        _session_jsonl("x" * OVERSIZE_PAD_BYTES if oversized else ""), encoding="utf-8"
-    )
+    skill = f"e2e-skill-{uuid.uuid4().hex[:8]}"  # the name the rating lands under
     answer = "Good, Yes, store trajectory" if share else "Good, No, do not store"
 
     report = _rate_with_hook(
-        skill_dir / "ratexp-skill.sh",
+        hook,
         _hook_env(tmp_path / "state"),
         session_id,
-        transcript,
+        tmp_path / "session.jsonl",
+        _session_jsonl("x" * OVERSIZE_PAD_BYTES if oversized else ""),
+        skill,
         answer,
     )
     # The hook reports only what it actually got a 201 for.
@@ -302,9 +309,9 @@ def test_shipped_hook_round_trip(app_url, http, tmp_path, skill_dir, share, over
     else:
         assert "Transcript kept private" in message, message
 
-    # 1. The rating is on the dashboard, under the skill folder's name.
-    row = _poll(lambda: _find(_get(http, f"{app_url}/feedback", full="true"), skill_dir.name))
-    assert row is not None, f"{skill_dir.name} never appeared on the dashboard"
+    # 1. The rating is on the dashboard, under the skill's name.
+    row = _poll(lambda: _find(_get(http, f"{app_url}/feedback", full="true"), skill))
+    assert row is not None, f"{skill} never appeared on the dashboard"
     assert row["score"] == 1  # "Good"
     assert row["session_id"] == session_id
 

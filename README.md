@@ -13,7 +13,6 @@
 <p align="center">
   <a href="#quick-start-install-in-one-command">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
-  <a href="#examples-a-skill-you-can-copy">Examples</a> ·
   <a href="#features-what-you-get">Features</a> ·
   <a href="#the-dashboard-read-and-export-the-feedback">Dashboard</a> ·
   <a href="#contact-how-to-reach-me">Contact</a> ·
@@ -21,14 +20,14 @@
   <a href="#license-what-you-may-do-with-it">License</a>
 </p>
 
-Dear skill author and coding-agent admin, who would like to stay close to your users - and
-dear user, who would like to stay close to whoever built the skill or coding agent you use:
+Dear coding agent user - and the skill authors and coding agent providers who want to hear
+from you:
 
-RateXp rates the **agentic experience, by the human who had it** - asked immediately in the
-terminal where the work happened, not somewhere afterwards. The person using your skill or
-coding agent is the one who rates it: a skill on its own runs, a coding agent session by
-session. The feedback lands on the
-[live dashboard](https://ratexp-app.azurewebsites.net/) or your own storage adapter.
+RateXp rates the **agentic experience, by the human who had it**. Install it once in your
+coding agent, then rate the whole session or any skill you ran, right where the work happened.
+Your rating - and, if you agree, the conversation with anything personal masked - goes
+straight to them on the [live dashboard](https://ratexp-app.azurewebsites.net/) or your own
+storage adapter.
 
 <p align="center">
   <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
@@ -36,32 +35,37 @@ session. The feedback lands on the
 
 ## Quick start: install in one command
 
-Pick the command that satisfies your use case, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
-from your project root:
+Install RateXp once in the coding agent you use - nothing to configure. As of now it works
+with Claude Code and Cursor.
 
 ```bash
 # Pick one
 
-# Use case: A skill Author would like to stay close to the skill users and get their feedback
-# A skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
+# Claude Code  ->  saves ~/.claude/ratexp-claude.sh
+curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-claude.sh --create-dirs -o ~/.claude/ratexp-claude.sh
 
-# Use case: A coding agent provider or access admin would like to stay close to the coding agent users and get their feedback
-# The coding agent itself  ->  creates .claude/ratexp-coding-agent.sh -> then paste the hooks it prints into .claude/settings.json
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s session claude
+# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh
+curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-cursor.sh --create-dirs -o ~/.cursor/ratexp-cursor.sh
 ```
 
-That is the whole setup. Ratings land on the
-[dashboard](https://ratexp-app.azurewebsites.net/).
+Then paste the hooks from the [dashboard](https://ratexp-app.azurewebsites.net/)'s
+**Install RateXp** popup into `~/.claude/settings.json` or `~/.cursor/hooks.json`. That is
+the whole setup; ratings land on the same dashboard.
 
-### How often it asks: every 2nd run or turn
+### When it asks: every 2nd turn, and on /ratexp
 
-- **Skill** - every 2nd **run** of that skill, so it never nags.
-- **Coding agent** - every 2nd **turn** of the session, and `/ratexp` asks on the spot.
-
-Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
-`ratexp-skill.sh` or `ratexp-coding-agent.sh` - to change the default for everyone you
-ship it to.
+- **The whole session** - asked every 2nd turn, and whenever you type `/ratexp`.
+- **How often** - change `DEFAULT_EVERY` at the top of the saved script, or set
+  `RATEXP_EVERY`.
+- **What is stored** - only with your consent: messages, reasoning, tool calls and their
+  results, with personal data masked (redacted) before it is stored.
+- **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
+- **Claude Code** - works in the editor and the CLI.
+- **Claude Code menu** - pick `/ratexp:<skill>`.
+- **Claude Code setup** - RateXp adds the menu itself; it shows from your second session.
+- **Cursor** - works in the editor, and in the CLI when it fires hooks.
+- **Cursor menu** - pick `/ratexp`, then type `:<skill>`.
+- **Cursor setup** - RateXp adds the menu itself; it shows once Cursor runs its hooks.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
@@ -71,22 +75,21 @@ Want to run your own core instead of the hosted one? See
 core hands out the hook script, takes back whatever the hook posts, masks anything personal,
 and writes the result to every destination switched on - the hook only ever posts to the same
 two endpoints and never knows where the data ends up. That is true whether it is rating one
-skill or a whole coding-agent session; only what arms it, and how much of the conversation it
-covers, differ.
+skill or the whole session; only how much of the conversation it covers differs.
 
 ```mermaid
 sequenceDiagram
-    participant A as Skill author or coding agent user
+    participant A as Coding agent user
     participant H as the hook script
     participant C as core
     participant D as Destinations
 
     Note over A,C: once, while setting up
-    A->>C: GET /install.sh, then run it
-    C-->>A: the hook, named for what it rates, pointing back at this core
-    A->>H: a skill folder, or .claude/ with its hooks pasted into settings.json
+    A->>C: GET /ratexp-claude.sh or /ratexp-cursor.sh
+    C-->>A: the hook for that coding agent, pointing back at this core
+    A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
 
-    Note over H,D: then every Nth run of that skill, or every Nth turn of the session
+    Note over H,D: then every 2nd turn, or whenever the user types /ratexp or /ratexp <skill>
     H->>C: POST /feedback (rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
@@ -96,22 +99,14 @@ sequenceDiagram
     C-->>H: 201 stored, or 503 if none accepted
 ```
 
-## Examples: a skill you can copy
-A poem-writing skill with the hooks already wired - ask for a mood, get a short original poem:
-
-- [`core/examples/example_skill_poem_creator/`](./core/examples/example_skill_poem_creator/) -
-  `SKILL.md` plus its `ratexp-skill.sh`.
-
-For a blank starting point, copy [`core/template/`](./core/template/).
-
 ## Features: what you get
-1. **Skill author: ship it inside your skill** - drop `SKILL.md` +
-   `ratexp-skill.sh` into the skill folder and publish as usual. Everyone who installs your
-   skill gets the hooks with it, and each rating comes back named after that skill.
-2. **Coding agent admin: hand it to your users** - give them `ratexp-coding-agent.sh` and
-   the hooks to paste into `settings.json`. Rating is then on from their first turn, and each rating covers the whole session.
-3. **Ratings and comments** - a quick good/bad rating with an optional comment, and never
-   more than one question, so it never gets in the way.
+1. **One install, in your own coding agent** - Claude Code or Cursor, once for every
+   project. Nothing has to be built into the skills or the agent you rate.
+2. **Rate the session or one skill** - the whole session every 2nd turn and on `/ratexp`;
+   any skill's most recent run on `/ratexp <skill>` or `/ratexp:<skill>`, the names
+   autocompleting in Claude Code.
+3. **Ratings and comments** - a quick good/bad rating with an optional comment, asked in one
+   go - one picker in Claude Code, two short questions in Cursor - so it never gets in the way.
 4. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
    format (ATIF). The hook uploads it straight from the user's machine.
 5. **PII redaction** - personal data is masked before storage by a pluggable adapter
@@ -128,7 +123,7 @@ For a blank starting point, copy [`core/template/`](./core/template/).
    Bluebox is write-only, so it has no read adapter.
 8. **Responsive UI** - the table reflows into cards on phones.
 9. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
-10. **Tested coding agents** - Claude CLI
+10. **Tested coding agents** - Claude Code and Cursor, in the editor and the CLI
 
 ## The dashboard: read and export the feedback
 <p align="center">

@@ -12,42 +12,67 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// Core base URL shown in the "Ship RateXp" popup. Update if the core URL changes.
-const CORE_URL = 'https://ratexp-core.azurewebsites.net'
+// The hooks each coding agent needs, for the user to paste into its settings. They are
+// the same for everyone: Claude Code expands $HOME, and Cursor runs the hooks in
+// ~/.cursor/hooks.json from ~/.cursor. Claude Code's are every event
+// core/ratexp-claude.sh handles (its triage()); keep the two in step.
+const CLAUDE_HOOK = { type: 'command', command: 'bash "$HOME/.claude/ratexp-claude.sh"' }
+const CLAUDE_SETTINGS = {
+  hooks: {
+    SessionStart: [{ hooks: [CLAUDE_HOOK] }],
+    UserPromptExpansion: [{ hooks: [CLAUDE_HOOK] }],
+    Stop: [{ hooks: [CLAUDE_HOOK] }],
+    PreToolUse: [{ matcher: 'Skill|AskUserQuestion', hooks: [CLAUDE_HOOK] }],
+    PostToolUse: [{ matcher: 'AskUserQuestion', hooks: [{ ...CLAUDE_HOOK, timeout: 60 }] }],
+    PostToolUseFailure: [{ matcher: 'AskUserQuestion', hooks: [CLAUDE_HOOK] }],
+  },
+}
+const CURSOR_HOOK = { command: 'bash ./ratexp-cursor.sh' }
+const CURSOR_HOOKS = { version: 1, hooks: { sessionStart: [CURSOR_HOOK], stop: [CURSOR_HOOK] } }
 
-// The two tabs of the "Ship RateXp" popup, rendered as Markdown (see Md). A skill is
-// rated on its own runs; a coding agent on the session it is running in.
-const SKILL_GUIDE_MD = `Install a skill:
+// The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
+// because each keeps its hooks somewhere different. It installs from this deployment's
+// own core, which /meta names.
+function installGuideMd(agent, coreUrl = '<your-core-url>') {
+  const guide = {
+    claude: {
+      dir: '~/.claude',
+      script: 'ratexp-claude.sh',
+      settings: '~/.claude/settings.json',
+      hooks: CLAUDE_SETTINGS,
+      after: `Your whole session is rated every 2nd turn, and whenever you type \`/ratexp\`. Type
+\`/ratexp <skill>\` - or pick \`/ratexp:<skill>\` from the menu - to rate just that skill's
+most recent run. RateXp writes \`/ratexp\` and those menu entries itself when a session
+starts, so they show from your second session on.`,
+    },
+    cursor: {
+      dir: '~/.cursor',
+      script: 'ratexp-cursor.sh',
+      settings: '~/.cursor/hooks.json',
+      hooks: CURSOR_HOOKS,
+      after: `Your whole chat is rated every 2nd turn, and whenever you type \`/ratexp\`. Type
+\`/ratexp <skill>\` or \`/ratexp:<skill>\` to rate just that skill's most recent run.
+RateXp writes \`/ratexp\` itself the first time Cursor runs its hooks.`,
+    },
+  }[agent]
+  return `Save the RateXp script, once for every project:
 
 \`\`\`bash
-curl -fsSL ${CORE_URL}/install.sh | bash -s skill my-skill
+curl -fsSL ${coreUrl}/${guide.script} --create-dirs -o ${guide.dir}/${guide.script}
 \`\`\`
 
-Now open \`SKILL.md\`, write your skill instructions in the body, and ship it. The
-rating is about that skill's own runs, so it arrives named after the skill.
+Then add these hooks to \`${guide.settings}\`. **RateXp never edits that file** - it is
+yours. If it already has a \`"hooks"\` block, merge them in; if it does not exist yet,
+this is the whole file:
 
-Congratulations - your skill is live at RateXp! 🎉`
-
-const AGENT_GUIDE_MD = `\`claude\` is supported for now:
-
-\`\`\`bash
-curl -fsSL ${CORE_URL}/install.sh | bash -s session claude
+\`\`\`json
+${JSON.stringify(guide.hooks, null, 2)}
 \`\`\`
 
-That drops \`ratexp-coding-agent.sh\` and \`/ratexp\` into \`.claude/\`, then prints the
-hooks to add. **It never edits your settings file** - every agent keeps its hooks
-somewhere different, and yours is yours. Paste the printed block into:
-
-\`\`\`text
-.claude/settings.json
-\`\`\`
-
-\`RATEXP_EVERY\` counts **turns** here, so the survey lands wherever the Nth falls -
-part way through a long session, at the end of a short one.
-
-\`/ratexp\` asks on the spot.
+${guide.after}
 
 Congratulations - your agentic experience is live at RateXp! 🎉`
+}
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
 // more details" links), rendered as Markdown (see Md). The example query + its code-fence
@@ -118,13 +143,13 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(null) // { truncated } while a filter is active
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
-  const [meta, setMeta] = useState({ query_language: 'SQL', query_example: EXAMPLE_SQL }) // filter-box language, from /meta
+  const [meta, setMeta] = useState({ query_language: 'SQL', query_example: EXAMPLE_SQL }) // filter-box language and the install popup's core, from /meta
   const [liveTick, setLiveTick] = useState(0) // bumped on every live snapshot, to re-run an active filter
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
   // Which row's transcript is shown in the slide-over trajectory drawer.
   const [openTx, setOpenTx] = useState(null)
-  // Whether the "Ship RateXp" how-to popup is open.
+  // Whether the "Install RateXp" how-to popup is open.
   const [guideOpen, setGuideOpen] = useState(false)
   // Whether the "preview & download" info popup is open (shared by the notes and the (i) badge).
   const [infoOpen, setInfoOpen] = useState(false)
@@ -151,7 +176,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    // Which query language the filter box speaks, for the active read source (SQL/DQL).
+    // Which query language the filter box speaks (SQL/DQL), and which core the install
+    // popup names - both differ per deployment.
     fetch(`${API_BASE}/meta`).then(okJson).then(setMeta).catch(() => {})
     // Initial load over HTTP - works even if the WebSocket is blocked. One /snapshot
     // call returns feedback + their matching transcripts + stats, the same correlated
@@ -237,15 +263,15 @@ export default function App() {
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Opens the how-to popup for skill and coding-agent authors. The label is
-              two spans so a narrow screen breaks it between them, not mid-phrase (.btn-ship). */}
+          {/* Opens the install how-to popup. The label is two spans so a narrow
+              screen breaks it between them, not mid-phrase (.btn-install). */}
           <button
-            className="btn-edge btn-ship"
+            className="btn-edge btn-install"
             onClick={() => setGuideOpen(true)}
-            title="How to send your skill's or coding agent's feedback to RateXp"
+            title="How to install RateXp in your coding agent"
           >
-            <span>Ship RateXp with your</span>{' '}
-            <span>skill/coding agent</span>
+            <span>Install RateXp in your</span>{' '}
+            <span>coding agent</span>
           </button>
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
@@ -337,7 +363,7 @@ export default function App() {
         </a>
       </footer>
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
-      <SkillGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <InstallGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} coreUrl={meta.core_url} />
       <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
     </div>
   )
@@ -693,6 +719,9 @@ function TrajectoryDrawer({ data, onClose }) {
   const steps = atif.steps ?? []
   const fm = atif.final_metrics ?? {}
   const model = atif.agent?.model_name
+  // Some coding agents (Cursor) write no token counts into their transcripts, so
+  // their totals arrive as zero. Say so, rather than show a run that cost nothing.
+  const tokensRecorded = Boolean(fm.total_prompt_tokens || fm.total_completion_tokens)
 
   // Portal to <body> so the fixed drawer anchors to the viewport, not #root
   // (whose load animation's transform would otherwise offset it by the page
@@ -714,11 +743,13 @@ function TrajectoryDrawer({ data, onClose }) {
                 model && { k: 'Model', v: model },
                 row?.score && { k: 'Score', v: scoreLabel(row.score) },
                 { k: 'Steps', v: fm.total_steps ?? steps.length },
-                {
-                  k: 'Tokens',
-                  v: `↑ ${fm.total_prompt_tokens ?? 0} · ↓ ${fm.total_completion_tokens ?? 0}`,
-                  title: 'Totals across all agent turns — ↑ input (cached context included) · ↓ output. Summed per turn, so this is tokens processed, not conversation size.',
-                },
+                tokensRecorded
+                  ? {
+                      k: 'Tokens',
+                      v: `↑ ${fm.total_prompt_tokens ?? 0} · ↓ ${fm.total_completion_tokens ?? 0}`,
+                      title: 'Totals across all agent turns — ↑ input (cached context included) · ↓ output. Summed per turn, so this is tokens processed, not conversation size.',
+                    }
+                  : { k: 'Tokens', v: 'not recorded', title: 'This coding agent writes no token counts into its transcript.' },
               ]
                 .filter(Boolean)
                 .map((m, i) => (
@@ -733,7 +764,9 @@ function TrajectoryDrawer({ data, onClose }) {
                 re-sent each turn), so they measure tokens processed, not chat size.
                 The rest explains why the steps below read shorter than that total. */}
             <p className="drawer-meta-note">
-              ↑ input · ↓ output, summed across all turns — tokens processed, bigger than the trajectory looks. The tokens number above counts the conversation re-read and duplicated every turn; the trajectory below shows that same conversation de-duplicated.
+              {tokensRecorded
+                ? '↑ input · ↓ output, summed across all turns — tokens processed, bigger than the trajectory looks. The tokens number above counts the conversation re-read and duplicated every turn; the trajectory below shows that same conversation de-duplicated.'
+                : 'This coding agent writes no token counts into its transcript, so the total is unknown - not zero.'}
             </p>
           </div>
           <button className="drawer-close" onClick={onClose} aria-label="Close">✕</button>
@@ -775,18 +808,16 @@ function TrajectoryDrawer({ data, onClose }) {
   )
 }
 
-// Centered how-to popup, one tab per thing you can rate: a skill (SKILL_GUIDE_MD)
-// or the coding agent itself (AGENT_GUIDE_MD). The two install differently enough -
-// frontmatter hooks vs the agent's own settings file - that showing both at once
-// buried the one the reader wanted.
-const GUIDE_TABS = [
-  { key: 'skill', label: 'Skill', md: SKILL_GUIDE_MD },
-  { key: 'agent', label: 'Coding agent', md: AGENT_GUIDE_MD },
+// Centered how-to popup, one tab per coding agent (installGuideMd): each keeps its
+// hooks somewhere different, and showing both at once buried the one the reader wanted.
+const GUIDE_AGENTS = [
+  { key: 'claude', label: 'Claude Code' },
+  { key: 'cursor', label: 'Cursor' },
 ]
 
 // Closes on the backdrop, the X, or Escape.
-function SkillGuideModal({ open, onClose }) {
-  const [tab, setTab] = useState(GUIDE_TABS[0].key)
+function InstallGuideModal({ open, onClose, coreUrl }) {
+  const [agent, setAgent] = useState(GUIDE_AGENTS[0].key)
   useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
@@ -796,35 +827,34 @@ function SkillGuideModal({ open, onClose }) {
   }, [open, onClose])
 
   if (!open) return null
-  const active = GUIDE_TABS.find((t) => t.key === tab) ?? GUIDE_TABS[0]
   // Portal to <body> so the fixed backdrop anchors to the viewport, not #root
   // (whose load animation would otherwise offset the centered popup on mobile).
   return createPortal(
     <>
       <div className="drawer-backdrop" onClick={onClose} />
       <div className="modal-wrap" onClick={onClose}>
-        <div className="modal glow-edge" role="dialog" aria-label="Ship RateXp with your skill/coding agent" onClick={(e) => e.stopPropagation()}>
+        <div className="modal glow-edge" role="dialog" aria-label="Install RateXp in your coding agent" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-          <h3 style={{ margin: '0 0 12px' }}>Ship RateXp with your skill/coding agent</h3>
-          <div role="tablist" aria-label="What to rate" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            {GUIDE_TABS.map((t) => (
+          <h3 style={{ margin: '0 0 12px' }}>Install RateXp in your coding agent</h3>
+          <div role="tablist" aria-label="Coding agent" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+            {GUIDE_AGENTS.map((a) => (
               <button
-                key={t.key}
+                key={a.key}
                 role="tab"
-                aria-selected={t.key === active.key}
+                aria-selected={a.key === agent}
                 className="btn-edge"
-                onClick={() => setTab(t.key)}
+                onClick={() => setAgent(a.key)}
                 style={{
                   padding: '7px 14px',
                   lineHeight: 1.2,
-                  opacity: t.key === active.key ? 1 : 0.55,
+                  opacity: a.key === agent ? 1 : 0.55,
                 }}
               >
-                {t.label}
+                {a.label}
               </button>
             ))}
           </div>
-          <Md className="md modal-md">{active.md}</Md>
+          <Md className="md modal-md">{installGuideMd(agent, coreUrl)}</Md>
         </div>
       </div>
     </>,
@@ -833,7 +863,7 @@ function SkillGuideModal({ open, onClose }) {
 }
 
 // Centered popup explaining the real-time preview and how Download JSON behaves
-// (downloadInfoMd). Same look as SkillGuideModal; closes on the backdrop, the X, or Escape.
+// (downloadInfoMd). Same look as InstallGuideModal; closes on the backdrop, the X, or Escape.
 function DownloadInfoModal({ open, onClose, queryLanguage = 'SQL', queryExample }) {
   useBodyScrollLock(open)
   useEffect(() => {

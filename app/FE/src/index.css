@@ -140,15 +140,15 @@ button:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 7px 
 button:active:not(:disabled) { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* "Ship RateXp with your skill/plugin" and the filter buttons all use .btn-edge. */
+/* "Install RateXp in your coding agent" and the filter buttons all use .btn-edge. */
 .btn-edge { color: var(--btnfg); background: var(--btn); }
 
 /* The header's how-to button. Each half is nowrap, so the only place the label can
    break is the space between them: one line when it fits, two on a narrow screen.
    The phone breakpoint below drops the nowrap, or the wider half would be a 250px
    block the button cannot shrink past and the page would scroll sideways. */
-.btn-ship { padding: 9px 16px; line-height: 1.2; text-align: center; }
-.btn-ship span { white-space: nowrap; }
+.btn-install { padding: 9px 16px; line-height: 1.2; text-align: center; }
+.btn-install span { white-space: nowrap; }
 
 /* The animated glow ring is replaced by plain chunky borders here. */
 .glow-edge { position: relative; }
@@ -623,6 +623,6 @@ summary:hover { opacity: 0.8; }
   /* One half of the how-to label per line, and a half that still does not fit may
      break inside itself - so the button shrinks with the screen instead of
      pushing the page wider than it. */
-  .btn-ship { display: flex; flex-direction: column; padding: 9px 12px; }
-  .btn-ship span { white-space: normal; overflow-wrap: anywhere; }
+  .btn-install { display: flex; flex-direction: column; padding: 9px 12px; }
+  .btn-install span { white-space: normal; overflow-wrap: anywhere; }
 }

@@ -1,4 +1,9 @@
-"""Black-box tests for core/ratexp-skill.sh and its shipped copies.
+"""Black-box tests for core/ratexp-claude.sh rating a skill, and the harness
+every hook test shares.
+
+The Claude Code hook is installed once, in ~/.claude, by the person using Claude
+Code. It rates any skill's most recent run when they type /ratexp <skill>; the
+whole-session survey is tested in test_hook_session.py.
 
 The hook has to run on a bare machine: Bash 3.2+, curl, and a short list of
 standard utilities - no Python, no jq, no node. Nothing here imports or reads
@@ -9,8 +14,8 @@ od stat head tail sort`), plus a fake `curl` that records each call and prints a
 status the test chooses. If the script ever grew a Python/jq/node dependency,
 these tests would stop producing output instead of passing.
 
-Every run gets its own XDG_STATE_HOME and an explicit RATEXP_URL /
-RATEXP_EVERY, so runs never share state and never touch the network.
+Every run gets its own XDG_STATE_HOME and an explicit RATEXP_URL, so runs
+never share state and never touch the network.
 """
 
 from __future__ import annotations
@@ -39,26 +44,19 @@ ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", 
 FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "grep", "cat")
 
 CORE = Path(__file__).resolve().parents[1]
-CANONICAL = CORE / "ratexp-skill.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
-# What the tests bake in where a real copy would carry config.yaml's value. Every
-# test sets RATEXP_EVERY itself, so this only stands in for "a copy was made".
+# What the tests bake in where a real copy would carry config.yaml's value.
 BAKED_EVERY = 2
-
-# The copies tools/sync_hooks.py generates, with a real URL baked in. They must behave
-# exactly like the canonical script they came from.
-SHIPPED = (
-    CORE / "template" / "skill" / "ratexp-skill.sh",
-    CORE / "examples" / "example_skill_poem_creator" / "ratexp-skill.sh",
-)
+# The default every test runs with: far out of reach, so the whole-session survey
+# never interrupts a test that is not about it.
+NEVER = "32768"
 
 # Loopback is the only http:// origin the script accepts, and nothing listens
 # on this port - the fake curl means no socket is ever opened anyway.
 LOCAL_URL = "http://127.0.0.1:9999"
 
-# The skill name is derived from the script's parent directory name, so the
-# temp skill directory is named deliberately and the survey text follows it.
+# The skill being run and rated.
 DEFAULT_SKILL = "poem-creator"
 
 # Private text planted inside the run being rated. It must never show up in the
@@ -78,7 +76,17 @@ CONSENT = "Good, Yes, store trajectory"
 # The NUL-separated fields of the stored picker, in the order the hook writes
 # them. Tests rewrite them to play the part of a local process with write
 # access to the state directory.
-PENDING_FIELDS = ("request", "born", "picker", "transcript", "size", "start", "identity", "url")
+PENDING_FIELDS = (
+    "request",
+    "born",
+    "picker",
+    "transcript",
+    "size",
+    "start",
+    "identity",
+    "url",
+    "target",
+)
 
 # Stand-in for curl: records argv (NUL-separated, so newlines inside a comment
 # survive) plus the piped body, then prints the status the test asked for.
@@ -106,33 +114,27 @@ def reorder(obj):
 
 
 class Hook:
-    """Runs the shipped script in a sandbox and reads back what curl saw."""
+    """Runs the hook script, as core serves it, in a sandbox and reads back what curl saw."""
 
-    # Which script this harness runs. Each is its own file in core/, so a subclass
-    # testing another one overrides both this and CANONICAL_FOR.
-    script_name = "ratexp-skill.sh"
+    # Which script this harness runs; a subclass testing another one overrides it.
+    script_name = "ratexp-claude.sh"
 
-    def __init__(self, tmp_path: Path, source: Path | None = None):
+    def __init__(self, tmp_path: Path):
         self.tmp = tmp_path
         self.session = "sess-hook-1"
+        self.skill = DEFAULT_SKILL
 
-        # By default: the canonical script, dropped into a directory named for
-        # the skill, with the URL baked in the way tools/sync_hooks.py does.
-        # `source` instead runs an already-generated shipped copy verbatim.
-        if source is None:
-            self.skill = DEFAULT_SKILL
-            text = (CORE / self.script_name).read_text(encoding="utf-8")
-            for name in (PLACEHOLDER, EVERY_PLACEHOLDER):
-                assert name in text, f"canonical script lost its {name} placeholder"
-            text = text.replace(PLACEHOLDER, f"'{LOCAL_URL}'")
-            text = text.replace(EVERY_PLACEHOLDER, f"'{BAKED_EVERY}'")
-        else:
-            self.skill = source.parent.name
-            text = source.read_text(encoding="utf-8")
-            self.script_name = source.name  # a shipped copy keeps its own name
-        self.skill_dir = tmp_path / "skills" / self.skill
-        self.skill_dir.mkdir(parents=True)
-        self.script = self.skill_dir / self.script_name
+        # The script as core serves it: the URL and the frequency baked in.
+        text = (CORE / self.script_name).read_text(encoding="utf-8")
+        for name in (PLACEHOLDER, EVERY_PLACEHOLDER):
+            assert name in text, f"canonical script lost its {name} placeholder"
+        text = text.replace(PLACEHOLDER, f"'{LOCAL_URL}'")
+        text = text.replace(EVERY_PLACEHOLDER, f"'{BAKED_EVERY}'")
+        # Installed once for every project, in the home folder.
+        self.home = tmp_path / "home"
+        self.agent_dir = self.home / ".claude"
+        self.agent_dir.mkdir(parents=True)
+        self.script = self.agent_dir / self.script_name
         self.script.write_text(text, encoding="utf-8")
         self.script.chmod(0o755)
 
@@ -151,8 +153,6 @@ class Hook:
         self.state = tmp_path / "state"
         self.curl_log = tmp_path / "curl-log"
         self.curl_log.mkdir()
-        self.home = tmp_path / "home"
-        self.home.mkdir()
         self.cwd = tmp_path / "cwd"
         self.cwd.mkdir()
 
@@ -171,7 +171,7 @@ class Hook:
             "HOME": str(self.home),
             "XDG_STATE_HOME": str(self.state),
             "RATEXP_URL": LOCAL_URL,
-            "RATEXP_EVERY": "1",
+            "RATEXP_EVERY": NEVER,
             "RATEXP_CURL_LOG": str(self.curl_log),
             "RATEXP_CURL_STATUS": "201",
         }
@@ -222,12 +222,11 @@ class Hook:
             fh.write(json.dumps(fields) + "\n")
 
     def arm(self, env=None):
-        """Count one skill invocation, the way a `/poem-creator` expansion does.
+        """Start one skill run, the way a `/poem-creator` expansion does.
 
-        The run key is derived from the transcript file's device/inode/size, so
-        a real second invocation only registers once the transcript has grown.
-        The expansion fires before this run has written anything, so its own turn
-        lands afterwards - that span is what a consented upload sends.
+        The hook notes the transcript's length at that moment as where the run
+        starts. The expansion fires before this run has written anything, so its
+        own turn lands afterwards - that span is what a consented upload sends.
         """
         self.append(type="assistant", text=EARLIER)
         out = self.run_hook(self.event("UserPromptExpansion", command_name=self.skill), env)
@@ -276,9 +275,15 @@ class Hook:
             tool_response=response,
         )
 
+    def request(self, target=None, env=None):
+        """The user choosing /ratexp:<skill> - this skill unless another is named."""
+        name = f"ratexp:{target or self.skill}"
+        return self.run_hook(self.event("UserPromptExpansion", command_name=name), env)
+
     def ask(self, env=None, tool_id=TOOL_ID):
-        """arm -> Stop -> PreToolUse. Returns the picker ready to be answered."""
+        """arm -> /ratexp -> Stop -> PreToolUse. Returns the picker ready to be answered."""
         self.arm(env)
+        self.request(env=env)
         picker = self.stop(env)
         assert picker is not None
         out, _, _ = self.pre(picker, tool_id=tool_id, env=env)
@@ -409,24 +414,6 @@ def test_full_round_trip_reaches_curl(hook):
     assert len(call["fields"]["request_id"]) == 36  # uuid-shaped
 
 
-@pytest.mark.parametrize("source", SHIPPED, ids=lambda p: f"{p.parent.name}/{p.name}")
-def test_shipped_copies_behave_like_the_canonical_script(tmp_path, source):
-    """The generated copies are what users install; run one through end to end.
-
-    RATEXP_URL overrides the hosted URL baked into them, and curl is a fake, so
-    nothing leaves the machine. Each copy takes its skill name from its own
-    directory, which is why the harness reads the name off the path.
-    """
-    if not source.exists():
-        pytest.skip(f"{source} has not been generated")
-    shipped = Hook(tmp_path, source=source)
-    picker = shipped.ask()
-    assert picker["questions"][0]["question"].startswith(f"Rate {shipped.skill} ")
-    shipped.run_hook(shipped.answer(picker, CONSENT))
-    assert shipped.endpoints() == ["feedback", "transcript"]
-    assert shipped.calls()[0]["fields"]["skill_name"] == shipped.skill
-
-
 # --------------------------------------------------------------------------
 # Answer parsing
 # --------------------------------------------------------------------------
@@ -465,6 +452,24 @@ def test_nothing_chosen_and_nothing_typed_sends_nothing(hook):
 # --------------------------------------------------------------------------
 # Labels that contain commas
 # --------------------------------------------------------------------------
+
+
+def test_a_quoted_consent_label_still_grants_consent(hook):
+    """Claude Code quotes a label that holds a comma: `Good, "Yes, store trajectory", great`."""
+    picker = hook.ask()
+    out, _, _ = hook.run_hook(hook.answer(picker, 'Good, "Yes, store trajectory", great'))
+    fields = hook.calls()[0]["fields"]
+    assert fields["score"] == "1"
+    assert fields["comment"] == "great"
+    assert hook.endpoints() == ["feedback", "transcript"]
+    assert "transcript accepted" in out
+
+
+def test_a_quoted_refusal_still_refuses(hook):
+    picker = hook.ask()
+    hook.run_hook(hook.answer(picker, 'Good, "No, do not store"'))
+    assert hook.endpoints() == ["feedback"]
+    assert "comment" not in hook.calls()[0]["fields"]
 
 
 def test_consent_label_is_not_split_on_its_own_comma(hook):
@@ -578,6 +583,7 @@ def _drop_description(picker):
 def test_edited_picker_is_denied_and_submits_nothing(hook, mutate):
     """The survey wording is the hook's, not the model's; edits are refused."""
     hook.arm()
+    hook.request()
     picker = hook.stop()
     edited = json.loads(json.dumps(picker))
     mutate(edited)
@@ -596,6 +602,7 @@ def test_edited_picker_is_denied_and_submits_nothing(hook, mutate):
 def test_model_supplied_answers_are_denied(hook):
     """A tool_input that already carries answers would let the model self-rate."""
     hook.arm()
+    hook.request()
     picker = hook.stop()
     forged = json.loads(json.dumps(picker))
     question = forged["questions"][0]["question"]
@@ -610,6 +617,7 @@ def test_model_supplied_answers_are_denied(hook):
 def test_key_order_does_not_matter(hook):
     """JSON objects are unordered; re-serialising must not look like tampering."""
     hook.arm()
+    hook.request()
     picker = hook.stop()
     shuffled = reorder(picker)
     assert json.dumps(shuffled) != json.dumps(picker)  # genuinely reordered
@@ -654,53 +662,41 @@ def test_another_skills_picker_passes_through_untouched(hook):
 
 
 # --------------------------------------------------------------------------
-# Sampling
+# Asking only on /ratexp
 # --------------------------------------------------------------------------
 
 
-def test_sampling_counts_skill_invocations_not_sessions(hook):
-    """RATEXP_EVERY=2 must ask on the 2nd use of the skill inside one session."""
-    env = {"RATEXP_EVERY": "2"}
-    hook.arm(env)
-    assert hook.stop(env) is None, "the 1st invocation must stay silent"
-    hook.arm(env)
-    picker = hook.stop(env)
-    assert picker is not None, "the 2nd invocation must show the picker"
+def test_a_run_is_never_rated_without_ratexp(hook):
+    """Using the skill, however often, never asks on its own."""
+    for _ in range(3):
+        hook.arm()
+        assert hook.stop() is None
+    assert hook.calls() == []
+
+
+def test_ratexp_colon_skill_asks_about_the_newest_run(hook):
+    hook.arm()
+    hook.request()
+    picker = hook.stop()
+    assert picker is not None
+    assert picker["questions"][0]["question"].startswith(f"Rate {hook.skill} — ")
     assert picker["questions"][0]["header"] == "RateXp"
 
 
-def test_the_baked_in_frequency_applies_when_nothing_overrides_it(hook):
-    """Whoever hands the script out chooses how often to ask.
-
-    core stamps `default_survey_every` into every copy it serves (and
-    tools/sync_hooks.py does the same for the shipped ones), so a skill works
-    without anyone setting an environment variable. The harness bakes 2.
-    """
-    env = {"RATEXP_EVERY": None}  # unset it; fall back to what the copy carries
-    hook.arm(env)
-    assert hook.stop(env) is None, "the 1st invocation must stay silent"
-    hook.arm(env)
-    assert hook.stop(env) is not None, "the 2nd must ask, per the baked-in 2"
-
-
-def test_the_environment_overrides_the_baked_in_frequency(hook):
-    """A user can still make their own session talkative without editing files."""
-    env = {"RATEXP_EVERY": "1"}
-    hook.arm(env)
-    assert hook.stop(env) is not None, "RATEXP_EVERY=1 must beat the baked-in 2"
+def test_ratexp_with_the_skill_name_typed_after_it_also_asks(hook):
+    """`/ratexp poem-creator`: Claude Code passes the name as the command's arguments."""
+    hook.arm()
+    hook.run_hook(
+        hook.event(
+            "UserPromptExpansion",
+            command_name="ratexp",
+            command_args=hook.skill,
+        )
+    )
+    assert hook.stop() is not None
 
 
-def test_plain_stops_do_not_advance_the_counter(hook):
-    """Stops without a skill invocation are ordinary turns, not rateable events."""
-    env = {"RATEXP_EVERY": "2"}
-    hook.arm(env)
-    for _ in range(5):
-        assert hook.stop(env) is None
-    hook.arm(env)
-    assert hook.stop(env) is not None
-
-
-def test_skill_tool_call_also_arms_one_invocation(hook):
+def test_skill_tool_call_also_starts_a_run(hook):
     """Skills can start as a Skill tool call instead of a slash-command expansion."""
     hook.run_hook(
         hook.event(
@@ -710,6 +706,7 @@ def test_skill_tool_call_also_arms_one_invocation(hook):
             tool_input={"skill": hook.skill},
         )
     )
+    hook.request()
     assert hook.stop() is not None
 
 
@@ -756,6 +753,7 @@ def test_late_answer_binds_to_its_original_invocation(hook):
 
     # A second invocation arms and asks its own question in the same session.
     hook.arm()
+    hook.request()
     second = hook.stop()
     assert second is not None
     hook.pre(second, tool_id="toolu_02")
@@ -805,6 +803,7 @@ def test_malformed_stdin_is_inert(hook, payload):
 def test_oversized_stdin_is_inert(hook):
     """The reader caps input at 128 KiB so a huge event cannot be parsed at all."""
     hook.arm()
+    hook.request()
     event = hook.event("Stop", stop_hook_active=False, padding="x" * 200_000)
     raw = json.dumps(event).encode()
     assert len(raw) > 131_072
@@ -861,6 +860,7 @@ def test_a_long_assistant_message_does_not_stall_the_stop_hook(hook):
     do its work - so the reader itself has to stay quick as the payload grows.
     """
     hook.arm()
+    hook.request()
     event = hook.event(
         "Stop",
         stop_hook_active=False,
@@ -992,6 +992,7 @@ def test_shrunken_transcript_is_not_uploaded(hook):
 def test_transcript_over_four_mib_is_not_uploaded(hook):
     """Oversized sessions are dropped rather than streamed at the user."""
     hook.arm()
+    hook.request()
     with hook.transcript.open("ab") as fh:
         fh.write(b"x" * (4 * 1024 * 1024 + 1))
     assert hook.transcript.stat().st_size > 4 * 1024 * 1024
@@ -1003,20 +1004,55 @@ def test_transcript_over_four_mib_is_not_uploaded(hook):
     assert "Transcript could not be sent" in out
 
 
-def test_the_turn_being_rated_is_uploaded_even_though_it_lands_after_stop(hook):
-    """The agent writes its closing message after the Stop hook has returned.
+def test_only_the_skills_own_turns_are_uploaded(hook):
+    """The run ends when the conversation moves on - not at /ratexp.
 
-    So the length noted while building the picker stops short of the very output
-    the user is rating - a poem, an answer - and bounding the upload there would
-    send everything except the thing being rated.
+    Its question and the user's answer belong to it; the unrelated request the
+    user made afterwards, and the agent's work on that, do not.
     """
-    picker = hook.ask()
+    hook.arm()  # `/poem-creator`
+    hook.append(type="assistant", text="Which mood would you like?")
+    hook.append(type="user", text="SAD-PLEASE")
     hook.append(type="assistant", text="THE-POEM-BEING-RATED")
+    hook.append(type="user", text="UNRELATED-REQUEST")
+    hook.append(type="assistant", text="UNRELATED-WORK")
+    hook.append(type="user", text="/ratexp:poem-creator")
+    hook.request()
+    picker = hook.stop()
+    hook.pre(picker)
+    hook.run_hook(hook.answer(picker, CONSENT))
 
+    body = hook.calls()[1]["body"]
+    for kept in (b"SAD-PLEASE", b"THE-POEM-BEING-RATED"):
+        assert kept in body
+    for dropped in (
+        b"UNRELATED-REQUEST",
+        b"UNRELATED-WORK",
+        b"/ratexp:poem-creator",
+        EARLIER.encode(),
+    ):
+        assert dropped not in body, f"not part of the run: {dropped!r}"
+
+
+def test_a_skill_that_asks_through_the_picker_keeps_its_answer(hook):
+    """AskUserQuestion answers come back as tool results, not the user speaking."""
+    hook.arm()
+    hook.append(
+        type="assistant", message={"content": [{"type": "tool_use", "name": "AskUserQuestion"}]}
+    )
+    hook.append(
+        type="user",
+        message={"content": [{"type": "tool_result", "content": "ANSWERED-VIA-PICKER"}]},
+    )
+    hook.append(type="assistant", text="THE-POEM")
+    hook.append(type="user", text="NEXT-TASK")
+    hook.request()
+    picker = hook.stop()
+    hook.pre(picker)
     hook.run_hook(hook.answer(picker, CONSENT))
     body = hook.calls()[1]["body"]
-    assert b"THE-POEM-BEING-RATED" in body
-    assert EARLIER.encode() not in body  # still bounded below, at its own run
+    assert b"ANSWERED-VIA-PICKER" in body and b"THE-POEM" in body
+    assert b"NEXT-TASK" not in body
 
 
 def test_a_later_run_does_not_resend_the_earlier_ones(hook):
@@ -1030,6 +1066,7 @@ def test_a_later_run_does_not_resend_the_earlier_ones(hook):
     for i, mark in enumerate(marks):
         tool_id = f"toolu_run{i}"
         hook.arm()  # a fresh `/poem-creator`; this run starts here
+        hook.request()
         hook.append(type="assistant", text=mark)  # the work it did
         picker = hook.stop()
         assert picker is not None, f"run {i} should have been surveyed"
@@ -1054,6 +1091,7 @@ def test_symlinked_transcript_is_not_uploaded(hook):
     hook.transcript.symlink_to(real)
 
     hook.arm()
+    hook.request()
     picker = hook.stop()
     assert picker is not None
     hook.pre(picker)
@@ -1096,6 +1134,7 @@ def test_only_201_counts_as_stored(hook, status):
 def test_stop_is_silent_the_second_time(hook):
     """One picker per invocation, even if the model stops again straight away."""
     hook.arm()
+    hook.request()
     assert hook.stop() is not None
     assert hook.stop() is None
 
@@ -1153,19 +1192,30 @@ def test_poisoned_transcript_path_uploads_no_other_file(hook):
     assert "Transcript could not be sent" in out
 
 
-@pytest.mark.parametrize("name", ["count", "current.tmp"])
+@pytest.mark.parametrize("name", ["count", "last-turn", "current.tmp"])
 def test_planted_symlink_does_not_redirect_a_counter_write(hook, name):
-    """Counting a run must never write through a link left in the state directory."""
+    """Counting a turn must never write through a link left in the state directory."""
     hook.arm()  # creates the state directory, so the link can be planted inside
     victim = hook.plant_symlink(hook.base_dir() / name, name)
+    hook.append(type="assistant", text="ANOTHER-TURN")
+    hook.stop({"RATEXP_EVERY": "1"})
     hook.arm()
+    hook.request()
+    hook.stop()
     assert victim.read_text(encoding="utf-8") == "KEEP ME\n"
 
 
 def test_planted_symlink_does_not_redirect_the_stored_picker(hook):
     """Stop writes the picker to `pending`; a link there stops it, never redirects it."""
     hook.arm()
-    victim = hook.plant_symlink(hook.run_dir() / "pending", "pending")
+    hook.request()
+    # The run this Stop will use is named for the transcript as it stands now.
+    info = hook.transcript.stat()
+    run = hook.base_dir() / "runs" / f"turn-{info.st_dev}-{info.st_ino}-{info.st_size}"
+    run.mkdir(parents=True)
+    (run / "ask").touch()
+    (hook.base_dir() / "current").write_text(run.name, encoding="utf-8")
+    victim = hook.plant_symlink(run / "pending", "pending")
     assert hook.stop() is None, "a poisoned state directory must not produce a picker"
     assert victim.read_text(encoding="utf-8") == "KEEP ME\n"
 
@@ -1182,6 +1232,7 @@ def test_planted_symlink_does_not_redirect_the_delivery_note(hook):
 def test_planted_symlink_does_not_redirect_the_tool_binding(hook):
     """PreToolUse records which run owns a tool id; that write must not follow a link."""
     hook.arm()
+    hook.request()
     picker = hook.stop()
     assert picker is not None
     victim = hook.plant_symlink(hook.base_dir() / "tools" / TOOL_ID, "tools")

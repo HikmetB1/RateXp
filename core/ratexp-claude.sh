@@ -1,6 +1,11 @@
 #!/bin/bash
 # RateXp: Bash 3.2+, curl, and standard macOS/Linux utilities. No packages.
 # The model draws the supplied picker; this file owns its text and all I/O.
+# Installed once, for every project, as ~/.claude/ratexp-claude.sh by whoever uses
+# Claude Code. It asks about the whole session every Nth turn on its own, and
+# whenever the user types /ratexp. /ratexp <skill> (or /ratexp:<skill>) rates only
+# that skill's most recent run - a skill is never asked about on its own. It notes
+# where every skill run starts so it can do this, and writes /ratexp itself.
 set -f
 set -o pipefail
 umask 077
@@ -10,6 +15,8 @@ DEFAULT_EVERY='__RATEXP_EVERY__'
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.
+# The reader, quote, good_url, post and file_info are the same in
+# ratexp-cursor.sh: a test holds the two copies identical, so change them together.
 fail() { exit 0; }
 white() { while [[ ${json:pos:1} == [$' \t\r\n'] ]]; do pos=$((pos+1)); done; }
 hex4() {
@@ -139,9 +146,11 @@ fingerprint() {
         [[ ${up[i]} == "$id" && $i != "$omit" ]] && fingerprint "$i" "$path" "$omit"
     done
 }
-# Consent names the destination that will receive the transcript.
-consent_line() {
-    consent="Upload this session, including messages and tool results, to $1."
+# Consent names what will be uploaded - the session, or one skill's run - and where.
+consent_line() {  # consent_line <url> [skill]
+    local what='this session'
+    [[ -n ${2-} ]] && what="this run of $2"
+    consent="Upload $what, including messages and tool results, to $1."
 }
 # Either https, or plain http on loopback so a local dashboard still works.
 good_url() {
@@ -162,45 +171,119 @@ file_info() {
 }
 arm() {
     # Deduplicate invocations by key; $2 marks the run's initial byte offset.
-    # $3 asks regardless of the count, for a survey the user asked for by name.
-    local key=$1 from=$2 force=$3 count
+    local key=$1 from=$2
     mkdir -p -- "$base/runs" "$base/tools" || return
     mkdir -- "$base/lock" 2>/dev/null || return
     # Refuse symlinks in writable state; always release the lock.
-    if [[ ! -L $base/count && ! -L $base/current.tmp ]] &&
-       mkdir -- "$base/runs/$key" 2>/dev/null; then
-        count=0; [[ -f $base/count ]] && count=$(< "$base/count")
-        [[ $count =~ ^[0-9]{1,9}$ ]] || count=0
-        count=$((count+1)); printf '%s' "$count" > "$base/count"
-        { (( count % every == 0 )) || [[ -n $force ]]; } && : > "$base/runs/$key/ask"
+    if [[ ! -L $base/current.tmp ]] && mkdir -- "$base/runs/$key" 2>/dev/null; then
+        : > "$base/runs/$key/ask"
         printf '%s' "$from" > "$base/runs/$key/start"
         printf '%s' "$key" > "$base/current.tmp"
         mv -- "$base/current.tmp" "$base/current"
     fi
     rmdir -- "$base/lock"
 }
+# Where a skill's run ends. It starts where the skill was called and ends at the
+# first user message after the agent has replied - unless that reply asked the
+# user something, in which case the answer is still part of the run. Tool results
+# ride on user-role lines in Claude Code and are not the user speaking. This reads
+# the transcript only to find the boundary; nothing of it is kept or printed.
+run_end() {  # run_end <file> <start> <limit>: sets end
+    local line at=$2 agent=0 asked=0 user
+    end=$3
+    while IFS= read -r line; do
+        user=0
+        case $line in
+            *'"type":"user"'* | *'"type": "user"'* | *'"role":"user"'* | *'"role": "user"'*)
+                case $line in *'"tool_result"'* | *'"isMeta":true'* | *'"isMeta": true'*) ;; *) user=1 ;; esac ;;
+        esac
+        if (( user )); then
+            if (( agent && !asked )); then end=$at; return; fi
+            asked=0
+        elif [[ $line == *'"type":"assistant"'* || $line == *'"type": "assistant"'* ||
+                $line == *'"role":"assistant"'* || $line == *'"role": "assistant"'* ]]; then
+            agent=1; asked=0
+            case $line in *'AskUserQuestion'* | *'?"'* | *'?\n'* | *'? '*) asked=1 ;; esac
+        fi
+        at=$((at+${#line}+1))
+    done < <(tail -c "+$(($2+1))" -- "$1" 2>/dev/null | head -c "$(($3-$2))")
+}
 report() {
     quote "$1"
     [[ -L $dir/status ]] || printf '{"systemMessage":%s}\n' "$quoted" > "$dir/status"
     printf '{"systemMessage":%s}\n' "$quoted"
 }
-# Skip unrelated or oversized tool payloads before parsing.
+# Skip unrelated or oversized tool payloads before parsing. The dashboard's install
+# popup (app/FE/src/App.jsx) has users hook up exactly these events; keep in step.
 triage() {
     case $json in
         *'"AskUserQuestion"'*)
             # Allow longer answers only for our survey, within the outer cap.
             (( ${#json} <= 32768 )) || return 1
             (( ${#json} <= 8192 )) || [[ $json == *'"RateXp"'* ]] || return 1 ;;
-        *'"Stop"'*|*'"UserPromptExpansion"'*) ;;
+        *'"Stop"'*|*'"UserPromptExpansion"'*|*'"SessionStart"'*|*'"Skill"'*) ;;
         *) return 1 ;;
     esac
 }
+# Which skill a /ratexp request names: /ratexp:<name> carries it in the command
+# name, /ratexp <name> in the command's arguments. Fails for any other command.
+ratexp_target() {
+    target=''
+    get 0 command_name
+    case $found in
+        ratexp:*) target=${found#ratexp:}; return 0 ;;
+        ratexp) ;;
+        *) return 1 ;;
+    esac
+    get 0 command_args
+    [[ $type == string && $found =~ ^[[:space:]]*([a-zA-Z0-9][a-zA-Z0-9_:.-]{0,127}) ]] &&
+        target=${BASH_REMATCH[1]}
+    return 0
+}
+# A command file: /ratexp itself, or the /ratexp:<skill> menu entry that makes a
+# skill's name autocomplete after /ratexp. Written once and never overwritten: the
+# file is the user's to edit or delete. The model may not run it: the hook only
+# hears commands the user typed, so a model-run /ratexp would promise a survey
+# that never comes.
+ratexp_command() {  # ratexp_command <file> <description> <target> [argument hint]
+    local file=$1 dir=${1%/*}
+    [[ -e $file || -L $file || -L $dir ]] && return
+    mkdir -p -- "$dir" || return
+    {
+        printf '%s\n' '---' "description: $2"
+        [[ -n ${4-} ]] && printf 'argument-hint: "%s"\n' "$4"
+        printf '%s\n' 'disable-model-invocation: true' '---' '' "RateXp target: $3" '' \
+            'Say only: "Opening the RateXp survey." Do not summarise the session, do not draw' \
+            'any picker yourself - the hook supplies one as soon as this turn ends.'
+    } > "$file"
+}
+# Note where a skill's newest run starts: the transcript's length right now.
+skill_started() {  # skill_started <skill>
+    # Not `name`: that is the JSON reader's own array, and `get` needs it.
+    local started=$1 info
+    [[ $started =~ ^[a-zA-Z0-9][a-zA-Z0-9_:.-]{0,127}$ && $started != ratexp && $started != ratexp:* ]] || return
+    get 0 transcript_path; info=$(file_info "$found") || return
+    mkdir -p -- "$base/skills" || return
+    [[ ! -L $base/skills/${started//:/--} ]] || return
+    printf '%s' "${info##*:}" > "$base/skills/${started//:/--}"
+}
+# Count a turn once, however often its Stop fires; succeed on every Nth.
+turn_is_due() {  # turn_is_due <turn key>
+    local count
+    [[ ! -L $base/count && ! -L $base/last-turn ]] || return 1
+    [[ -f $base/last-turn && $(< "$base/last-turn") == "$1" ]] && return 1
+    printf '%s' "$1" > "$base/last-turn"
+    count=0; [[ -f $base/count ]] && count=$(< "$base/count")
+    [[ $count =~ ^[0-9]{1,9}$ ]] || count=0
+    count=$((count+1)); printf '%s' "$count" > "$base/count"
+    (( count % every == 0 ))
+}
 
 main() {
-    local event session script url every root base dir run now request question picker reason
+    local event session script url every root base dir run now request question picker reason end
     local input response answers annotations answer tool stored_tool born transcript size start identity current
     local good=0 bad=0 share=0 keep=0 comment='' score='' rest part fields
-    local metadata questions signature expected token force
+    local metadata questions signature expected token target cwd
     for token in curl cksum mkdir rmdir mv date od stat head tail sort; do command -v "$token" >/dev/null || return; done
     # NUL is the delimiter: a successful read means NUL or the size limit was hit.
     json=''; IFS= read -r -d '' -n 131073 json && return
@@ -226,24 +309,74 @@ main() {
     [[ ! -L $root && ! -L $base ]] || return
     mkdir -p -- "$base" || return
     now=$(date +%s)
+    get 0 cwd; cwd=$found
+    if [[ $event == SessionStart ]]; then
+        # Claude Code reads command files only when a session starts, so what is
+        # written here shows from the next session on.
+        ratexp_command "$script/commands/ratexp.md" \
+            "Rate this session with RateXp, or add a skill's name to rate its most recent run." \
+            '$ARGUMENTS' '[skill-name]'
+        # One /ratexp:<skill> entry per installed skill, so every name autocompletes.
+        # The entries are global, so one project's skills are listed in another too;
+        # rating one there is refused, because it never ran in that session.
+        set +f
+        for token in "$cwd"/.claude/skills/*/SKILL.md "$HOME"/.claude/skills/*/SKILL.md; do
+            [[ -f $token ]] || continue
+            token=${token%/SKILL.md}; token=${token##*/}
+            [[ $token =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$ ]] &&
+                ratexp_command "$script/commands/ratexp/$token.md" \
+                    "Rate your most recent run of $token with RateXp." "$token"
+        done
+        set -f
+        return
+    fi
+    if [[ $event == PreToolUse ]]; then
+        get 0 tool_name
+        if [[ $found == Skill ]]; then
+            get 0 tool_input; get "$node" skill
+            [[ $type == string ]] && skill_started "$found"
+            return
+        fi
+    fi
     if [[ $event == UserPromptExpansion ]]; then
-        # /ratexp asks for the survey by name, instead of waiting for the count.
-        get 0 command_name; token=$found
-        [[ $token == ratexp || $token == *:ratexp ]] || return
-        mkdir -- "$base/rate-now" 2>/dev/null
+        if ! ratexp_target; then
+            skill_started "$found"  # any other command is a skill starting
+            return
+        fi
+        # The newest request decides: one whose turn the user interrupted fired no
+        # Stop, so it can still be waiting here. No target means the whole session.
+        [[ ! -L $base/rate-now ]] && mkdir -p -- "$base/rate-now" || return
+        [[ ! -L $base/rate-now/target ]] && printf '%s' "$target" > "$base/rate-now/target"
         return
     fi
     if [[ $event == Stop ]]; then
         get 0 stop_hook_active; [[ $type != true ]] || return
-        # Every turn counts, so the survey lands wherever the Nth falls - part way
-        # through a long session, at the end of a short one. It always starts at
-        # byte zero, because what is rated is the session so far.
         get 0 transcript_path
         token=$(file_info "$found") || return
-        force=''
-        # rmdir consumes the /ratexp request, so it arms exactly one survey.
-        rmdir -- "$base/rate-now" 2>/dev/null && force=now
-        arm "turn-${token//:/-}" 0 "$force"
+        target=''; start=0
+        if [[ -d $base/rate-now ]]; then
+            # /ratexp asks, and moving the request aside consumes it: one request,
+            # one survey. It keeps the skill it named, if any. That turn was the
+            # user asking to rate, not work, so it is not counted.
+            mv -- "$base/rate-now" "$base/asked-${token//:/-}" 2>/dev/null || return
+            [[ -f $base/asked-${token//:/-}/target && ! -L $base/asked-${token//:/-}/target ]] &&
+                target=$(< "$base/asked-${token//:/-}/target")
+        else
+            # Every Nth turn the whole session is asked about on its own.
+            turn_is_due "${token//:/-}" || return
+        fi
+        # The whole session starts at byte zero; a skill at its newest run.
+        if [[ -n $target ]]; then
+            [[ $target =~ ^[a-zA-Z0-9][a-zA-Z0-9_:.-]{0,127}$ ]] || return
+            if [[ ! -f $base/skills/${target//:/--} || -L $base/skills/${target//:/--} ]]; then
+                quote "RateXp: there is no run of $target in this session to rate yet."
+                printf '{"systemMessage":%s}\n' "$quoted"
+                return
+            fi
+            start=$(< "$base/skills/${target//:/--}")
+            [[ $start =~ ^[0-9]{1,10}$ ]] || return
+        fi
+        arm "turn-${token//:/-}" "$start"
     fi
     dir=$base
     if [[ -f $base/current ]]; then
@@ -260,26 +393,32 @@ main() {
     fi
     if [[ $event == Stop ]]; then
         question="Rate this Claude Code session — check all that apply or type a comment."
+        [[ -n $target ]] && question="Rate $target — check all that apply or type a comment."
         [[ -f $dir/ask ]] || return
         mkdir -- "$dir/stopped" 2>/dev/null || return
-        # Record only metadata at Stop; no transcript contents are read here.
+        # Record only metadata at Stop. A skill's rating reads the transcript here
+        # only to find where its run ends (run_end); nothing of it is kept.
         get 0 transcript_path; transcript=$found; size=0; identity=''
         if [[ $type == string && -f $transcript && ! -L $transcript ]]; then
             identity=$(file_info "$transcript") || identity=''
             size=${identity##*:}; identity=${identity%:*}
         fi
-        # What is rated is the session so far, so every survey starts at byte zero.
-        start=0
+        [[ -f $dir/start && ! -L $dir/start ]] && start=$(< "$dir/start")
+        [[ $start =~ ^[0-9]{1,10}$ ]] && (( start <= size )) || start=0
+        # A skill's rating covers only its own turns, not the rest of the session.
+        if [[ -n $target && -n $identity ]]; then
+            run_end "$transcript" "$start" "$size"; size=$end
+        fi
         request=$(od -An -N16 -tx1 /dev/urandom) || return
         request=${request//[[:space:]]/}
         [[ ${#request} == 32 ]] || return
         request=${request:0:8}-${request:8:4}-${request:12:4}-${request:16:4}-${request:20:12}
         quote "$question"; question=$quoted
-        consent_line "$url"; quote "$consent"; reason=$quoted
+        consent_line "$url" "$target"; quote "$consent"; reason=$quoted
         picker='{"questions":[{"question":'$question',"header":"RateXp","multiSelect":true,"options":[{"label":"Good","description":"The result was helpful."},{"label":"Bad","description":"The result was not helpful."},{"label":"Yes, store trajectory","description":'$reason'},{"label":"No, do not store","description":"Keep this session on my machine."}]}]}'
         [[ ! -L $dir/pending ]] || return
         printf '%s\0' "$request" "$now" "$picker" "$transcript" "$size" "$start" "$identity" "$url" \
-            > "$dir/pending"
+            "$target" > "$dir/pending"
         quote $'Draw this exact AskUserQuestion picker, without answers or extra fields. The hook reports delivery; do not claim it was saved or uploaded yourself.\n'"$picker"
         printf '{"decision":"block","reason":%s}\n' "$quoted"
         return
@@ -292,11 +431,11 @@ main() {
     {
         IFS= read -r -d '' request; IFS= read -r -d '' born; IFS= read -r -d '' picker
         IFS= read -r -d '' token; IFS= read -r -d '' size; IFS= read -r -d '' start
-        IFS= read -r -d '' identity; IFS= read -r -d '' url
+        IFS= read -r -d '' identity; IFS= read -r -d '' url; IFS= read -r -d '' target
     } < "$dir/pending" || return
     # Revalidate the saved destination against the pending consent text.
     good_url "$url" || return
-    consent_line "$url"; [[ $picker == *"$consent"* ]] || return
+    consent_line "$url" "$target"; [[ $picker == *"$consent"* ]] || return
     [[ $born =~ ^[0-9]+$ ]] && (( now >= born && now-born < 900 )) || return
     get 0 tool_input; input=$node; [[ $type == '{' ]] || return
     get "$input" metadata; metadata=$node
@@ -304,7 +443,6 @@ main() {
     get "$questions" 0; token=$node
     get "$token" header; [[ $found == RateXp ]] || return
     get "$token" question; question=$found; [[ $type == string ]] || return
-    [[ $question == "Rate this Claude Code session — "* ]] || return
     # Bind the survey and tool call; Claude may omit metadata.
     if [[ $event == PreToolUse ]]; then
         signature=$(fingerprint "$input" '' "$metadata" | sort)
@@ -348,11 +486,17 @@ main() {
     while [[ -n $rest ]]; do
         # Match whole labels first because consent labels themselves contain commas.
         part=''
-        for token in 'Good' 'Bad' 'Yes, store trajectory' 'No, do not store'; do
+        # Claude Code quotes a label that holds a comma, so both spellings count.
+        for token in 'Good' 'Bad' 'Yes, store trajectory' 'No, do not store' \
+            '"Yes, store trajectory"' '"No, do not store"'; do
             if [[ $rest == "$token" || $rest == "$token, "* ]]; then part=$token; break; fi
         done
         if [[ -z $part ]]; then comment=$rest; break; fi
-        case $part in Good) good=1 ;; Bad) bad=1 ;; 'Yes, store trajectory') share=1 ;; *) keep=1 ;; esac
+        case $part in
+            Good) good=1 ;; Bad) bad=1 ;;
+            'Yes, store trajectory' | '"Yes, store trajectory"') share=1 ;;
+            *) keep=1 ;;
+        esac
         rest=${rest#"$part"}; rest=${rest#', '}
     done
     get "$response" annotations; annotations=$node
@@ -360,9 +504,10 @@ main() {
     get "$annotations" notes; [[ $type == string ]] && comment=$found
     (( good != bad )) && { if (( good )); then score=1; else score=2; fi; }
     [[ -n $score || -n $comment || $good == 1 || $bad == 1 || $share == 1 ]] || return
-    # A session rating is about the session itself, so it sends no skill_name.
+    # A session rating names no skill; a skill's rating names the skill.
     fields=(--form-string 'agent=claude-code'
         --form-string "session_id=$session" --form-string "request_id=$request")
+    [[ -n $target ]] && fields+=(--form-string "skill_name=$target")
     [[ -n $score ]] && fields+=(--form-string "score=$score")
     [[ -n $comment ]] && fields+=(--form-string "comment=$comment")
     post feedback || { report "RateXp: feedback could not be sent to $url."; return; }
@@ -382,7 +527,9 @@ main() {
     [[ ${current%:*} == "$identity" ]] || { report "$reason"; return; }
     # Include the closing message written after Stop; reject a truncated file.
     (( ${current##*:} >= size )) || { report "$reason"; return; }
-    size=${current##*:}
+    # The session so far includes the turn that ended as the survey was asked;
+    # a skill's run ended before it, where it was noted.
+    [[ -n $target ]] || size=${current##*:}
     # Cap the run's slice, not the full session file.
     (( start < size && size-start <= 4194304 )) || { report "$reason"; return; }
     # tail uses 1-based offsets; head bounds the slice at the measured end.

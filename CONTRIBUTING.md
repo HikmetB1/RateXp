@@ -17,7 +17,7 @@ its own README covering its layout, how to run it and what it reads:
 
 | Service | What it is |
 |---------|------------|
-| [core](./core/README.md) | Hands out the hook scripts (`ratexp-skill.sh`, `ratexp-coding-agent.sh`), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
+| [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
 | [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
 
@@ -66,7 +66,7 @@ docker compose up --build -d
 
 | Service | URL                     | What it is                                               |
 |---------|-------------------------|----------------------------------------------------------|
-| core    | <http://localhost:8000> | serves `/ratexp-skill.sh`, `/ratexp-coding-agent.sh`, ingests `/feedback` + `/transcript` |
+| core    | <http://localhost:8000> | serves the hook scripts (`/ratexp-claude.sh`, `/ratexp-cursor.sh`), ingests `/feedback` + `/transcript` |
 | app     | <http://localhost:8001> | the dashboard                                            |
 
 `docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
@@ -119,16 +119,12 @@ push `seeder_image` the same way as step 2.
 ```text
 .
 ├── core/                       Public ingestion service: serves the hook scripts, stores feedback
-│   ├── ratexp-skill.sh         The hook a skill ships with
-│   ├── ratexp-coding-agent.sh  Rates the whole session; installed, never bundled
-│   ├── install.sh              What `curl … | bash -s skill my-skill` runs
+│   ├── ratexp-claude.sh        The Claude Code hook: rates the session and any skill run in it
+│   ├── ratexp-cursor.sh        The same for Cursor
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
-│   ├── modules/
-│   │   ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
-│   │   └── write/              Write destinations + the fan-out + the SQL migrations
-│   ├── template/               Blank starting points: skill/ and session/
-│   ├── examples/               The poem skill, hooks already wired
-│   └── tools/                  Dev-only, never shipped: sync_hooks.py regenerates the hook copies
+│   └── modules/
+│       ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
+│       └── write/              Write destinations + the fan-out + the SQL migrations
 ├── app/                        Dashboard service: read-only API, and it serves the UI
 │   ├── api/                    The HTTP surface: routes, schemas, snapshots, the live feed
 │   ├── modules/read/           Read sources - the dashboard reads from the one enabled source
@@ -172,8 +168,8 @@ uv run --no-project --with-requirements tests/requirements.txt pytest tests/
 
 | File | Checks |
 |------|--------|
-| `test_smoke.py` | Both services answer `/healthz`; core serves `/ratexp-skill.sh` with its own URL baked in, and takes a `/feedback` post. |
-| `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the *shipped* `ratexp-skill.sh`, so the bytes a real skill sends are the ones checked. |
+| `test_smoke.py` | Both services answer `/healthz`; core serves both hook scripts with its own URL baked in, and takes a `/feedback` post. |
+| `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the real `ratexp-claude.sh` rating a skill, so the bytes a real install sends are the ones checked. |
 | `test_azure_live.py` | Read-only checks against a deployed stack. Skipped unless you opt in, see below. |
 
 The stack need not be local: the tests read `RATEXP_CORE_URL` and `RATEXP_APP_URL`, defaulting

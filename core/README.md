@@ -3,22 +3,21 @@
 core hands out the hook script, takes back whatever the hook posts, masks anything personal,
 and writes the result to every destination switched on - the hook only ever posts to the same
 two endpoints and never knows where the data ends up. That is true whether it is rating one
-skill or a whole coding-agent session; only what arms it, and how much of the conversation it
-covers, differ.
+skill or the whole session; only how much of the conversation it covers differs.
 
 ```mermaid
 sequenceDiagram
-    participant A as Skill author or coding agent user
+    participant A as Coding agent user
     participant H as the hook script
     participant C as core
     participant D as Destinations
 
     Note over A,C: once, while setting up
-    A->>C: GET /install.sh, then run it
-    C-->>A: the hook, named for what it rates, pointing back at this core
-    A->>H: a skill folder, or .claude/ with its hooks pasted into settings.json
+    A->>C: GET /ratexp-claude.sh or /ratexp-cursor.sh
+    C-->>A: the hook for that coding agent, pointing back at this core
+    A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
 
-    Note over H,D: then every Nth run of that skill, or every Nth turn of the session
+    Note over H,D: then every 2nd turn, or whenever the user types /ratexp or /ratexp <skill>
     H->>C: POST /feedback (rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
@@ -30,32 +29,37 @@ sequenceDiagram
 
 ## Quick start: install in one command
 
-Pick the command that satisfies your use case, nothing to configure. Needs Claude Code, Bash 3.2+ and curl - run it
-from your project root:
+Install RateXp once in the coding agent you use - nothing to configure. As of now it works
+with Claude Code and Cursor.
 
 ```bash
 # Pick one
 
-# Use case: A skill Author would like to stay close to the skill users and get their feedback
-# A skill  ->  creates .claude/skills/my-skill/ -> Update your SKILL.md in your skill folder as usual
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s skill my-skill
+# Claude Code  ->  saves ~/.claude/ratexp-claude.sh
+curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-claude.sh --create-dirs -o ~/.claude/ratexp-claude.sh
 
-# Use case: A coding agent provider or access admin would like to stay close to the coding agent users and get their feedback
-# The coding agent itself  ->  creates .claude/ratexp-coding-agent.sh -> then paste the hooks it prints into .claude/settings.json
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s session claude
+# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh
+curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-cursor.sh --create-dirs -o ~/.cursor/ratexp-cursor.sh
 ```
 
-That is the whole setup. Ratings land on the
-[dashboard](https://ratexp-app.azurewebsites.net/).
+Then paste the hooks from the [dashboard](https://ratexp-app.azurewebsites.net/)'s
+**Install RateXp** popup into `~/.claude/settings.json` or `~/.cursor/hooks.json`. That is
+the whole setup; ratings land on the same dashboard.
 
-### How often it asks: every 2nd run or turn
+### When it asks: every 2nd turn, and on /ratexp
 
-- **Skill** - every 2nd **run** of that skill, so it never nags.
-- **Coding agent** - every 2nd **turn** of the session, and `/ratexp` asks on the spot.
-
-Change `DEFAULT_EVERY` at the top of the hook script the install put in place -
-`ratexp-skill.sh` or `ratexp-coding-agent.sh` - to change the default for everyone you
-ship it to.
+- **The whole session** - asked every 2nd turn, and whenever you type `/ratexp`.
+- **How often** - change `DEFAULT_EVERY` at the top of the saved script, or set
+  `RATEXP_EVERY`.
+- **What is stored** - only with your consent: messages, reasoning, tool calls and their
+  results, with personal data masked (redacted) before it is stored.
+- **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
+- **Claude Code** - works in the editor and the CLI.
+- **Claude Code menu** - pick `/ratexp:<skill>`.
+- **Claude Code setup** - RateXp adds the menu itself; it shows from your second session.
+- **Cursor** - works in the editor, and in the CLI when it fires hooks.
+- **Cursor menu** - pick `/ratexp`, then type `:<skill>`.
+- **Cursor setup** - RateXp adds the menu itself; it shows once Cursor runs its hooks.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
@@ -64,16 +68,12 @@ Want to run your own core instead of the hosted one? See
 
 ```text
 core/
-├── ratexp-skill.sh      the hook a skill ships with - source of the copies
-├── ratexp-coding-agent.sh  the hook that rates a whole session; installed, never bundled
-├── install.sh           what `curl … | bash -s skill my-skill` runs
+├── ratexp-claude.sh     the Claude Code hook: rates the session and any skill run in it
+├── ratexp-cursor.sh     the same for Cursor
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
 ├── modules/
 │   ├── redaction/       masks PII before storage: the presidio or azure adapter
 │   └── write/           the destinations, the fan-out, and the SQL migrations
-├── template/            blank starting points: skill/ and session/
-├── examples/            the poem skill, hooks already wired
-├── tools/sync_hooks.py  regenerates the copies above (dev only, never in the image)
 ├── tests/               core's own tests: mocked, no network or database
 ├── config.yaml          the settings below; load_config.py reads it
 └── Dockerfile           builds every optional adapter in, so config alone picks what runs
@@ -109,7 +109,8 @@ DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api
 - `max_transcript_bytes`: largest trajectory stored in full; a bigger one keeps only a
   meta-only stub, so a few huge conversations can't bloat the database
 - `rate_limit_per_minute`: per-IP budget; `0` turns the limiter off
-- `default_survey_every`: ask on every Nth run, baked into the hook copies
+- `default_survey_every`: ask about the whole session every Nth turn, baked into the hooks
+  core serves; `RATEXP_EVERY` on the user's machine overrides it
 - `redaction`: whether personal data is masked and which adapter does it - `presidio`
   (in-process, free) or `azure` (AI Language, billed per 1,000 records). Both are in the
   image, so switching is one value plus a restart, never a rebuild
@@ -126,8 +127,9 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
 
 - `DATABASE_URL` / `RATEXP_DB_AUTH`: the PostgreSQL `app_be_psql` writes to, and how to
   authenticate - `password` locally, `entra` (Managed Identity) on Azure
-- `RATEXP_PUBLIC_URL`: the base URL baked into the hooks and `install.sh` core serves,
-  so the hooks it hands out post back to the right place
+- `RATEXP_PUBLIC_URL`: the base URL baked into the hooks core serves, so the hooks it hands
+  out post back to the right place. A hook copied straight from this folder has no URL and
+  posts nowhere
 - `RATEXP_REDACTION_PROVIDER`: overrides `redaction.provider` for one deployment
 - `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL` /
   `CUSTOM_DT_TOKEN`, `BLUEBOX_OTLP_ENDPOINT` / `BLUEBOX_OTLP_TOKEN`,
@@ -141,36 +143,9 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
 uv sync --extra test && uv run pytest
 ```
 
-Mocked, so no network or database. They also drive the hooks themselves with a fake curl, and
-`test_templates.py` fails if any copy under `template/` or `examples/` has drifted.
+Mocked, so no network or database. They also drive the hooks themselves with a fake curl.
 
 ## Deploy: how it gets to Azure
 
 core is one of the two web apps in the Terraform stack - see
 [Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
-
-## Hook copies: edit the original, not the copies
-
-Each hook in this folder is an original. Each has two blanks in it: where to post, and how
-often to ask. Those blanks get filled in two different ways:
-
-- `GET /ratexp-skill.sh` and `/ratexp-coding-agent.sh` fill them in while serving the file,
-  so every download points back at the core that served it.
-- `tools/sync_hooks.py` fills them in and writes two ready-made copies under `template/` and
-  `examples/`, both pointing at the hosted core.
-
-The copies are named for what they rate, because the file name is what picks the hook's
-behaviour: `ratexp-skill.sh` rates the skill's own runs, and `ratexp-coding-agent.sh` rates
-the session it is running in.
-
-Those two copies are generated, so editing one is pointless - the next sync overwrites it.
-Edit the original in this folder instead, then regenerate:
-
-```bash
-python3 tools/sync_hooks.py          # rewrite the two copies
-python3 tools/sync_hooks.py --check  # only say which are out of date (the tests run this)
-```
-
-Adding a new template or example? Add its path to the list at the top of
-[`tools/sync_hooks.py`](./tools/sync_hooks.py) too - otherwise its copy ships with the blanks
-still in it, and posts nowhere.

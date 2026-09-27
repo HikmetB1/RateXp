@@ -1,11 +1,35 @@
-"""Claude Code .jsonl to ATIF, and the size stub that keeps storage cheap."""
+"""A coding agent's .jsonl to ATIF, and the size stub that keeps storage cheap."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
-from api.build_trajectory import claude_jsonl_to_atif, stub_if_oversized
+import pytest
+from api.build_trajectory import (
+    CLAUDE_REQUEST_MARKS,
+    CURSOR_SURVEY_MARKS,
+    claude_jsonl_to_atif,
+    cursor_jsonl_to_atif,
+    jsonl_to_atif,
+    stub_if_oversized,
+)
 from load_config import SCHEMA_VERSION
+
+# Cursor's shape: the role sits on the line, user turns are wrapped and carry an
+# inline timestamp, and no line holds a tool result or a token count.
+CURSOR_SESSION = "\n".join(
+    json.dumps(line)
+    for line in [
+        {
+            "role": "user",
+            "content": "<timestamp>2026-09-21T10:00:00Z</timestamp><user_query>fix the test</user_query>",
+        },
+        {"role": "assistant", "message": {"model": "claude-4.5-sonnet", "content": "Fixed it."}},
+        {"role": "system", "content": "context compacted"},
+        {"not": "a message"},
+    ]
+)
 
 SESSION = "\n".join(
     json.dumps(line)
@@ -266,3 +290,181 @@ def test_an_oversized_trajectory_keeps_only_its_totals():
     assert stub["oversized"]["byte_size"] > 10
     # Nothing a user wrote is left, which is why the stub skips redaction.
     assert "hello" not in json.dumps(stub)
+
+
+# --------------------------------------------------------------------------
+# Cursor
+# --------------------------------------------------------------------------
+
+
+def test_a_cursor_session_becomes_the_conversation():
+    steps = cursor_jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="cursor")["steps"]
+    assert [(s["source"], s["message"]) for s in steps] == [
+        ("user", "fix the test"),  # the wrapper and stamp are stripped off
+        ("agent", "Fixed it."),
+        ("system", "context compacted"),
+    ]
+    assert steps[0]["timestamp"] == "2026-09-21T10:00:00Z"
+
+
+def test_a_cursor_model_name_is_kept_when_the_line_carries_one():
+    trajectory = cursor_jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="cursor")
+    assert trajectory["agent"] == {"name": "cursor", "model_name": "claude-4.5-sonnet"}
+    assert trajectory["schema_version"] == SCHEMA_VERSION
+
+
+def test_cursor_token_totals_are_zero_because_cursor_records_none():
+    """Not a free session - Cursor simply never writes usage to the transcript."""
+    metrics = cursor_jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="cursor")["final_metrics"]
+    assert metrics == {
+        "total_prompt_tokens": 0,
+        "total_completion_tokens": 0,
+        "total_steps": 3,
+    }
+
+
+@pytest.mark.parametrize(
+    "ask",
+    [
+        "# RateXp survey\n\nIf the user wrote a skill name after /ratexp, ...",  # /ratexp
+        "RateXp survey for this whole chat: run `bash ... ask` ...",  # the stop hook's followup
+    ],
+)
+def test_the_survey_itself_is_not_part_of_the_run_it_rates(ask):
+    raw = json.dumps({"role": "user", "content": ask})
+    assert cursor_jsonl_to_atif(raw, session_id="s", agent="cursor")["steps"] == []
+
+
+@pytest.mark.parametrize(
+    ("source", "marks"),
+    [
+        # Cursor's whole survey is worded here: the /ratexp command it writes, which
+        # Cursor logs as the user's message, and its questions and its result.
+        ("ratexp-cursor.sh", CURSOR_SURVEY_MARKS),
+        # Claude Code writes the command's name itself; the body, and the one line it
+        # has the agent say, come from the /ratexp commands the hook writes.
+        (
+            "ratexp-claude.sh",
+            [m for m in CLAUDE_REQUEST_MARKS if "<command-name>" not in m],
+        ),
+    ],
+)
+def test_the_real_survey_carries_the_marks_that_drop_it(source, marks):
+    """Worded any other way, the survey would land in every rated trajectory."""
+    text = (Path(__file__).resolve().parents[1] / source).read_text(encoding="utf-8")
+    assert all(mark in text for mark in marks)
+
+
+def test_an_earlier_survey_is_left_out_of_a_later_upload():
+    """A chat is surveyed every few turns, so a whole-chat upload carries the earlier
+    surveys: the questions the agent asked - with AskQuestion or in plain text - and
+    the result it relayed. None of that is the work being rated."""
+    consent = "Upload this whole chat, including messages and tool results, to https://c.test?"
+    ask = {
+        "type": "tool_use",
+        "name": "AskQuestion",
+        "input": {"title": "RateXp", "prompt": consent},
+    }
+    raw = "\n".join(
+        json.dumps({"role": role, "message": {"content": content}})
+        for role, content in [
+            ("user", "<user_query>fix the test</user_query>"),
+            ("assistant", "Fixed it."),
+            ("assistant", [ask]),
+            ("assistant", f"Rate this session: good or bad? {consent} share or private?"),
+            ("assistant", "RateXp: feedback accepted by https://c.test. Transcript kept private."),
+            ("user", "<user_query>now the docs</user_query>"),
+        ]
+    )
+    steps = cursor_jsonl_to_atif(raw, session_id="s", agent="cursor")["steps"]
+    assert [step.get("message") for step in steps] == ["fix the test", "Fixed it.", "now the docs"]
+
+
+def test_the_agent_field_picks_the_reader():
+    """One `agent` string decides the format; nothing sniffs the bytes."""
+    assert jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="cursor")["steps"]
+    # Claude's reader needs a `type`, so Cursor's lines leave it with nothing.
+    assert jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="claude-code")["steps"] == []
+    assert jsonl_to_atif(SESSION, session_id="s", agent="claude-code")["steps"]
+
+
+def test_a_cursor_trajectory_keeps_tool_calls_reasoning_and_results():
+    """Everything Cursor recorded is kept, not only what was said."""
+    raw = "\n".join(
+        json.dumps(line)
+        for line in [
+            {
+                "role": "user",
+                "message": {
+                    "content": [{"type": "text", "text": "<user_query>list files</user_query>"}]
+                },
+            },
+            {
+                "role": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "thinking", "thinking": "I should run ls."},
+                        {"type": "text", "text": "Listing them."},
+                        {
+                            "type": "tool_use",
+                            "id": "t1",
+                            "name": "Shell",
+                            "input": {"command": "ls"},
+                        },
+                    ]
+                },
+            },
+            {
+                "role": "user",
+                "message": {"content": [{"type": "tool_result", "content": "a.txt b.txt"}]},
+            },
+            {
+                "role": "assistant",
+                "message": {
+                    "content": [{"type": "tool_use", "name": "Read", "input": {"path": "a.txt"}}]
+                },
+            },
+        ]
+    )
+    steps = cursor_jsonl_to_atif(raw, session_id="s", agent="cursor")["steps"]
+    assert steps[1]["reasoning_content"] == "I should run ls."
+    assert steps[1]["tool_calls"] == [
+        {"tool_call_id": "t1", "name": "Shell", "arguments": {"command": "ls"}}
+    ]
+    assert steps[2] == {"step_id": 3, "source": "system", "observation": "a.txt b.txt"}
+    assert steps[3]["tool_calls"][0]["name"] == "Read", "a call with no text is still a step"
+
+
+def test_the_agent_running_the_ratexp_script_is_not_part_of_the_run():
+    raw = json.dumps(
+        {
+            "role": "assistant",
+            "message": {
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "name": "Shell",
+                        "input": {
+                            "command": 'bash "/x/.cursor/ratexp-cursor.sh" report good share'
+                        },
+                    }
+                ]
+            },
+        }
+    )
+    assert cursor_jsonl_to_atif(raw, session_id="s", agent="cursor")["steps"] == []
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "<command-name>/ratexp</command-name>",
+        "<command-name>/ratexp:poem-creator</command-name>",
+        "RateXp target: poem-creator\n\nSay only: ...",
+        [{"type": "text", "text": "Opening the RateXp survey."}],
+    ],
+)
+def test_the_claude_ratexp_request_is_not_part_of_the_run(content):
+    role = "assistant" if isinstance(content, list) else "user"
+    raw = json.dumps({"type": role, "message": {"role": role, "content": content}})
+    assert claude_jsonl_to_atif(raw, session_id="s", agent="claude-code")["steps"] == []

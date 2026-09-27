@@ -6,6 +6,7 @@ key is required - no in-code fallbacks, so a missing key fails loudly at startup
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
@@ -27,6 +28,9 @@ def _require_in(parent: dict, parent_name: str, key: str):
 
 
 SCHEMA_VERSION: str = _require("schema_version")
+# RATEXP_CORE_URL overrides config.yaml so each deployment's install popup points at
+# its own core without editing the file - Terraform and compose both set it.
+CORE_URL: str = (os.environ.get("RATEXP_CORE_URL") or str(_require("core_url"))).rstrip("/")
 LIST_VIEW_LIMIT: int = _require("list_view_limit")
 LIST_MAX_LIMIT: int = _require("list_max_limit")
 TOP_SKILLS_LIMIT: int = _require("top_skills_limit")
