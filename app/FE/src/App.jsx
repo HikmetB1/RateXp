@@ -341,7 +341,7 @@ export default function App() {
                   <tr key={i}>
                     <Td label="When">{r.created_at}</Td>
                     <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
-                    <Td label="Name">{r.skill_name ? <code>{r.skill_name}</code> : <Dash />}</Td>
+                    <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
                     <Td label="Agent"><code>{r.agent}</code></Td>
                     <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
                     <Td label="Score">{scoreLabel(r.score)}</Td>

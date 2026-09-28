@@ -15,11 +15,17 @@ from load_config import LIST_VIEW_LIMIT, TOP_SKILLS_LIMIT
 from modules.read.adapters.read_adapter_interface import ReadAdapter
 
 
+def display_name(skill_name: str | None, session_id: str | None) -> str | None:
+    """What the dashboard's Name column shows: the skill, or the session it rated as a whole."""
+    return skill_name or session_id
+
+
 def row_to_feedback(r) -> Feedback:
     return Feedback(
         created_at=jsonable(r[0]),
         session_id=r[1],
         skill_name=r[2],
+        name=display_name(r[2], r[1]),
         agent=r[3],
         score=r[4],
         comment=r[5],

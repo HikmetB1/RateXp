@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from api.broadcast_live import broadcast_changes, hub
-from api.build_snapshot import build_snapshot, row_to_feedback, row_to_transcript
+from api.build_snapshot import build_snapshot, display_name, row_to_feedback, row_to_transcript
 from api.record_schemas import Feedback, QueryRequest, Transcript
 from api.trim_result_rows import apply_download_rule, jsonable, most_recent
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
@@ -175,6 +175,10 @@ def run_query(req: QueryRequest) -> dict:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"query error: {e!r}") from e
 
     result = [dict(zip(columns, (jsonable(v) for v in row), strict=False)) for row in rows]
+    # Give filtered rows the same Name as the live table, unless the query picked its own.
+    for r in result:
+        if "skill_name" in r or "session_id" in r:
+            r.setdefault("name", display_name(r.get("skill_name"), r.get("session_id")))
     fetched_truncated = len(rows) >= QUERY_MAX_ROWS
     if req.full:
         # Download: single skill -> all of it (newest first); else the most-recent view.

@@ -14,12 +14,23 @@ def test_query_select_returns_columns_and_rows(app_with_fake_pool):
     body = r.json()
     assert body["columns"] == ["skill_name", "score"]
     assert body["rows"] == [
-        {"skill_name": "demo", "score": 2},
-        {"skill_name": "other", "score": 1},
+        {"skill_name": "demo", "score": 2, "name": "demo"},
+        {"skill_name": "other", "score": 1, "name": "other"},
     ]
     assert body["row_count"] == 2
     assert body["truncated"] is False
     assert "AS _q LIMIT" in pool.store["sql"]
+
+
+def test_query_names_a_session_row_by_its_session(app_with_fake_pool):
+    client, pool = app_with_fake_pool
+    pool.set_columns(["skill_name", "session_id"])
+    pool.set_select_rows([(None, "sess-1")])
+    # full=True skips the transcript lookup, which this fake pool would answer with these rows.
+    r = client.post(
+        "/query", json={"query": "SELECT skill_name, session_id FROM feedback", "full": True}
+    )
+    assert r.json()["rows"] == [{"skill_name": None, "session_id": "sess-1", "name": "sess-1"}]
 
 
 def test_query_rejects_non_select(app_with_fake_pool):

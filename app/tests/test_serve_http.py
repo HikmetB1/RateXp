@@ -42,8 +42,29 @@ def test_get_feedback_returns_rows(app_with_fake_pool):
     rows = r.json()
     assert len(rows) == 1
     assert rows[0]["skill_name"] == "demo"
+    assert rows[0]["name"] == "demo"
     assert rows[0]["score"] == 2
     assert rows[0]["request_id"] == "req-1"
+
+
+def test_get_feedback_names_a_session_rating_by_its_session(app_with_fake_pool):
+    client, pool = app_with_fake_pool
+    pool.set_select_rows(
+        [
+            (
+                datetime(2026, 5, 25, 12, 0, 0, tzinfo=UTC),
+                "sess-1",
+                None,
+                "claude-code",
+                1,
+                None,
+                None,
+            )
+        ]
+    )
+    rows = client.get("/feedback").json()
+    assert rows[0]["skill_name"] is None
+    assert rows[0]["name"] == "sess-1"
 
 
 def test_get_feedback_default_uses_view_limit(app_with_fake_pool):
