@@ -313,6 +313,13 @@ def test_a_cursor_model_name_is_kept_when_the_line_carries_one():
     assert trajectory["schema_version"] == SCHEMA_VERSION
 
 
+def test_a_cursor_model_name_comes_from_the_agent_label_when_no_line_carries_one():
+    """What the hook posts: the model its stop event named, after the harness."""
+    raw = json.dumps({"role": "user", "message": {"content": [{"type": "text", "text": "hi"}]}})
+    trajectory = cursor_jsonl_to_atif(raw, session_id="s", agent="cursor gpt-5.1-codex")
+    assert trajectory["agent"] == {"name": "cursor", "model_name": "gpt-5.1-codex"}
+
+
 def test_cursor_token_totals_are_zero_because_cursor_records_none():
     """Not a free session - Cursor simply never writes usage to the transcript."""
     metrics = cursor_jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="cursor")["final_metrics"]

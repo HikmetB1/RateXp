@@ -60,6 +60,8 @@ the whole setup; ratings land on the same dashboard.
 - **Cursor** - works in the editor, and in the CLI when it fires hooks.
 - **Cursor menu** - pick `/ratexp`, then type `:<skill>`.
 - **Cursor setup** - RateXp adds the menu itself; it shows once Cursor runs its hooks.
+- **Cursor model** - shown on the dashboard once Cursor runs its hooks; Cursor records no
+  token counts.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).

@@ -236,10 +236,10 @@ export default function App() {
     return index[`r:${r.request_id}`] || index[`s:${r.session_id}`] || null
   }
 
-  // A rating does not carry the model: the hook posts only the runtime it ran in.
-  // The model is recorded per turn inside the trajectory, so it is known for rows
-  // whose conversation was consented. Runtimes that put it in the agent label
-  // instead (the seeder posts "langchain gpt-4o-mini") are read from there.
+  // Claude Code records the model per turn inside the trajectory, so it is known
+  // for rows whose conversation was consented. Runtimes that put it in the agent
+  // label instead (Cursor posts "cursor gpt-5", the seeder "langchain gpt-4o-mini")
+  // are read from there, shared or not.
   const modelFor = (r) => {
     const fromTrajectory = transcriptFor(r)?.atif?.agent?.model_name
     if (fromTrajectory) return fromTrajectory

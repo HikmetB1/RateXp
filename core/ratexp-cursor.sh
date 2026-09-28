@@ -290,6 +290,14 @@ hook() {
     [[ $type == string && -f $transcript && ! -L $transcript ]] || return
     base=$root/$project-$session
     [[ ! -L $base ]] || return
+    mkdir -p -- "$base" || return
+    # Which model answered is in the event, and nowhere in Cursor's transcript, so
+    # it is kept here for `report`. Cursor names Auto "default". A space would split
+    # the agent label it ends up in, so anything unexpected is not kept.
+    get 0 model
+    [[ $found == default ]] && found=auto
+    [[ $type == string && $found =~ ^[a-zA-Z0-9._/-]{1,64}$ && ! -L $base/model ]] &&
+        printf '%s' "$found" > "$base/model"
     # A turn the user spent rating is not work, so it is not counted: /ratexp,
     # this hook's own followup, or the answer to either - which the user may give
     # in a message of their own, so `report` marks that turn.
@@ -298,7 +306,6 @@ hook() {
     # Environment settings override the distributed defaults.
     every=${RATEXP_EVERY:-$DEFAULT_EVERY}
     [[ $every =~ ^[1-9][0-9]{0,4}$ ]] && (( every <= 32768 )) || return
-    mkdir -p -- "$base" || return
     turn_is_due "$base" "$generation" || return
     # The same survey /ratexp starts, so the agent is sent down the same path.
     quote "RateXp survey for this whole chat: run \`bash \"$self\" ask\` and follow what it prints, word for word. Do nothing else, and do not summarise the session."
@@ -360,7 +367,7 @@ ask() {
 report() {
     local verdict=${1-} sharing=${2-} comment=${3-} score share token candidate newest newest_born chat
     local now dir pending request born session transcript size start identity url target current
-    local fields reason
+    local fields reason model
     for token in curl cksum mkdir date stat head tail; do command -v "$token" >/dev/null || return 1; done
     case $verdict in
         good) score=1 ;;
@@ -405,8 +412,13 @@ report() {
     [[ ! -L $pending ]] || return 1
     : > "$pending"
     mkdir -- "${dir%/runs/*}/answered" 2>/dev/null
+    # Harness first, model second, the way the dashboard splits the label. The
+    # model is the one the stop hook last saw in this chat, if Cursor fired it.
+    model=''
+    [[ -f ${dir%/runs/*}/model && ! -L ${dir%/runs/*}/model ]] && model=$(< "${dir%/runs/*}/model")
+    [[ $model =~ ^[a-zA-Z0-9._/-]{1,64}$ ]] || model=''
     # A session rating names no skill; a skill's rating names the skill.
-    fields=(--form-string 'agent=cursor' --form-string "session_id=$session"
+    fields=(--form-string "agent=cursor${model:+ $model}" --form-string "session_id=$session"
         --form-string "request_id=$request" --form-string "score=$score")
     [[ -n $target ]] && fields+=(--form-string "skill_name=$target")
     [[ -n $comment ]] && fields+=(--form-string "comment=$comment")

@@ -31,7 +31,8 @@ sits on the line itself instead of in a `type` field, user turns are wrapped in
 `<user_query>` and prefixed with an inline `<timestamp>`, tool calls are usually
 logged without their results, and there are no token counts anywhere in the file.
 Its token totals are therefore zero because Cursor never recorded them - not
-because nothing was spent.
+because nothing was spent. It names no model either; ratexp-cursor.sh posts the
+one Cursor's stop hook reported as the agent label's second word, e.g. "cursor gpt-5".
 """
 
 from __future__ import annotations

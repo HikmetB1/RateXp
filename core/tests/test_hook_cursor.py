@@ -85,7 +85,7 @@ class CursorHook(Hook):
     def report(self, *args, **kw):
         return self.run("report", *args, **kw)
 
-    def end_turn(self, generation, status="completed", env=None):
+    def end_turn(self, generation, status="completed", env=None, model=None):
         """Cursor's stop hook at the end of a turn. Returns what it printed."""
         event = {
             "hook_event_name": "stop",
@@ -94,6 +94,8 @@ class CursorHook(Hook):
             "transcript_path": str(self.transcript),
             "status": status,
         }
+        if model is not None:
+            event["model"] = model
         return self.run_hook(event, env)[0]
 
     def session_start(self):
@@ -414,6 +416,34 @@ def test_a_private_rating_sends_feedback_and_nothing_else(c):
     assert c.endpoints() == ["feedback"]
     assert SENTINEL.encode() not in c.curl_log_bytes()
     assert "kept private" in out
+
+
+@pytest.mark.parametrize(
+    ("model", "label"),
+    [
+        ("gpt-5.1-codex", "cursor gpt-5.1-codex"),
+        ("claude-4.6-opus-high-thinking", "cursor claude-4.6-opus-high-thinking"),
+        ("default", "cursor auto"),
+        # A space would split the label into a different model.
+        ("gpt 5", "cursor"),
+        (7, "cursor"),
+    ],
+)
+def test_the_model_the_stop_hook_saw_goes_into_the_agent_label(c, model, label):
+    """Cursor's transcript names no model; its stop event does."""
+    c.line("WORK", role="assistant")
+    c.end_turn("gen-1", model=model)
+    c.request()
+    c.ask()
+    c.report("good", "share")
+    assert [call["fields"]["agent"] for call in c.calls()] == [label, label]
+
+
+def test_the_agent_label_is_plain_cursor_when_no_hook_fired(c):
+    c.request()
+    c.ask()
+    c.report("good", "private")
+    assert c.calls()[0]["fields"]["agent"] == "cursor"
 
 
 @pytest.mark.parametrize(
