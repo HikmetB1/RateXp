@@ -256,6 +256,29 @@ summary:hover { opacity: 0.8; }
   border: 2px solid var(--ink);
 }
 .md pre code { background: none; border: none; padding: 0; color: var(--text); font-size: 0.85em; }
+/* A fold opened by a click (the install guide's hooks JSON and notes). Its label wears
+   the same box as a code block. */
+.md-fold { margin: 0 0 8px; }
+.md-fold > summary {
+  padding: 10px 12px;
+  background: var(--panel2);
+  border: 2px solid var(--ink);
+  font-weight: 700;
+}
+.md-fold[open] > summary { margin-bottom: 6px; }
+/* Small copy button beside a fold's label, sized like the popup's close button. */
+.copy-btn {
+  margin-left: 10px;
+  padding: 5px 8px;
+  font-size: 9px;
+  line-height: 1;
+  box-shadow: 2px 2px 0 var(--ink);
+  border-width: 2px;
+  vertical-align: middle;
+}
+.copy-btn:hover:not(:disabled) { transform: none; box-shadow: 2px 2px 0 var(--ink); }
+.md-notes { margin-top: 12px; }
+.md-notes > .md { padding: 10px 12px; border: 2px solid var(--ink); }
 .md table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 8px; font-size: 0.9em; }
 .md th, .md td { border: 1px solid var(--ink); padding: 4px 8px; text-align: left; }
 .md th { background: var(--panel2); }

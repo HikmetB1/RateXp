@@ -32,44 +32,50 @@ const CURSOR_HOOKS = { version: 1, hooks: { sessionStart: [CURSOR_HOOK], stop: [
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
 // because each keeps its hooks somewhere different. It installs from this deployment's
-// own core, which /meta names.
+// own core, which /meta names. The notes sit in their own folded box below the steps.
+const INSTALL_GUIDES = {
+  claude: {
+    dir: '~/.claude',
+    script: 'ratexp-claude.sh',
+    settings: '~/.claude/settings.json',
+    hooks: CLAUDE_SETTINGS,
+    notes: `- Your whole session is rated every 2nd turn (change \`DEFAULT_EVERY\` in
+  \`~/.claude/ratexp-claude.sh\`), and whenever you type \`/ratexp\`.
+- Pick \`/ratexp:<skill>\` from the menu, or type \`/ratexp <skill>\`, to rate just that
+  skill's most recent run.`,
+  },
+  cursor: {
+    dir: '~/.cursor',
+    script: 'ratexp-cursor.sh',
+    settings: '~/.cursor/hooks.json',
+    hooks: CURSOR_HOOKS,
+    notes: `- Your whole chat is rated every 2nd turn (change \`DEFAULT_EVERY\` in
+  \`~/.cursor/ratexp-cursor.sh\`), and whenever you type \`/ratexp\`.
+- Type \`/ratexp:<skill>\` or \`/ratexp <skill>\` to rate just that skill's most recent run.`,
+  },
+}
+
+function installNotesMd(agent) {
+  return `${INSTALL_GUIDES[agent].notes}
+- Nothing is stored unless you agree, and personal data is masked (redacted) before it is
+  stored.`
+}
+
 function installGuideMd(agent, coreUrl = '<your-core-url>') {
-  const guide = {
-    claude: {
-      dir: '~/.claude',
-      script: 'ratexp-claude.sh',
-      settings: '~/.claude/settings.json',
-      hooks: CLAUDE_SETTINGS,
-      after: `Your whole session is rated every 2nd turn, and whenever you type \`/ratexp\`. Type
-\`/ratexp <skill>\` - or pick \`/ratexp:<skill>\` from the menu - to rate just that skill's
-most recent run. RateXp writes \`/ratexp\` and those menu entries itself when a session
-starts, so they show from your second session on.`,
-    },
-    cursor: {
-      dir: '~/.cursor',
-      script: 'ratexp-cursor.sh',
-      settings: '~/.cursor/hooks.json',
-      hooks: CURSOR_HOOKS,
-      after: `Your whole chat is rated every 2nd turn, and whenever you type \`/ratexp\`. Type
-\`/ratexp <skill>\` or \`/ratexp:<skill>\` to rate just that skill's most recent run.
-RateXp writes \`/ratexp\` itself the first time Cursor runs its hooks.`,
-    },
-  }[agent]
+  const guide = INSTALL_GUIDES[agent]
   return `Save the RateXp script, once for every project:
 
 \`\`\`bash
 curl -fsSL ${coreUrl}/${guide.script} --create-dirs -o ${guide.dir}/${guide.script}
 \`\`\`
 
-Then add these hooks to \`${guide.settings}\`. **RateXp never edits that file** - it is
-yours. If it already has a \`"hooks"\` block, merge them in; if it does not exist yet,
-this is the whole file:
+Then add the following section to \`${guide.settings}\`:
 
 \`\`\`json
 ${JSON.stringify(guide.hooks, null, 2)}
 \`\`\`
 
-${guide.after}
+Restart your coding agent to load the hooks.
 
 Congratulations - your agentic experience is live at RateXp! 🎉`
 }
@@ -815,6 +821,38 @@ const GUIDE_AGENTS = [
   { key: 'cursor', label: 'Cursor' },
 ]
 
+// The hooks snippet is long, so the guide folds its JSON block until clicked; the
+// one-line curl block stays open.
+const FOLD_JSON = {
+  pre({ node, ...props }) {
+    const pre = <pre {...props} />
+    const code = node?.children?.[0]
+    if (!code?.properties?.className?.includes('language-json')) return pre
+    const text = code.children.map((c) => c.value ?? '').join('').trimEnd()
+    return (
+      <details className="md-fold">
+        <summary>Show the section<CopyButton text={text} /></summary>
+        {pre}
+      </details>
+    )
+  },
+}
+
+// Copies `text` and says so for a moment. It sits inside a <summary>, so the click
+// must not also open or close the fold.
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+  const copy = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  return <button type="button" className="copy-btn" onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
+}
+
 // Closes on the backdrop, the X, or Escape.
 function InstallGuideModal({ open, onClose, coreUrl }) {
   const [agent, setAgent] = useState(GUIDE_AGENTS[0].key)
@@ -854,7 +892,11 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
               </button>
             ))}
           </div>
-          <Md className="md modal-md">{installGuideMd(agent, coreUrl)}</Md>
+          <Md className="md modal-md" components={FOLD_JSON}>{installGuideMd(agent, coreUrl)}</Md>
+          <details className="md-fold md-notes">
+            <summary>Notes</summary>
+            <Md className="md modal-md">{installNotesMd(agent)}</Md>
+          </details>
         </div>
       </div>
     </>,
@@ -890,10 +932,10 @@ function DownloadInfoModal({ open, onClose, queryLanguage = 'SQL', queryExample 
 
 // Render an ATIF step's text as Markdown (GFM). Styling lives under .md in index.css.
 // (react-markdown v9 has no className prop, so we wrap it in a div.)
-function Md({ className, children }) {
+function Md({ className, children, components }) {
   return (
     <div className={className}>
-      <Markdown remarkPlugins={[remarkGfm]}>{String(children ?? '')}</Markdown>
+      <Markdown remarkPlugins={[remarkGfm]} components={components}>{String(children ?? '')}</Markdown>
     </div>
   )
 }
