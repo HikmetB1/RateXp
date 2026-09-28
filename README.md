@@ -52,9 +52,9 @@ Then paste the hooks from the [dashboard](https://ratexp-app.azurewebsites.net/)
 **Install RateXp** popup into `~/.claude/settings.json` or `~/.cursor/hooks.json`. That is
 the whole setup; ratings land on the same dashboard.
 
-### When it asks: every 2nd turn, and on /ratexp
+### When it asks: every 5th turn, and on /ratexp
 
-- **The whole session** - asked every 2nd turn, and whenever you type `/ratexp`.
+- **The whole session** - asked every 5th turn, and whenever you type `/ratexp`.
 - **How often** - change `DEFAULT_EVERY` at the top of the saved script, or set
   `RATEXP_EVERY`.
 - **What is stored** - only with your consent: messages, reasoning, tool calls and their
@@ -89,7 +89,7 @@ sequenceDiagram
     C-->>A: the hook for that coding agent, pointing back at this core
     A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
 
-    Note over H,D: then every 2nd turn, or whenever the user types /ratexp or /ratexp <skill>
+    Note over H,D: then every 5th turn, or whenever the user types /ratexp or /ratexp <skill>
     H->>C: POST /feedback (rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
@@ -102,7 +102,7 @@ sequenceDiagram
 ## Features: what you get
 1. **One install, in your own coding agent** - Claude Code or Cursor, once for every
    project. Nothing has to be built into the skills or the agent you rate.
-2. **Rate the session or one skill** - the whole session every 2nd turn and on `/ratexp`;
+2. **Rate the session or one skill** - the whole session every 5th turn and on `/ratexp`;
    any skill's most recent run on `/ratexp <skill>` or `/ratexp:<skill>`, the names
    autocompleting in Claude Code.
 3. **Ratings and comments** - a quick good/bad rating with an optional comment, asked in one

@@ -47,7 +47,7 @@ CORE = Path(__file__).resolve().parents[1]
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 # What the tests bake in where a real copy would carry config.yaml's value.
-BAKED_EVERY = 2
+BAKED_EVERY = 5
 # The default every test runs with: far out of reach, so the whole-session survey
 # never interrupts a test that is not about it.
 NEVER = "32768"

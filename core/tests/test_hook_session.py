@@ -55,9 +55,9 @@ def test_the_session_is_asked_about_every_nth_turn(s):
 
 
 def test_the_baked_in_frequency_applies_when_nothing_overrides_it(s):
-    """core stamps `default_survey_every` into the hook it serves; the harness bakes 2."""
+    """core stamps `default_survey_every` into the hook it serves; the harness bakes 5."""
     env = {"RATEXP_EVERY": None}
-    assert [s.turn(env=env) is not None for _ in range(2)] == [False, True]
+    assert [s.turn(env=env) is not None for _ in range(5)] == [False] * 4 + [True]
 
 
 def test_a_repeated_stop_is_one_turn(s):

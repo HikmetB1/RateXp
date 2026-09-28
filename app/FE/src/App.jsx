@@ -39,7 +39,7 @@ const INSTALL_GUIDES = {
     script: 'ratexp-claude.sh',
     settings: '~/.claude/settings.json',
     hooks: CLAUDE_SETTINGS,
-    notes: `- Your whole session is rated every 2nd turn (change \`DEFAULT_EVERY\` in
+    notes: `- Your whole session is rated every 5th turn (change \`DEFAULT_EVERY\` in
   \`~/.claude/ratexp-claude.sh\`), and whenever you type \`/ratexp\`.
 - Pick \`/ratexp:<skill>\` from the menu, or type \`/ratexp <skill>\`, to rate just that
   skill's most recent run.`,
@@ -49,7 +49,7 @@ const INSTALL_GUIDES = {
     script: 'ratexp-cursor.sh',
     settings: '~/.cursor/hooks.json',
     hooks: CURSOR_HOOKS,
-    notes: `- Your whole chat is rated every 2nd turn (change \`DEFAULT_EVERY\` in
+    notes: `- Your whole chat is rated every 5th turn (change \`DEFAULT_EVERY\` in
   \`~/.cursor/ratexp-cursor.sh\`), and whenever you type \`/ratexp\`.
 - Type \`/ratexp:<skill>\` or \`/ratexp <skill>\` to rate just that skill's most recent run.`,
   },

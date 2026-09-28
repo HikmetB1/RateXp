@@ -171,7 +171,7 @@ def hook(tmp_path, core_url) -> Path:
     assert PLACEHOLDER in source, f"{CANONICAL_HOOK} no longer carries {PLACEHOLDER}"
     script = folder / "ratexp-claude.sh"
     script.write_text(
-        source.replace(PLACEHOLDER, shlex.quote(core_url)).replace(EVERY_PLACEHOLDER, "2"),
+        source.replace(PLACEHOLDER, shlex.quote(core_url)).replace(EVERY_PLACEHOLDER, "5"),
         encoding="utf-8",
     )
     return script
