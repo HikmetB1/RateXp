@@ -163,7 +163,7 @@ The [dashboard](https://ratexp-app.azurewebsites.net/) updates as feedback arriv
 the latest ratings and the most-rated skills; a rating with a stored conversation opens it in
 a slide-over timeline.
 
-To narrow things down, type an **SQL** query into the filter box.
+To filter things, type an **SQL** query into the filter box.
 
 The box only ever shows the most recent matches. To get more than that, use **Download JSON**.
 What it writes depends on what is in the box when you click it:
