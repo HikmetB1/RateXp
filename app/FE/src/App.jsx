@@ -98,17 +98,25 @@ not what is typed in the box, and each entry comes with its full conversation.
 **What Download JSON gives you**
 
 - **No query** - the **10 most recent** entries.
-- **A query for one skill** - **every** entry for that skill (up to 1000).
-- **A query for one agent** - **every** entry for that agent (up to 1000).
+- **A query for one skill** - **every** entry for that skill (up to 1000 entries).
+- **A query for one agent** - **every** entry for that agent (up to 1000 entries).
 - **Anything else** - the **10 most recent**.
 
-**To get everything for your skill**, run this query, then click Download JSON:
+**To get everything for your skill or agent**, run one of these queries, then click Download JSON:
 
 \`\`\`${lang.toLowerCase()}
 ${example}
 \`\`\`
 
-For one agent, use \`agent\` in place of \`skill_name\`.`
+\`\`\`${lang.toLowerCase()}
+${agentExample(example)}
+\`\`\``
+}
+
+// The same example query aimed at one agent: every read source names the field
+// `agent` where it names the skill `skill_name` (SQL column, DQL ratexp.*, Phoenix key).
+function agentExample(example) {
+  return example.replace('skill_name', 'agent')
 }
 
 // Outer frame bundling the inner cards into one section (the chunky "big box").
@@ -591,7 +599,8 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
         Read-only {queryLanguage} query (capped & time-limited) that replaces the table below -
-        query one skill or agent, e.g. <code>{example}</code>, then Download JSON to export all of it.{' '}
+        query one skill or agent, e.g. <code>{example}</code> (<code>skill_name</code> can be replaced
+        by <code>agent</code>), then Download JSON to export all of it.{' '}
         <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea
