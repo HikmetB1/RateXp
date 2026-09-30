@@ -11,6 +11,7 @@
 </p>
 
 <p align="center">
+  <a href="#intro">Intro</a> ·
   <a href="#quick-start-install-in-one-command">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#features-what-you-get">Features</a> ·
@@ -20,14 +21,27 @@
   <a href="#license-what-you-may-do-with-it">License</a>
 </p>
 
-Dear coding agent user - and the skill authors and coding agent providers who want to hear
-from you:
+<a id="intro"></a>
+**The problem:** coding agents and skills are nowadays measured by benchmarks and tests, but the
+person who actually worked with them is rarely asked. Whether the session helped or wasted
+their time stays in their head and never reaches the people who could fix it.
 
-RateXp rates the **agentic experience, by the human who had it**. Install it once in your
-coding agent, then rate the whole session or any skill you ran, right where the work happened.
-Your rating - and, if you agree, the conversation with anything personal masked - goes
-straight to them on the [live dashboard](https://ratexp-app.azurewebsites.net/) or your own
-storage adapter.
+**What RateXp does:** it collects **human feedback on the agentic experience, from the human
+who had it**. Right inside the coding agent, the user rates the whole session or any skill
+they just ran. The rating - and, if they agree, the conversation with anything personal
+masked - lands on the [live dashboard](https://ratexp-app.azurewebsites.net/) or your own
+storage.
+
+**Who it is for:**
+- **Coding agent users** - say what worked and what did not, in seconds, without leaving
+  the session -> stay closer to your coding agemt admin/vendor.
+- **Skill authors** - see how people rate your skill in real work, not only in your tests.
+- **Coding agent providers** - hear from real users on real sessions. See what kinds of
+  work your team use the coding agent for, where they get great results and where they
+  struggle - then train them where they need it, and tell the vendor what to improve.
+
+**Easy to adopt:** one download and one paste of hooks, once per coding agent - see the
+[Quick start](#quick-start-install-in-one-command).
 
 <p align="center">
   <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
