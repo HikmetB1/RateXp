@@ -66,22 +66,15 @@ Then paste the hooks from the [dashboard](https://ratexp-app.azurewebsites.net/)
 **Install RateXp** popup into `~/.claude/settings.json` or `~/.cursor/hooks.json`. That is
 the whole setup; ratings land on the same dashboard.
 
-### When it asks: every 5th turn, and on /ratexp
+### When it asks: on /ratexp, and every 5th turn
 
-- **The whole session** - asked every 5th turn, and whenever you type `/ratexp`.
-- **How often** - change `DEFAULT_EVERY` at the top of the saved script, or set
-  `RATEXP_EVERY`.
+- **The whole session** - whenever you type `/ratexp`, and every 5th turn.
+- **How often** - every 5th turn by default; change `DEFAULT_EVERY` at the top of the saved
+  script, or set `RATEXP_EVERY`.
 - **What is stored** - only with your consent: messages, reasoning, tool calls and their
   results, with personal data masked (redacted) before it is stored.
 - **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
-- **Claude Code** - works in the editor and the CLI.
-- **Claude Code menu** - pick `/ratexp:<skill>`.
-- **Claude Code setup** - RateXp adds the menu itself; it shows from your second session.
-- **Cursor** - works in the editor, and in the CLI when it fires hooks.
-- **Cursor menu** - pick `/ratexp`, then type `:<skill>`.
-- **Cursor setup** - RateXp adds the menu itself; it shows once Cursor runs its hooks.
-- **Cursor model** - shown on the dashboard once Cursor runs its hooks; Cursor records no
-  token counts.
+- **Tested in** - Claude Code and Cursor CLI. 
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
@@ -105,7 +98,7 @@ sequenceDiagram
     C-->>A: the hook for that coding agent, pointing back at this core
     A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
 
-    Note over H,D: then every 5th turn, or whenever the user types /ratexp or /ratexp <skill>
+    Note over H,D: then whenever the user types /ratexp or /ratexp <skill>, and every 5th turn
     H->>C: POST /feedback (rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
