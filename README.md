@@ -131,8 +131,9 @@ sequenceDiagram
    `custom_dynatrace` (queried with DQL), or `phoenix` (queried with `key:value` filters).
    Bluebox is write-only, so it has no read adapter.
 8. **Responsive UI** - the table reflows into cards on phones.
-9. **Tested models** - works with Claude Opus (5, 4.8, 4.7, 4.6, 4.5) and Sonnet (5, 4.6, 4.5).
-10. **Tested coding agents** - Claude Code and Cursor, in the editor and the CLI
+9. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
+   Fable.
+10. **Tested coding agents** - Claude Code and Cursor CLI
 
 ## The dashboard: read and export the feedback
 <p align="center">
