@@ -138,7 +138,8 @@ push `seeder_image` the same way as step 2.
 │   └── skills/                 The skills the agent picks from (third-party, see ATTRIBUTION.md)
 ├── infra/                      Terraform stack for Azure (two web apps + PostgreSQL)
 ├── tests/                      Whole-app integration tests (run against a live/local stack)
-├── assets/                     Images the README shows (banner, demo GIF, dashboard shot)
+├── .github/                    CI checks on every push and pull request, plus issue templates
+├── assets/                     Images the README shows (banner, demo GIFs, dashboard shot)
 ├── docker-compose.yml          Local stack: PostgreSQL + core + app (+ opt-in seed profile)
 ├── THIRD_PARTY_NOTICES.md      Licenses and citations for projects RateXp builds on
 ├── CLA.md / LICENSE / CITATION.cff  Contributor agreement, license, how to cite
@@ -265,7 +266,8 @@ a few hundred lines, never the whole project. One pass should be enough for both
 8. **Find the convention before you invent one.**
    The repo has usually answered your question already, so read a sibling before naming a
    file, shaping a module, or reaching for a path. `modules/read/` mirrors `modules/write/`
-   file for file because of it. Follow what you find, or change every copy in one commit.
+   adapter for adapter because of it - only write-only Bluebox has no reader. Follow what
+   you find, or change every copy in one commit.
 
 ## Contributor License Agreement: what you agree to
 
