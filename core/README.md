@@ -54,7 +54,7 @@ the whole setup; ratings land on the same dashboard.
 - **What is stored** - only with your consent: messages, reasoning, tool calls and their
   results, with personal data masked (redacted) before it is stored.
 - **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
-- **Tested in** - Claude Code and Cursor, in the terminal (CLI).
+- **Tested in** - Claude Code and Cursor CLI.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).

@@ -12,6 +12,7 @@
 
 <p align="center">
   <a href="#intro">Intro</a> ·
+  <a href="#showcases-see-it-in-action">Showcases</a> ·
   <a href="#quick-start-install-in-one-command">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#features-what-you-get">Features</a> ·
@@ -26,7 +27,7 @@
 person who actually worked with them is rarely asked. Whether the session helped or wasted
 their time stays in their head and never reaches the people who could fix it.
 
-**What RateXp does:** it collects **human feedback on the agentic experience, from the human
+**What RateXp does:** it collects **human evals / human feedback on the agentic experience, from the human
 who had it**. Right inside the coding agent, the user rates the whole session or any skill
 they just ran. The rating - and, if they agree, the conversation with anything personal
 masked - lands on the [live dashboard](https://ratexp-app.azurewebsites.net/) or your own
@@ -43,8 +44,26 @@ storage.
 **Easy to adopt:** one download and one paste of hooks, once per coding agent - see the
 [Quick start](#quick-start-install-in-one-command).
 
+## Showcases: see it in action
+
+### Session: rate a whole session
+
+A new Claude Code session gets one prompt, then `/ratexp`. The user ticks Good, agrees to
+store the conversation and adds a comment - the rating shows up on the dashboard, and its
+trajectory opens with the full conversation.
+
 <p align="center">
-  <img src="./assets/demo.gif" alt="RateXp demo - collecting feedback and showing it on the dashboard" width="720">
+  <img src="./assets/demo-session.gif" alt="RateXp demo - rating a whole Claude Code session and opening it on the dashboard" width="720">
+</p>
+
+### Skill: rate one skill's run
+
+The user runs `/poem-creator` and picks a mood, then `/ratexp:poem-creator` rates just that
+run. The dashboard shows it as a skill rating, with only that skill's part of the
+conversation.
+
+<p align="center">
+  <img src="./assets/demo-skill.gif" alt="RateXp demo - rating one run of the poem-creator skill and opening it on the dashboard" width="720">
 </p>
 
 ## Quick start: install in one command
@@ -74,7 +93,7 @@ the whole setup; ratings land on the same dashboard.
 - **What is stored** - only with your consent: messages, reasoning, tool calls and their
   results, with personal data masked (redacted) before it is stored.
 - **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
-- **Tested in** - Claude Code and Cursor CLI. 
+- **Tested in** - Claude Code and Cursor CLI.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
