@@ -224,6 +224,18 @@ def test_a_skill_is_rated_on_its_newest_run_only(s, via):
         assert other not in body, f"an earlier part of the session leaked: {other!r}"
 
 
+def test_a_skill_that_opens_the_session_can_be_rated(s):
+    """The session's first prompt comes before Claude Code writes its transcript."""
+    s.transcript.unlink()
+    start_skill(s)
+    s.append(type="assistant", text="THE-RUN")
+    picker = rate(s)
+    assert picker["questions"][0]["question"].startswith(f"Rate {SKILL} — ")
+    s.pre(picker)
+    s.run_hook(s.answer(picker, CONSENT))
+    assert b"THE-RUN" in s.calls()[1]["body"]
+
+
 def test_the_newest_ratexp_request_decides(s):
     """An interrupted turn fires no Stop, so its /ratexp request is still waiting
     when the user asks again - and the new request decides what is rated."""

@@ -262,7 +262,9 @@ skill_started() {  # skill_started <skill>
     # Not `name`: that is the JSON reader's own array, and `get` needs it.
     local started=$1 info
     [[ $started =~ ^[a-zA-Z0-9][a-zA-Z0-9_:.-]{0,127}$ && $started != ratexp && $started != ratexp:* ]] || return
-    get 0 transcript_path; info=$(file_info "$found") || return
+    get 0 transcript_path; [[ $type == string ]] || return
+    # A session's first prompt comes before its transcript exists: the run starts at 0.
+    info=0; [[ -e $found || -L $found ]] && { info=$(file_info "$found") || return; }
     mkdir -p -- "$base/skills" || return
     [[ ! -L $base/skills/${started//:/--} ]] || return
     printf '%s' "${info##*:}" > "$base/skills/${started//:/--}"
