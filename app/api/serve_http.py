@@ -165,7 +165,7 @@ def run_query(req: QueryRequest) -> dict:
 
     read = app.state.read
     # The adapter validates + caps + runs the query in its language; newest-first trimming
-    # (and the Download single-skill rule) happen below.
+    # (and the Download one-skill-or-agent rule) happen below.
     try:
         columns, rows = read.run_query(req.query, QUERY_MAX_ROWS, QUERY_TIMEOUT_MS)
     except ValueError as e:
@@ -181,7 +181,7 @@ def run_query(req: QueryRequest) -> dict:
             r.setdefault("name", display_name(r.get("skill_name"), r.get("session_id")))
     fetched_truncated = len(rows) >= QUERY_MAX_ROWS
     if req.full:
-        # Download: single skill -> all of it (newest first); else the most-recent view.
+        # Download: one skill or one agent -> all of it (newest first); else the most-recent view.
         result, truncated = apply_download_rule(result, fetched_truncated)
     else:
         # Filter view: newest first, capped to the view (or an explicit, smaller limit).

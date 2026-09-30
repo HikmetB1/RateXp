@@ -11,6 +11,9 @@ from datetime import datetime
 
 from load_config import LIST_VIEW_LIMIT
 
+# A Download exports in full when every row shares one of these: one skill, or one agent.
+SUBJECT_COLUMNS = ("skill_name", "agent")
+
 
 def jsonable(value):
     """Match the list endpoints' wire format: datetime -> ISO8601 Z string."""
@@ -36,15 +39,15 @@ def most_recent(
 def apply_download_rule(rows: list[dict], fetched_truncated: bool) -> tuple[list[dict], bool]:
     """Decide what a full (Download) query actually returns, judged over the whole result.
 
-    A result that resolves to a single skill is exported in full (newest first); anything
-    else - more than one skill, or a shape without a usable skill_name column - is trimmed
-    to the most recent view-limit rows.
+    A result that resolves to a single skill or a single agent is exported in full (newest
+    first); anything else - several skills across several agents, or a shape without a
+    usable skill_name/agent column - is trimmed to the most recent view-limit rows.
     """
-    skills = {r.get("skill_name") for r in rows}
-    single_skill = (
-        bool(rows)
-        and "skill_name" in rows[0]
-        and skills == {rows[0]["skill_name"]}
-        and None not in skills
-    )
-    return most_recent(rows, None if single_skill else LIST_VIEW_LIMIT, fetched_truncated)
+    one_subject = any(_one_value(rows, column) for column in SUBJECT_COLUMNS)
+    return most_recent(rows, None if one_subject else LIST_VIEW_LIMIT, fetched_truncated)
+
+
+def _one_value(rows: list[dict], column: str) -> bool:
+    """True when every row carries the same, non-empty value in `column`."""
+    values = {r.get(column) for r in rows}
+    return bool(rows) and column in rows[0] and len(values) == 1 and None not in values

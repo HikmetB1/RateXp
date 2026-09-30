@@ -88,21 +88,27 @@ function downloadInfoMd(queryLanguage = 'SQL', queryExample = EXAMPLE_SQL) {
   const example = queryExample || EXAMPLE_SQL
   return `### Preview & downloads
 
-The dashboard updates in **real time**, but the table only shows the **most recent
-entries** so it stays fast and smooth. To get more than the preview, use the filter
-box or **Download JSON**.
+The dashboard updates in **real time**. To stay fast, the table and the filter box
+only ever show the **10 most recent** entries. An entry is one rating: either one
+**skill** run, or a whole **agent session** (Claude Code or Cursor).
+
+To get more than 10, use **Download JSON**. It exports the **last query you ran**,
+not what is typed in the box, and each entry comes with its full conversation.
 
 **What Download JSON gives you**
 
-- **No query** - just the **10 most recent** entries.
-- **A query for a single skill** - **all** entries for that skill.
-- **A query covering more than one skill** - only the **10 most recent**.
+- **No query** - the **10 most recent** entries.
+- **A query for one skill** - **every** entry for that skill (up to 1000).
+- **A query for one agent** - **every** entry for that agent (up to 1000).
+- **Anything else** - the **10 most recent**.
 
-**To get everything for your skill**, query that one skill in ${lang}, then click Download JSON:
+**To get everything for your skill**, run this query, then click Download JSON:
 
 \`\`\`${lang.toLowerCase()}
 ${example}
-\`\`\``
+\`\`\`
+
+For one agent, use \`agent\` in place of \`skill_name\`.`
 }
 
 // Outer frame bundling the inner cards into one section (the chunky "big box").
@@ -533,7 +539,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
 
   // Export feedback as JSON, attaching each row's full ATIF trajectory under `conversation`.
   // With an active query we re-run it as a full export; the backend applies the download
-  // rule over the whole result (single skill -> all of it; otherwise the 10 most recent).
+  // rule over the whole result (one skill or one agent -> all of it; otherwise the 10 most recent).
   // With no query we just take the most recent preview rows already on screen.
   const download = async () => {
     setErr(null)
@@ -585,7 +591,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
         Read-only {queryLanguage} query (capped & time-limited) that replaces the table below -
-        query one skill, e.g. <code>{example}</code>, then Download JSON to export all of it.{' '}
+        query one skill or agent, e.g. <code>{example}</code>, then Download JSON to export all of it.{' '}
         <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea

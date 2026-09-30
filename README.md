@@ -166,12 +166,14 @@ a slide-over timeline.
 To filter things, type an **SQL** query into the filter box.
 
 The box only ever shows the most recent matches. To get more than that, use **Download JSON**.
-What it writes depends on what is in the box when you click it:
+What it writes depends on the last query you ran:
 
-| In the filter box | What the download contains |
+| Last query run | What the download contains |
 |---|---|
-| *(left empty)* | The 10 most recent ratings. |
+| *(none)* | The 10 most recent ratings. |
 | `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **Every** rating for that skill, up to 1000. |
+| `SELECT * FROM feedback WHERE agent = 'claude-code'` | **Every** rating from that agent - skill runs and whole sessions - up to 1000. |
+| Anything spanning several skills and several agents | The 10 most recent ratings. |
 
 Every exported row carries its full trajectory beside the rating.
 

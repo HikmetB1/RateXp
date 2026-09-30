@@ -1,4 +1,5 @@
-"""POST /query: the dashboard's filter box, its row caps, and the Download rule."""
+"""POST /query: the dashboard's filter box, its row caps, and the Download rule
+(one skill or one agent -> all of it; anything else -> the most recent view)."""
 
 from __future__ import annotations
 
@@ -172,8 +173,46 @@ def test_query_full_multiple_skills_trims_to_recent(app_with_fake_pool):
     assert body["rows"][-1]["created_at"] == "2026-06-03T00:00:00Z"
 
 
+def test_query_full_single_agent_exports_all(app_with_fake_pool):
+    """Download of a query that resolves to ONE agent returns every row, across its skills."""
+    client, pool = app_with_fake_pool
+    pool.set_columns(["skill_name", "agent", "created_at"])
+    # Two skills plus whole-session ratings (no skill), all from the one agent.
+    skills = ("a", "b", None)
+    rows = [
+        (skills[i % 3], "claude-code", f"2026-06-{i:02d}T00:00:00Z")
+        for i in range(1, LIST_VIEW_LIMIT + 5)
+    ]
+    pool.set_select_rows(rows)
+    body = client.post(
+        "/query", json={"query": "SELECT skill_name, agent, created_at FROM feedback", "full": True}
+    ).json()
+    assert body["row_count"] == len(rows)  # all of the one agent, past the view limit
+    assert body["truncated"] is False
+
+
+def test_query_full_several_skills_and_agents_trims_to_recent(app_with_fake_pool):
+    """Download spanning more than one skill AND more than one agent keeps the recent view."""
+    client, pool = app_with_fake_pool
+    pool.set_columns(["skill_name", "agent", "created_at"])
+    rows = [
+        (
+            ("a" if i % 2 else "b"),
+            ("claude-code" if i % 2 else "cursor"),
+            f"2026-06-{i:02d}T00:00:00Z",
+        )
+        for i in range(1, 13)
+    ]
+    pool.set_select_rows(rows)
+    body = client.post(
+        "/query", json={"query": "SELECT skill_name, agent, created_at FROM feedback", "full": True}
+    ).json()
+    assert body["row_count"] == LIST_VIEW_LIMIT
+    assert body["truncated"] is True
+
+
 def test_query_full_without_skill_column_trims_to_recent(app_with_fake_pool):
-    """A full query whose shape has no skill_name is treated as multi-skill and trimmed."""
+    """A full query whose shape has no skill_name or agent is treated as mixed and trimmed."""
     client, pool = app_with_fake_pool
     pool.set_columns(["n"])
     pool.set_select_rows([(i,) for i in range(LIST_VIEW_LIMIT + 3)])
