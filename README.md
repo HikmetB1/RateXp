@@ -191,7 +191,8 @@ What it writes depends on the last query you ran:
 | *(none)* | The 10 most recent ratings. |
 | `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **Every** rating for that skill, up to 1000 ratings. |
 | `SELECT * FROM feedback WHERE agent = 'claude-code'` | **Every** rating from that agent - skill runs and whole sessions - up to 1000 ratings. |
-| Anything spanning several skills and several agents | The 10 most recent ratings. |
+| `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **Every** rating that answered that eval, up to 1000 ratings. |
+| Anything spanning several skills, several agents and several evals | The 10 most recent ratings. |
 
 Every exported row carries its full trajectory beside the rating.
 

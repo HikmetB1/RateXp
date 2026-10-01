@@ -11,8 +11,8 @@ from datetime import datetime
 
 from load_config import LIST_VIEW_LIMIT
 
-# A Download exports in full when every row shares one of these: one skill, or one agent.
-SUBJECT_COLUMNS = ("skill_name", "agent")
+# A Download exports in full when every row shares one of these: one skill, agent or eval.
+SUBJECT_COLUMNS = ("skill_name", "agent", "eval_name")
 
 
 def jsonable(value):
@@ -39,9 +39,10 @@ def most_recent(
 def apply_download_rule(rows: list[dict], fetched_truncated: bool) -> tuple[list[dict], bool]:
     """Decide what a full (Download) query actually returns, judged over the whole result.
 
-    A result that resolves to a single skill or a single agent is exported in full (newest
-    first); anything else - several skills across several agents, or a shape without a
-    usable skill_name/agent column - is trimmed to the most recent view-limit rows.
+    A result that resolves to a single skill, agent or eval is exported in full (newest
+    first); anything else - several skills across several agents and evals, or a shape
+    without a usable skill_name/agent/eval_name column - is trimmed to the most recent
+    view-limit rows.
     """
     one_subject = any(_one_value(rows, column) for column in SUBJECT_COLUMNS)
     return most_recent(rows, None if one_subject else LIST_VIEW_LIMIT, fetched_truncated)

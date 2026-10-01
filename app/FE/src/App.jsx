@@ -32,34 +32,36 @@ const CURSOR_HOOKS = { version: 1, hooks: { sessionStart: [CURSOR_HOOK], stop: [
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
 // because each keeps its hooks somewhere different. It installs from this deployment's
-// own core, which /meta names. The notes sit in their own folded box below the steps.
+// own core, which /meta names. How to run it sits in its own folded box below the steps.
 const INSTALL_GUIDES = {
   claude: {
     dir: '~/.claude',
     script: 'ratexp-claude.sh',
     settings: '~/.claude/settings.json',
     hooks: CLAUDE_SETTINGS,
-    notes: `- Your whole session is rated every 5th turn (change \`DEFAULT_EVERY\` in
-  \`~/.claude/ratexp-claude.sh\`), and whenever you type \`/ratexp\`.
-- Pick \`/ratexp:<skill>\` from the menu to rate just that skill's most recent run.`,
+    run: `1. Start a Claude Code session and work as usual.
+2. Type \`/ratexp\` to rate the whole session. It also asks on its own every 5th turn
+   (change \`DEFAULT_EVERY\` in \`~/.claude/ratexp-claude.sh\`).
+3. Pick \`/ratexp:<skill>\` from the menu to rate just that skill's most recent run.`,
   },
   cursor: {
     dir: '~/.cursor',
     script: 'ratexp-cursor.sh',
     settings: '~/.cursor/hooks.json',
     hooks: CURSOR_HOOKS,
-    notes: `- Your whole chat is rated every 5th turn (change \`DEFAULT_EVERY\` in
-  \`~/.cursor/ratexp-cursor.sh\`), and whenever you type \`/ratexp\`.
-- Type \`/ratexp:<skill>\` to rate just that skill's most recent run.`,
+    run: `1. Start a Cursor chat and work as usual.
+2. Type \`/ratexp\` to rate the whole chat. It also asks on its own every 5th turn
+   (change \`DEFAULT_EVERY\` in \`~/.cursor/ratexp-cursor.sh\`).
+3. Type \`/ratexp:<skill>\` to rate just that skill's most recent run.`,
   },
 }
 
-function installNotesMd(agent) {
-  return `${INSTALL_GUIDES[agent].notes}
-- Add an eval's name after either, as in \`/ratexp:<skill> <eval>\`, to answer that survey
-  instead of the default one.
-- Nothing is stored unless you agree, and personal data is masked (redacted) before it is
-  stored.`
+function runGuideMd(agent) {
+  return `${INSTALL_GUIDES[agent].run}
+4. To answer a different eval (survey) than the default, \`human-satisfaction\`, add its
+   name, as in \`/ratexp <eval>\` or \`/ratexp:<skill> <eval>\`.
+5. Answer the survey. Nothing is stored unless you agree, and personal data is masked
+   (redacted) before it is stored. Your rating then shows up on this dashboard.`
 }
 
 function installGuideMd(agent, coreUrl = '<your-core-url>') {
@@ -101,23 +103,29 @@ not what is typed in the box, and each entry comes with its full conversation.
 - **No query** - the **10 most recent** entries.
 - **A query for one skill** - **every** entry for that skill (up to 1000 entries).
 - **A query for one agent** - **every** entry for that agent (up to 1000 entries).
+- **A query for one eval** - **every** entry for that eval (up to 1000 entries).
 - **Anything else** - the **10 most recent**.
 
-**To get everything for your skill or agent**, run one of these queries, then click Download JSON:
+**To get everything for your skill, agent or eval**, run one of these queries, then click Download JSON:
 
 \`\`\`${lang.toLowerCase()}
 ${example}
 \`\`\`
 
 \`\`\`${lang.toLowerCase()}
-${agentExample(example)}
+${subjectExample(example, 'agent')}
+\`\`\`
+
+\`\`\`${lang.toLowerCase()}
+${subjectExample(example, 'eval_name')}
 \`\`\``
 }
 
-// The same example query aimed at one agent: every read source names the field
-// `agent` where it names the skill `skill_name` (SQL column, DQL ratexp.*, Phoenix key).
-function agentExample(example) {
-  return example.replace('skill_name', 'agent')
+// The same example query aimed at one agent or one eval: every read source names those
+// fields `agent` and `eval_name` where it names the skill `skill_name` (SQL column,
+// DQL ratexp.*, Phoenix key).
+function subjectExample(example, field) {
+  return example.replace('skill_name', field)
 }
 
 // Outer frame bundling the inner cards into one section (the chunky "big box").
@@ -550,7 +558,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
 
   // Export feedback as JSON, attaching each row's full ATIF trajectory under `conversation`.
   // With an active query we re-run it as a full export; the backend applies the download
-  // rule over the whole result (one skill or one agent -> all of it; otherwise the 10 most recent).
+  // rule over the whole result (one skill, agent or eval -> all of it; otherwise the 10 most recent).
   // With no query we just take the most recent preview rows already on screen.
   const download = async () => {
     setErr(null)
@@ -602,8 +610,8 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
       </div>
       <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
         Read-only {queryLanguage} query (capped & time-limited) that replaces the table below -
-        query one skill or agent, e.g. <code>{example}</code> (<code>skill_name</code> can be replaced
-        by <code>agent</code>), then Download JSON to export all of it.{' '}
+        query one skill, agent or eval, e.g. <code>{example}</code> (<code>skill_name</code> can be
+        replaced by <code>agent</code> or <code>eval_name</code>), then Download JSON to export all of it.{' '}
         <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea
@@ -912,9 +920,9 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
             ))}
           </div>
           <Md className="md modal-md" components={FOLD_JSON}>{installGuideMd(agent, coreUrl)}</Md>
-          <details className="md-fold md-notes">
-            <summary>Notes</summary>
-            <Md className="md modal-md">{installNotesMd(agent)}</Md>
+          <details className="md-fold md-run">
+            <summary>How to run RateXp in your coding agent session</summary>
+            <Md className="md modal-md">{runGuideMd(agent)}</Md>
           </details>
         </div>
       </div>

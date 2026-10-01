@@ -1,5 +1,5 @@
 """POST /query: the dashboard's filter box, its row caps, and the Download rule
-(one skill or one agent -> all of it; anything else -> the most recent view)."""
+(one skill, agent or eval -> all of it; anything else -> the most recent view)."""
 
 from __future__ import annotations
 
@@ -211,8 +211,52 @@ def test_query_full_several_skills_and_agents_trims_to_recent(app_with_fake_pool
     assert body["truncated"] is True
 
 
+def test_query_full_single_eval_exports_all(app_with_fake_pool):
+    """Download of a query that resolves to ONE eval returns every row, across skills and agents."""
+    client, pool = app_with_fake_pool
+    pool.set_columns(["skill_name", "agent", "eval_name", "created_at"])
+    rows = [
+        (
+            ("a" if i % 2 else "b"),
+            ("claude-code" if i % 2 else "cursor"),
+            "human-satisfaction",
+            f"2026-06-{i:02d}T00:00:00Z",
+        )
+        for i in range(1, LIST_VIEW_LIMIT + 5)
+    ]
+    pool.set_select_rows(rows)
+    body = client.post(
+        "/query",
+        json={
+            "query": "SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'",
+            "full": True,
+        },
+    ).json()
+    assert body["row_count"] == len(rows)  # all of the one eval, past the view limit
+    assert body["truncated"] is False
+
+
+def test_query_full_several_evals_skills_and_agents_trims_to_recent(app_with_fake_pool):
+    """Download spanning several skills, agents AND evals keeps the recent view."""
+    client, pool = app_with_fake_pool
+    pool.set_columns(["skill_name", "agent", "eval_name", "created_at"])
+    rows = [
+        (
+            ("a" if i % 2 else "b"),
+            ("claude-code" if i % 2 else "cursor"),
+            ("human-satisfaction" if i % 2 else "other-eval"),
+            f"2026-06-{i:02d}T00:00:00Z",
+        )
+        for i in range(1, 13)
+    ]
+    pool.set_select_rows(rows)
+    body = client.post("/query", json={"query": "SELECT * FROM feedback", "full": True}).json()
+    assert body["row_count"] == LIST_VIEW_LIMIT
+    assert body["truncated"] is True
+
+
 def test_query_full_without_skill_column_trims_to_recent(app_with_fake_pool):
-    """A full query whose shape has no skill_name or agent is treated as mixed and trimmed."""
+    """A full query whose shape has no skill_name, agent or eval_name is treated as mixed and trimmed."""
     client, pool = app_with_fake_pool
     pool.set_columns(["n"])
     pool.set_select_rows([(i,) for i in range(LIST_VIEW_LIMIT + 3)])
