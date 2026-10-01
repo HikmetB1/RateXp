@@ -145,7 +145,7 @@ push `seeder_image` the same way as step 2.
 ├── assets/                     Images the README shows (banner, demo GIFs, dashboard shot)
 ├── docker-compose.yml          Local stack: PostgreSQL + core + app (+ opt-in seed profile)
 ├── THIRD_PARTY_NOTICES.md      Licenses and citations for projects RateXp builds on
-├── CLA.md / LICENSE / CITATION.cff  Contributor agreement, license, how to cite
+├── CLA.md / LICENSE / TERMS.md / CITATION.cff  Contributor agreement, license, hosted service terms, how to cite
 └── pyproject.toml              Shared ruff config; each service has its own project file
 ```
 
@@ -275,7 +275,8 @@ a few hundred lines, never the whole project. One pass should be enough for both
 ## Contributor License Agreement: what you agree to
 
 Before your contribution can be merged, you agree to the
-[Contributor License Agreement](./CLA.md). You accept it automatically by submitting a pull
-request; sign your commits with `git commit -s` (adds a `Signed-off-by` line) to confirm. In
-short: you keep your own rights, but you grant the owner a license to your contribution -
-including the right to relicense it later.
+[Contributor License Agreement](./CLA.md). Have an idea? Email it (see
+[Contact](./README.md#contact-how-to-reach-me)) and we'll agree how you can contribute. Sign
+your commits with `git commit -s` (adds a `Signed-off-by` line). In short: you keep your own
+rights, but you grant the owner a license to your contribution - including the right to
+relicense it later.

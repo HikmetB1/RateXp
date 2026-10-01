@@ -7,13 +7,16 @@ Contributor License Agreement before their contribution is merged.
 In this document, **"the owner"** is Hikmet Beyoglu
 (hikmet.beyoglu@hotmail.com), the copyright holder of RateXp. **"You"** is the
 person or organization making a contribution. A **"contribution"** is any code,
-documentation, or other material you submit to the project (for example, in a
-pull request, patch, or issue attachment).
+documentation, or other material you submit to the project after the owner has
+agreed to it.
 
 ## How you accept this agreement
 
-You accept this agreement automatically when you submit a contribution to
-RateXp - for example, by opening a pull request. You also confirm acceptance by
+Have an idea? Email it (see [Contact](./README.md#contact-how-to-reach-me)) and
+we'll agree together how you can contribute. Please don't post code publicly
+before that (see Section 9 of the [LICENSE](./LICENSE)).
+
+You accept this agreement when you submit a contribution, and confirm it by
 adding a `Signed-off-by` line to your commits:
 
 ```

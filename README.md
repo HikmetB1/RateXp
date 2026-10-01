@@ -7,7 +7,7 @@
   <a href="https://github.com/HikmetB1/RateXp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HikmetB1/RateXp/ci.yml?branch=main&style=flat-square&label=CI&labelColor=30363d&logo=github&logoColor=white" alt="CI status"></a>
   <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/demo-dashboard-8957e5?style=flat-square&labelColor=30363d" alt="Live demo dashboard"></a>
   <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/status-live-3fb950?style=flat-square&labelColor=30363d" alt="Service status: live"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-PolyForm%20Shield-1f6feb?style=flat-square&labelColor=30363d" alt="License: PolyForm Shield 1.0.0"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-source%20available-1f6feb?style=flat-square&labelColor=30363d" alt="License: RateXp Source Available License 1.0"></a>
 </p>
 
 <p align="center">
@@ -206,16 +206,20 @@ formal citations see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). To cite
 itself, use [CITATION.cff](./CITATION.cff).
 
 ## License: what you may do with it
-[PolyForm Shield 1.0.0](./LICENSE) - source-available.
+[RateXp Source Available License 1.0](./LICENSE) - source-available, not open source.
 
-Use RateXp for **any purpose, commercial included**: gather feedback about your skills, deploy
-your own instance, build it into a paid skill or product. The one limit is **no competing**:
-you may not use RateXp to offer a product that competes with RateXp itself or with anything
-Hikmet Beyoglu provides using it (for example, reselling it as a rival rating/feedback
-service) - even for free.
+- **Hosted service - free, no time limit:** install the hook scripts and send ratings and
+  conversations to the [live dashboard](https://ratexp-app.azurewebsites.net/), alone or as a
+  whole team, with no data limit. The [Terms of Service](./TERMS.md) apply.
+- **Your own copy - 30-day trial:** read, run, change and deploy RateXp on your own machines,
+  for personal or internal use. One trial per person or organization; it does not restart.
+- **Commercial license needed:** after the trial, for production use, to host it for others,
+  or to build it into a product.
+- **Not allowed without written permission:** publishing or sharing the code or changed
+  versions, building a competing product, or training AI models on the code.
 
-Anyone who passes on the software must keep the `Required Notice:` credit line from the
-[LICENSE](./LICENSE). The software comes **as is, with no warranty**. Questions:
+This is a short summary; the [LICENSE](./LICENSE) is the binding text. The software comes
+**as is, with no warranty**. Commercial license or questions:
 [email me here](mailto:hikmet.beyoglu@hotmail.com).
 
 ---
