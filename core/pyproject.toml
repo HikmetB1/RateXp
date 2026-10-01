@@ -1,6 +1,6 @@
 [project]
 name = "ratexp-core"
-version = "1.0.0"
+version = "2.0.0"
 description = "RateXp public ingestion service: serves the hook script and stores feedback."
 requires-python = ">=3.12"
 dependencies = [

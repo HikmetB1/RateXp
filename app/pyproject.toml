@@ -1,6 +1,6 @@
 [project]
 name = "ratexp-app"
-version = "1.0.0"
+version = "2.0.0"
 description = "RateXp dashboard: read-only API over stored feedback, plus the dashboard UI."
 requires-python = ">=3.12"
 dependencies = [

@@ -1,6 +1,6 @@
 [project]
 name = "ratexp-seeder"
-version = "1.0.0"
+version = "2.0.0"
 description = "RateXp demo seeder: an agent uses a skill, then submits feedback to core."
 requires-python = ">=3.12"
 # Runtime deps live in requirements.txt (the Azure Functions image installs from it).
