@@ -49,9 +49,9 @@ storage.
 
 ### Session: rate a whole session
 
-A new Claude Code session gets one prompt, then `/ratexp`. The user ticks Good, agrees to
-store the conversation and adds a comment - the rating shows up on the dashboard, and its
-trajectory opens with the full conversation.
+A new Claude Code session gets one prompt, then `/ratexp human-satisfaction`. The user answers
+that eval with True, agrees to store the conversation and adds a comment - the
+rating shows up on the dashboard, and its trajectory opens with the full conversation.
 
 <p align="center">
   <img src="./assets/demo-session.gif" alt="RateXp demo - rating a whole Claude Code session and opening it on the dashboard" width="720">
@@ -59,9 +59,9 @@ trajectory opens with the full conversation.
 
 ### Skill: rate one skill's run
 
-The user runs `/poem-creator` and picks a mood, then `/ratexp:poem-creator` rates just that
-run. The dashboard shows it as a skill rating, with only that skill's part of the
-conversation.
+The user runs `/poem-creator` and picks a mood, then `/ratexp:poem-creator human-satisfaction`
+rates just that run on that eval. The dashboard shows it as a skill rating, with only that
+skill's part of the conversation.
 
 <p align="center">
   <img src="./assets/demo-skill.gif" alt="RateXp demo - rating one run of the poem-creator skill and opening it on the dashboard" width="720">
