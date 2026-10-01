@@ -1,0 +1,7 @@
+question: Did the agent actually make me faster?
+good:
+  label: "True"
+  description: It saved me time.
+bad:
+  label: "False"
+  description: It took as long as doing it myself, or longer.

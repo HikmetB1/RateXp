@@ -13,6 +13,7 @@ class Feedback(BaseModel):
     session_id: str | None = None  # server fills if missing
     skill_name: str | None = None  # absent when the rating is for a whole session
     agent: str  # required; identifies the calling agent runtime
+    eval_name: str | None = None  # the eval (survey) answered, named as in evals/
     score: int | None = Field(default=None, ge=1, le=2)  # 1 = good, 2 = bad
     comment: str | None = None
     request_id: str | None = None  # idempotency key; dedup when present

@@ -19,9 +19,19 @@ def test_snapshot_returns_correlated_shape(app_with_fake_pool):
 def test_transcripts_for_queries_by_feedback_ids(app_with_fake_pool):
     client, pool = app_with_fake_pool
 
-    # A feedback row is (created_at, session_id, ..., request_id): match on both ids.
+    # A feedback row is (created_at, session_id, ..., request_id, eval_name): match on
+    # both ids.
     feedback = [
-        (datetime(2026, 5, 25, tzinfo=UTC), "sess-1", "demo", "claude-code", 2, "ok", "req-1")
+        (
+            datetime(2026, 5, 25, tzinfo=UTC),
+            "sess-1",
+            "demo",
+            "claude-code",
+            2,
+            "ok",
+            "req-1",
+            "human-satisfaction",
+        )
     ]
     pool.set_select_rows(
         [

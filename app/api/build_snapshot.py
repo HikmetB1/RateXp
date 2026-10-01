@@ -27,6 +27,7 @@ def row_to_feedback(r) -> Feedback:
         skill_name=r[2],
         name=display_name(r[2], r[1]),
         agent=r[3],
+        eval_name=r[7],
         score=r[4],
         comment=r[5],
         request_id=r[6],

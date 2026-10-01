@@ -49,6 +49,8 @@ uv sync && uv run python -m api.run_continuously
 - `model` / `temperature` / `max_rounds`: which model runs a skill, how it samples, and how
   many turns it gets before it has to rate
 - `core_url`: where the rating and the trajectory are posted
+- `eval_name`: the eval the rating answers, named as in core's [`evals/`](../core/evals/) -
+  the prompts below ask its question
 - `interval_seconds`: gap between runs for the local loop only - the deployed timer takes its
   cadence from `SEED_SCHEDULE` instead
 - `critical_ratio` / `oversized_ratio`: share of runs that review harshly, and share bloated

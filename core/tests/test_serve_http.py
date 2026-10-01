@@ -6,9 +6,13 @@ The security middleware, the health check, and the hook script core hands out.
 
 from __future__ import annotations
 
+import re
+import subprocess
+
 import pytest
 from api import serve_http
 from api.limit_request_rate import RateLimiter
+from load_config import Eval
 
 JSON_CT = {"content-type": "application/json"}
 
@@ -136,6 +140,40 @@ def test_every_served_hook_has_the_configured_survey_frequency_baked_in(client, 
     text = client.get(f"/{hook}").text
     assert "__RATEXP_EVERY__" not in text
     assert f"DEFAULT_EVERY={DEFAULT_SURVEY_EVERY}" in text
+
+
+@pytest.mark.parametrize("hook", HOOKS)
+def test_every_served_hook_carries_the_evals_exactly_as_written(
+    client, hook, monkeypatch, tmp_path
+):
+    # An admin writes the wording, so quotes, $(...) and backticks in it have to
+    # reach the hook as plain text - read back by bash itself, never run by it.
+    tricky = Eval(
+        'It\'s {subject} "done"? $(touch ran) `touch ran` \\o/', "Up", "Yes.", "Down", "$HOME"
+    )
+    plain = Eval("Rate {subject}", "Good", "Helpful.", "Bad", "Not helpful.")
+    monkeypatch.setattr(serve_http, "EVALS", {"tricky": tricky, "plain": plain})
+    monkeypatch.setattr(serve_http, "DEFAULT_SURVEY_EVAL", "plain")
+
+    text = client.get(f"/{hook}").text
+    assert "__RATEXP_EVAL" not in text
+    baked = re.search(r"^DEFAULT_EVAL=.*?^\)$", text, re.S | re.M).group(0)
+    read_back = subprocess.run(
+        ["/bin/bash", "-c", baked + '\nprintf "%s\\0" "$DEFAULT_EVAL" "${EVALS[@]}"'],
+        capture_output=True,
+        check=True,
+        cwd=tmp_path,
+    )
+    words = read_back.stdout.decode().split("\0")[:-1]
+    assert words == ["plain", "tricky", *tricky, "plain", *plain]
+    assert not (tmp_path / "ran").exists()
+
+
+@pytest.mark.parametrize("hook", HOOKS)
+def test_every_served_hook_has_the_configured_default_eval_baked_in(client, hook):
+    from load_config import DEFAULT_SURVEY_EVAL
+
+    assert f"DEFAULT_EVAL={DEFAULT_SURVEY_EVAL}" in client.get(f"/{hook}").text
 
 
 def test_only_the_hooks_themselves_are_served(client):

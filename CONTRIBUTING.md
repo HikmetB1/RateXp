@@ -37,6 +37,8 @@ Each service carries its own settings in two files beside its code:
 - `config.yaml` holds the non-secret tunables. **Every key is required** - a missing one fails
   loudly at startup, so the file is the single source of truth.
 - `.env` holds the secrets and per-environment wiring; all three are gitignored.
+- core also reads its surveys, one file per eval, from [`core/evals/`](./core/evals/) -
+  checked at startup just as strictly.
 - What each key and variable means is listed in that service's README:
   [core](./core/README.md), [app](./app/README.md), [seeder](./seeder/README.md).
 
@@ -121,6 +123,7 @@ push `seeder_image` the same way as step 2.
 ├── core/                       Public ingestion service: serves the hook scripts, stores feedback
 │   ├── ratexp-claude.sh        The Claude Code hook: rates the session and any skill run in it
 │   ├── ratexp-cursor.sh        The same for Cursor
+│   ├── evals/                  The surveys users answer, one file per eval
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   └── modules/
 │       ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)

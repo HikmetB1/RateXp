@@ -12,6 +12,7 @@ import pytest
 FORM = {
     "skill_name": "demo",
     "agent": "claude-code",
+    "eval_name": "human-satisfaction",
     "session_id": "sess-1",
     "request_id": "req-1",
     "score": "1",
@@ -34,6 +35,7 @@ def test_a_form_post_stores_the_rating(client, captured_writes):
     record = captured_writes[-1]
     assert record.skill_name == "demo"
     assert record.agent == "claude-code"
+    assert record.eval_name == "human-satisfaction"
     assert record.score == 1  # "1" on the wire, an int in the record
     assert record.comment == "great"
     assert record.request_id == "req-1"
@@ -46,6 +48,13 @@ def test_a_rating_for_a_whole_session_carries_no_skill(client, captured_writes):
     assert response.status_code == 201
     assert captured_writes[-1].skill_name is None
     assert captured_writes[-1].agent == "claude-code"
+
+
+def test_a_rating_that_names_no_eval_still_stores(client, captured_writes):
+    # A hook downloaded before evals existed sends none; its rating still counts.
+    response = client.post("/feedback", files=_multipart(eval_name=None))
+    assert response.status_code == 201
+    assert captured_writes[-1].eval_name is None
 
 
 def test_a_json_post_stores_the_rating(client, captured_writes):

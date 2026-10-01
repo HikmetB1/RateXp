@@ -39,8 +39,8 @@ class PostgresWriteAdapter:
             cur.execute(
                 """
                 INSERT INTO feedback
-                  (created_at, session_id, skill_name, agent, score, comment, request_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                  (created_at, session_id, skill_name, agent, eval_name, score, comment, request_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
                 """,
                 (
@@ -48,6 +48,7 @@ class PostgresWriteAdapter:
                     record.session_id,
                     record.skill_name,
                     record.agent,
+                    record.eval_name,
                     record.score,
                     record.comment,
                     record.request_id,

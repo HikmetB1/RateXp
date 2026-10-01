@@ -29,7 +29,7 @@ class ReadAdapter(Protocol):
     query_example: str
 
     def select_feedback(self, limit: int) -> list[tuple]:
-        """Newest `limit` feedback rows (created_at, session_id, skill_name, agent, score, comment, request_id)."""
+        """Newest `limit` feedback rows (created_at, session_id, skill_name, agent, score, comment, request_id, eval_name)."""
         ...
 
     def select_transcript(self, limit: int) -> list[tuple]:

@@ -31,12 +31,22 @@ def test_select_feedback_maps_records():
                 "ratexp.score": 2,
                 "ratexp.comment": "bad",
                 "ratexp.request_id": "r1",
+                "ratexp.eval_name": "human-satisfaction",
             }
         ]
     )
     (row,) = a.select_feedback(10)
     # Timestamp trimmed to whole seconds + Z, matching the psql shape.
-    assert row == ("2026-07-12T10:15:13Z", "s1", "demo", "cc", 2, "bad", "r1")
+    assert row == (
+        "2026-07-12T10:15:13Z",
+        "s1",
+        "demo",
+        "cc",
+        2,
+        "bad",
+        "r1",
+        "human-satisfaction",
+    )
 
 
 def test_select_top_skills_maps():
@@ -190,12 +200,22 @@ def test_phoenix_select_feedback_maps_spans():
                 score=2,
                 comment="bad",
                 request_id="r1",
+                eval_name="human-satisfaction",
             )
         ]
     )
     (row,) = a.select_feedback(10)
     # Timestamp trimmed to whole seconds + Z, matching the psql shape.
-    assert row == ("2026-07-12T10:15:13Z", "s1", "demo", "cc", 2, "bad", "r1")
+    assert row == (
+        "2026-07-12T10:15:13Z",
+        "s1",
+        "demo",
+        "cc",
+        2,
+        "bad",
+        "r1",
+        "human-satisfaction",
+    )
 
 
 def test_phoenix_rows_come_back_newest_first():

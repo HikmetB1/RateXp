@@ -3,20 +3,27 @@
 # The model draws the supplied picker; this file owns its text and all I/O.
 # Installed once, for every project, as ~/.claude/ratexp-claude.sh by whoever uses
 # Claude Code. It asks about the whole session every Nth turn on its own, and
-# whenever the user types /ratexp. /ratexp <skill> (or /ratexp:<skill>) rates only
-# that skill's most recent run - a skill is never asked about on its own. It notes
-# where every skill run starts so it can do this, and writes /ratexp itself.
+# whenever the user types /ratexp. /ratexp:<skill> rates only that skill's most
+# recent run - a skill is never asked about on its own. A word after either picks
+# the eval: which of core's surveys is asked. It notes where every skill run
+# starts so it can do this, and writes /ratexp itself.
 set -f
 set -o pipefail
 umask 077
 export LC_ALL=C
 DEFAULT_URL='__RATEXP_URL__'
 DEFAULT_EVERY='__RATEXP_EVERY__'
+DEFAULT_EVAL='__RATEXP_EVAL__'
+# The evals core offers, one per line: the name typed after /ratexp, the question -
+# where {subject}, if used, becomes what is rated - then the label and description
+# of the good answer, and of the bad one.
+EVALS=('__RATEXP_EVALS__')
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.
-# The reader, quote, good_url, post and file_info are the same in
-# ratexp-cursor.sh: a test holds the two copies identical, so change them together.
+# The reader, quote, good_url, post, file_info, ratexp_request, find_eval and
+# unknown_eval_line are the same in ratexp-cursor.sh: a test holds the two copies
+# identical, so change them together.
 fail() { exit 0; }
 white() { while [[ ${json:pos:1} == [$' \t\r\n'] ]]; do pos=$((pos+1)); done; }
 hex4() {
@@ -225,37 +232,46 @@ triage() {
         *) return 1 ;;
     esac
 }
-# Which skill a /ratexp request names: /ratexp:<name> carries it in the command
-# name, /ratexp <name> in the command's arguments. Fails for any other command.
-ratexp_target() {
-    target=''
-    get 0 command_name
-    case $found in
-        ratexp:*) target=${found#ratexp:}; return 0 ;;
-        ratexp) ;;
-        *) return 1 ;;
-    esac
-    get 0 command_args
-    [[ $type == string && $found =~ ^[[:space:]]*([a-zA-Z0-9][a-zA-Z0-9_:.-]{0,127}) ]] &&
-        target=${BASH_REMATCH[1]}
-    return 0
+# A /ratexp request as the user typed it: /ratexp:<skill> rates that skill's newest
+# run, and a word after the command names the eval. Fails for any other command.
+ratexp_request() {  # ratexp_request <request>: sets target, eval_name
+    local pattern='^/ratexp(:([^[:space:]]+))?([[:space:]]+([^[:space:]]+))?([[:space:]]|$)'
+    target=''; eval_name=''
+    [[ $1 =~ $pattern ]] || return 1
+    target=${BASH_REMATCH[2]}; eval_name=${BASH_REMATCH[4]}
+}
+# One of the evals in EVALS, by name: sets its question, and the label and
+# description of each answer. Fails for a name core does not offer.
+find_eval() {  # find_eval <name>
+    local i
+    for ((i=0; i+5<${#EVALS[@]}; i+=6)); do
+        [[ ${EVALS[i]} == "$1" ]] || continue
+        eval_question=${EVALS[i+1]}
+        good_label=${EVALS[i+2]}; good_description=${EVALS[i+3]}
+        bad_label=${EVALS[i+4]}; bad_description=${EVALS[i+5]}
+        return 0
+    done
+    return 1
+}
+# What a user who names an eval core does not offer is told instead.
+unknown_eval_line() {  # unknown_eval_line <name>: sets unknown
+    local i offered=''
+    for ((i=0; i+5<${#EVALS[@]}; i+=6)); do offered=$offered${offered:+, }${EVALS[i]}; done
+    unknown="RateXp: there is no eval named $1. Choose one of: $offered. To rate a skill, type /ratexp:<skill>."
 }
 # A command file: /ratexp itself, or the /ratexp:<skill> menu entry that makes a
-# skill's name autocomplete after /ratexp. Written once and never overwritten: the
-# file is the user's to edit or delete. The model may not run it: the hook only
-# hears commands the user typed, so a model-run /ratexp would promise a survey
-# that never comes.
-ratexp_command() {  # ratexp_command <file> <description> <target> [argument hint]
+# skill's name autocomplete after /ratexp; an eval's name may follow either.
+# Written once and never overwritten: the file is the user's to edit or delete.
+# The model may not run it: the hook only hears commands the user typed, so a
+# model-run /ratexp would promise a survey that never comes.
+ratexp_command() {  # ratexp_command <file> <description> <target>
     local file=$1 dir=${1%/*}
     [[ -e $file || -L $file || -L $dir ]] && return
     mkdir -p -- "$dir" || return
-    {
-        printf '%s\n' '---' "description: $2"
-        [[ -n ${4-} ]] && printf 'argument-hint: "%s"\n' "$4"
-        printf '%s\n' 'disable-model-invocation: true' '---' '' "RateXp target: $3" '' \
-            'Say only: "Opening the RateXp survey." Do not summarise the session, do not draw' \
-            'any picker yourself - the hook supplies one as soon as this turn ends.'
-    } > "$file"
+    printf '%s\n' '---' "description: $2" 'argument-hint: "[eval]"' 'disable-model-invocation: true' \
+        '---' '' "RateXp target: $3" '' \
+        'Say only: "Opening the RateXp survey." Do not summarise the session, do not draw' \
+        'any picker yourself - the hook supplies one as soon as this turn ends.' > "$file"
 }
 # Note where a skill's newest run starts: the transcript's length right now.
 skill_started() {  # skill_started <skill>
@@ -285,7 +301,8 @@ main() {
     local event session script url every root base dir run now request question picker reason end
     local input response answers annotations answer tool stored_tool born transcript size start identity current
     local good=0 bad=0 share=0 keep=0 comment='' score='' rest part fields
-    local metadata questions signature expected token target cwd
+    local metadata questions signature expected token target cwd asked subject unknown
+    local eval_name eval_question good_label good_description bad_label bad_description
     for token in curl cksum mkdir rmdir mv date od stat head tail sort; do command -v "$token" >/dev/null || return; done
     # NUL is the delimiter: a successful read means NUL or the size limit was hit.
     json=''; IFS= read -r -d '' -n 131073 json && return
@@ -316,8 +333,7 @@ main() {
         # Claude Code reads command files only when a session starts, so what is
         # written here shows from the next session on.
         ratexp_command "$script/commands/ratexp.md" \
-            "Rate this session with RateXp, or add a skill's name to rate its most recent run." \
-            '$ARGUMENTS' '[skill-name]'
+            "Rate this session with RateXp; add an eval's name to pick the survey." 'this session'
         # One /ratexp:<skill> entry per installed skill, so every name autocompletes.
         # The entries are global, so one project's skills are listed in another too;
         # rating one there is refused, because it never ran in that session.
@@ -341,31 +357,42 @@ main() {
         fi
     fi
     if [[ $event == UserPromptExpansion ]]; then
-        if ! ratexp_target; then
-            skill_started "$found"  # any other command is a skill starting
+        get 0 command_name; token=$found
+        get 0 command_args; [[ $type == string ]] || found=''
+        if ! ratexp_request "/$token $found"; then
+            skill_started "$token"  # any other command is a skill starting
             return
         fi
         # The newest request decides: one whose turn the user interrupted fired no
-        # Stop, so it can still be waiting here. No target means the whole session.
+        # Stop, so it can still be waiting here. No target means the whole session,
+        # and no eval the one core asks by default.
         [[ ! -L $base/rate-now ]] && mkdir -p -- "$base/rate-now" || return
         [[ ! -L $base/rate-now/target ]] && printf '%s' "$target" > "$base/rate-now/target"
+        [[ ! -L $base/rate-now/eval ]] && printf '%s' "$eval_name" > "$base/rate-now/eval"
         return
     fi
     if [[ $event == Stop ]]; then
         get 0 stop_hook_active; [[ $type != true ]] || return
         get 0 transcript_path
         token=$(file_info "$found") || return
-        target=''; start=0
+        target=''; eval_name=''; start=0
         if [[ -d $base/rate-now ]]; then
             # /ratexp asks, and moving the request aside consumes it: one request,
-            # one survey. It keeps the skill it named, if any. That turn was the
-            # user asking to rate, not work, so it is not counted.
-            mv -- "$base/rate-now" "$base/asked-${token//:/-}" 2>/dev/null || return
-            [[ -f $base/asked-${token//:/-}/target && ! -L $base/asked-${token//:/-}/target ]] &&
-                target=$(< "$base/asked-${token//:/-}/target")
+            # one survey. It keeps the skill and the eval it named, if any. That
+            # turn was the user asking to rate, not work, so it is not counted.
+            asked=$base/asked-${token//:/-}
+            mv -- "$base/rate-now" "$asked" 2>/dev/null || return
+            [[ -f $asked/target && ! -L $asked/target ]] && target=$(< "$asked/target")
+            [[ -f $asked/eval && ! -L $asked/eval ]] && eval_name=$(< "$asked/eval")
         else
             # Every Nth turn the whole session is asked about on its own.
             turn_is_due "${token//:/-}" || return
+        fi
+        # A request that names no eval, and every Nth turn, ask core's default one.
+        if ! find_eval "${eval_name:=$DEFAULT_EVAL}"; then
+            unknown_eval_line "$eval_name"; quote "$unknown"
+            printf '{"systemMessage":%s}\n' "$quoted"
+            return
         fi
         # The whole session starts at byte zero; a skill at its newest run.
         if [[ -n $target ]]; then
@@ -394,8 +421,9 @@ main() {
         fi
     fi
     if [[ $event == Stop ]]; then
-        question="Rate this Claude Code session — check all that apply or type a comment."
-        [[ -n $target ]] && question="Rate $target — check all that apply or type a comment."
+        subject='this Claude Code session'; [[ -n $target ]] && subject=$target
+        question=${eval_question//"{subject}"/$subject}
+        question="$question — check all that apply or type a comment."
         [[ -f $dir/ask ]] || return
         mkdir -- "$dir/stopped" 2>/dev/null || return
         # Record only metadata at Stop. A skill's rating reads the transcript here
@@ -417,10 +445,12 @@ main() {
         request=${request:0:8}-${request:8:4}-${request:12:4}-${request:16:4}-${request:20:12}
         quote "$question"; question=$quoted
         consent_line "$url" "$target"; quote "$consent"; reason=$quoted
-        picker='{"questions":[{"question":'$question',"header":"RateXp","multiSelect":true,"options":[{"label":"Good","description":"The result was helpful."},{"label":"Bad","description":"The result was not helpful."},{"label":"Yes, store trajectory","description":'$reason'},{"label":"No, do not store","description":"Keep this session on my machine."}]}]}'
+        quote "$good_label"; good_label=$quoted; quote "$good_description"; good_description=$quoted
+        quote "$bad_label"; bad_label=$quoted; quote "$bad_description"; bad_description=$quoted
+        picker='{"questions":[{"question":'$question',"header":"RateXp","multiSelect":true,"options":[{"label":'$good_label',"description":'$good_description'},{"label":'$bad_label',"description":'$bad_description'},{"label":"Yes, store trajectory","description":'$reason'},{"label":"No, do not store","description":"Keep this session on my machine."}]}]}'
         [[ ! -L $dir/pending ]] || return
         printf '%s\0' "$request" "$now" "$picker" "$transcript" "$size" "$start" "$identity" "$url" \
-            "$target" > "$dir/pending"
+            "$target" "$eval_name" > "$dir/pending"
         quote $'Draw this exact AskUserQuestion picker, without answers or extra fields. The hook reports delivery; do not claim it was saved or uploaded yourself.\n'"$picker"
         printf '{"decision":"block","reason":%s}\n' "$quoted"
         return
@@ -434,10 +464,13 @@ main() {
         IFS= read -r -d '' request; IFS= read -r -d '' born; IFS= read -r -d '' picker
         IFS= read -r -d '' token; IFS= read -r -d '' size; IFS= read -r -d '' start
         IFS= read -r -d '' identity; IFS= read -r -d '' url; IFS= read -r -d '' target
+        IFS= read -r -d '' eval_name
     } < "$dir/pending" || return
     # Revalidate the saved destination against the pending consent text.
     good_url "$url" || return
     consent_line "$url" "$target"; [[ $picker == *"$consent"* ]] || return
+    # The answer is read back by the labels of the eval that was asked.
+    find_eval "$eval_name" || return
     [[ $born =~ ^[0-9]+$ ]] && (( now >= born && now-born < 900 )) || return
     get 0 tool_input; input=$node; [[ $type == '{' ]] || return
     get "$input" metadata; metadata=$node
@@ -486,18 +519,20 @@ main() {
     get "$answers" "$question"; answer=$found; [[ $type == string ]] || return
     rest=$answer
     while [[ -n $rest ]]; do
-        # Match whole labels first because consent labels themselves contain commas.
+        # Match whole labels, consent ones first: they contain commas, and an eval's
+        # label may be a consent label's first word, like Yes.
         part=''
         # Claude Code quotes a label that holds a comma, so both spellings count.
-        for token in 'Good' 'Bad' 'Yes, store trajectory' 'No, do not store' \
-            '"Yes, store trajectory"' '"No, do not store"'; do
+        for token in 'Yes, store trajectory' 'No, do not store' \
+            '"Yes, store trajectory"' '"No, do not store"' "$good_label" "$bad_label"; do
             if [[ $rest == "$token" || $rest == "$token, "* ]]; then part=$token; break; fi
         done
         if [[ -z $part ]]; then comment=$rest; break; fi
         case $part in
-            Good) good=1 ;; Bad) bad=1 ;;
             'Yes, store trajectory' | '"Yes, store trajectory"') share=1 ;;
-            *) keep=1 ;;
+            'No, do not store' | '"No, do not store"') keep=1 ;;
+            "$good_label") good=1 ;;
+            *) bad=1 ;;
         esac
         rest=${rest#"$part"}; rest=${rest#', '}
     done
@@ -507,7 +542,7 @@ main() {
     (( good != bad )) && { if (( good )); then score=1; else score=2; fi; }
     [[ -n $score || -n $comment || $good == 1 || $bad == 1 || $share == 1 ]] || return
     # A session rating names no skill; a skill's rating names the skill.
-    fields=(--form-string 'agent=claude-code'
+    fields=(--form-string 'agent=claude-code' --form-string "eval_name=$eval_name"
         --form-string "session_id=$session" --form-string "request_id=$request")
     [[ -n $target ]] && fields+=(--form-string "skill_name=$target")
     [[ -n $score ]] && fields+=(--form-string "score=$score")

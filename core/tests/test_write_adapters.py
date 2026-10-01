@@ -78,6 +78,7 @@ def test_a_rating_becomes_one_insert_with_its_columns_in_order():
         Feedback(
             skill_name="demo",
             agent="claude-code",
+            eval_name="human-satisfaction",
             score=1,
             comment="great",
             session_id="s",
@@ -91,6 +92,7 @@ def test_a_rating_becomes_one_insert_with_its_columns_in_order():
         "s",
         "demo",
         "claude-code",
+        "human-satisfaction",
         1,
         "great",
         "r",
@@ -155,6 +157,7 @@ def test_a_rating_becomes_one_otlp_log_record():
         Feedback(
             skill_name="demo",
             agent="claude-code",
+            eval_name="human-satisfaction",
             score=2,
             comment="bad",
             session_id="s",
@@ -166,6 +169,7 @@ def test_a_rating_becomes_one_otlp_log_record():
     assert record["body"].startswith("RateXp rating: bad")
     attributes = record["attributes"]
     assert attributes["ratexp.record_type"] == "feedback"
+    assert attributes["ratexp.eval_name"] == "human-satisfaction"
     assert attributes["ratexp.score"] == 2
     assert attributes["ratexp.rating"] == "bad"  # the number is unreadable in a log viewer
     assert attributes["ratexp.comment"] == "bad"
@@ -253,6 +257,7 @@ def test_a_rating_becomes_one_phoenix_span():
         Feedback(
             skill_name="demo",
             agent="claude-code",
+            eval_name="human-satisfaction",
             score=2,
             comment="bad",
             session_id="s",
@@ -266,6 +271,7 @@ def test_a_rating_becomes_one_phoenix_span():
     assert span["start_time"] == span["end_time"] == "2026-01-01T00:00:00+00:00"
     attributes = span["attributes"]
     assert attributes["ratexp.record_type"] == "feedback"
+    assert attributes["ratexp.eval_name"] == "human-satisfaction"
     assert attributes["ratexp.score"] == 2
     assert attributes["ratexp.rating"] == "bad"  # the number alone is unreadable in the UI
     assert attributes["ratexp.comment"] == "bad"

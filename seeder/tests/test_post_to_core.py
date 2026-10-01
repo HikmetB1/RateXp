@@ -11,6 +11,7 @@ from modules.submit.post_to_core import post_feedback, post_transcript
 
 def test_feedback_goes_out_as_json(run, posted, monkeypatch):
     monkeypatch.setattr(post_to_core, "CORE_URL", "http://core")
+    monkeypatch.setattr(post_to_core, "EVAL_NAME", "human-satisfaction")
 
     assert post_feedback(run, Rating(score=2, comment="clunky")) is True
     sent = posted.sent[0]
@@ -22,6 +23,7 @@ def test_feedback_goes_out_as_json(run, posted, monkeypatch):
         "agent": "langchain gpt-4o-mini",
         "session_id": "s",
         "request_id": "r",
+        "eval_name": "human-satisfaction",
         "score": 2,
         "comment": "clunky",
     }

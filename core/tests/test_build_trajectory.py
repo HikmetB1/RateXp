@@ -333,7 +333,7 @@ def test_cursor_token_totals_are_zero_because_cursor_records_none():
 @pytest.mark.parametrize(
     "ask",
     [
-        "# RateXp survey\n\nIf the user wrote a skill name after /ratexp, ...",  # /ratexp
+        "# RateXp survey\n\nRun `bash ... ask '<request>'`, where ...",  # /ratexp
         "RateXp survey for this whole chat: run `bash ... ask` ...",  # the stop hook's followup
     ],
 )

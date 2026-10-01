@@ -1,0 +1,7 @@
+question: Did it follow my instructions and constraints?
+good:
+  label: "True"
+  description: It kept to my instructions and constraints.
+bad:
+  label: "False"
+  description: It ignored or broke some of them.

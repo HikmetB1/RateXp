@@ -38,6 +38,7 @@ SCHEMA_VERSION: str = _require("schema_version")
 # sets both on the Function App, compose sets the core URL.
 MODEL: str = os.environ.get("MODEL") or str(_require("model"))
 CORE_URL: str = (os.environ.get("RATEXP_CORE_URL") or str(_require("core_url"))).rstrip("/")
+EVAL_NAME: str = str(_require("eval_name"))
 
 TEMPERATURE: float = float(_require("temperature"))
 MAX_ROUNDS: int = int(_require("max_rounds"))

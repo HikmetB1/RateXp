@@ -41,8 +41,7 @@ const INSTALL_GUIDES = {
     hooks: CLAUDE_SETTINGS,
     notes: `- Your whole session is rated every 5th turn (change \`DEFAULT_EVERY\` in
   \`~/.claude/ratexp-claude.sh\`), and whenever you type \`/ratexp\`.
-- Pick \`/ratexp:<skill>\` from the menu, or type \`/ratexp <skill>\`, to rate just that
-  skill's most recent run.`,
+- Pick \`/ratexp:<skill>\` from the menu to rate just that skill's most recent run.`,
   },
   cursor: {
     dir: '~/.cursor',
@@ -51,12 +50,14 @@ const INSTALL_GUIDES = {
     hooks: CURSOR_HOOKS,
     notes: `- Your whole chat is rated every 5th turn (change \`DEFAULT_EVERY\` in
   \`~/.cursor/ratexp-cursor.sh\`), and whenever you type \`/ratexp\`.
-- Type \`/ratexp:<skill>\` or \`/ratexp <skill>\` to rate just that skill's most recent run.`,
+- Type \`/ratexp:<skill>\` to rate just that skill's most recent run.`,
   },
 }
 
 function installNotesMd(agent) {
   return `${INSTALL_GUIDES[agent].notes}
+- Add an eval's name after either, as in \`/ratexp:<skill> <eval>\`, to answer that survey
+  instead of the default one.
 - Nothing is stored unless you agree, and personal data is masked (redacted) before it is
   stored.`
 }
@@ -344,6 +345,7 @@ export default function App() {
                   <Th>Name</Th>
                   <Th>Agent</Th>
                   <Th>Model</Th>
+                  <Th>Eval</Th>
                   <Th>Score</Th>
                   <Th>Comment</Th>
                   <Th>Trajectory</Th>
@@ -358,6 +360,7 @@ export default function App() {
                     <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
                     <Td label="Agent"><code>{r.agent}</code></Td>
                     <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
+                    <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
                     <Td label="Score">{scoreLabel(r.score)}</Td>
                     <Td label="Comment">{r.comment ?? <Dash />}</Td>
                     <Td label="Trajectory"><Trajectory transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
@@ -754,14 +757,15 @@ function TrajectoryDrawer({ data, onClose }) {
         <header className="drawer-head">
           <div className="drawer-head-main">
             <div className="drawer-title">Trajectory</div>
-            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, Score, Steps,
-                Tokens) - the same first two columns the table shows. */}
+            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, Eval, Score,
+                Steps, Tokens) - the same first two columns the table shows. */}
             <div className="drawer-meta">
               {[
                 { k: 'Type', v: <TypeBadge skillName={row?.skill_name} /> },
                 row?.skill_name && { k: 'Name', v: <code>{row.skill_name}</code> },
                 row?.agent && { k: 'Agent', v: <code>{row.agent}</code> },
                 model && { k: 'Model', v: model },
+                row?.eval_name && { k: 'Eval', v: <code>{row.eval_name}</code> },
                 row?.score && { k: 'Score', v: scoreLabel(row.score) },
                 { k: 'Steps', v: fm.total_steps ?? steps.length },
                 tokensRecorded

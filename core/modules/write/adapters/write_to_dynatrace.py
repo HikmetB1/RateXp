@@ -111,6 +111,7 @@ class DynatraceWriteAdapter:
                     "ratexp.session_id": record.session_id,
                     "ratexp.skill_name": record.skill_name,
                     "ratexp.agent": record.agent,
+                    "ratexp.eval_name": record.eval_name,
                     "ratexp.score": record.score,
                     "ratexp.rating": label,
                     "ratexp.comment": record.comment,

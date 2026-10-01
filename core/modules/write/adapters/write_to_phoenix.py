@@ -134,6 +134,7 @@ class PhoenixWriteAdapter:
                 "EVALUATOR",
                 record,
                 {
+                    "ratexp.eval_name": record.eval_name,
                     "ratexp.score": record.score,
                     "ratexp.rating": _SCORE_LABELS.get(record.score, "unrated"),
                     "ratexp.comment": record.comment,

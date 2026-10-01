@@ -2,8 +2,9 @@
 every hook test shares.
 
 The Claude Code hook is installed once, in ~/.claude, by the person using Claude
-Code. It rates any skill's most recent run when they type /ratexp <skill>; the
-whole-session survey is tested in test_hook_session.py.
+Code. It rates any skill's most recent run when they type /ratexp:<skill>, asking
+the eval typed after it or core's default one; the whole-session survey is tested
+in test_hook_session.py.
 
 The hook has to run on a bare machine: Bash 3.2+, curl, and a short list of
 standard utilities - no Python, no jq, no node. Nothing here imports or reads
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import threading
@@ -46,8 +48,26 @@ FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "gre
 CORE = Path(__file__).resolve().parents[1]
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
+EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
+EVALS_PLACEHOLDER = "'__RATEXP_EVALS__'"
 # What the tests bake in where a real copy would carry config.yaml's value.
 BAKED_EVERY = 5
+# The evals the tests bake in where a real copy carries core's evals/, each as its
+# question, then the label and description of the good answer and of the bad one.
+# The default stands in for core's human-satisfaction; the others are picked by name.
+DEFAULT_EVAL = "human-satisfaction"
+EVALS = {
+    DEFAULT_EVAL: ("Rate {subject}", "Good", "The result was helpful.", "Bad", "Not helpful."),
+    "code-quality": (
+        "Was the code in {subject} correct?",
+        "Correct",
+        "It worked.",
+        "Wrong",
+        "Bugs.",
+    ),
+    # Its labels are the first words of the two consent labels.
+    "yes-no": ("Did {subject} do the job?", "Yes", "It did.", "No", "It did not."),
+}
 # The default every test runs with: far out of reach, so the whole-session survey
 # never interrupts a test that is not about it.
 NEVER = "32768"
@@ -86,6 +106,7 @@ PENDING_FIELDS = (
     "identity",
     "url",
     "target",
+    "eval_name",
 )
 
 # Stand-in for curl: records argv (NUL-separated, so newlines inside a comment
@@ -102,6 +123,14 @@ if (( wants_body )); then
 fi
 printf '%s' "${RATEXP_CURL_STATUS:-201}"
 """
+
+
+def baked_evals() -> str:
+    """EVALS as core bakes them in: one line of shell words per eval."""
+    return "".join(
+        "\n    " + " ".join(shlex.quote(word) for word in (name, *survey))
+        for name, survey in EVALS.items()
+    )
 
 
 def reorder(obj):
@@ -124,12 +153,14 @@ class Hook:
         self.session = "sess-hook-1"
         self.skill = DEFAULT_SKILL
 
-        # The script as core serves it: the URL and the frequency baked in.
+        # The script as core serves it: the URL, the frequency and the evals baked in.
         text = (CORE / self.script_name).read_text(encoding="utf-8")
-        for name in (PLACEHOLDER, EVERY_PLACEHOLDER):
+        for name in (PLACEHOLDER, EVERY_PLACEHOLDER, EVAL_PLACEHOLDER, EVALS_PLACEHOLDER):
             assert name in text, f"canonical script lost its {name} placeholder"
         text = text.replace(PLACEHOLDER, f"'{LOCAL_URL}'")
         text = text.replace(EVERY_PLACEHOLDER, f"'{BAKED_EVERY}'")
+        text = text.replace(EVAL_PLACEHOLDER, f"'{DEFAULT_EVAL}'")
+        text = text.replace(EVALS_PLACEHOLDER, baked_evals() + "\n")
         # Installed once for every project, in the home folder.
         self.home = tmp_path / "home"
         self.agent_dir = self.home / ".claude"
@@ -275,15 +306,18 @@ class Hook:
             tool_response=response,
         )
 
-    def request(self, target=None, env=None):
-        """The user choosing /ratexp:<skill> - this skill unless another is named."""
-        name = f"ratexp:{target or self.skill}"
-        return self.run_hook(self.event("UserPromptExpansion", command_name=name), env)
+    def request(self, target=None, env=None, eval_name=None):
+        """The user choosing /ratexp:<skill> - this skill unless another is named -
+        with an eval's name typed after it, if one is given."""
+        event = self.event("UserPromptExpansion", command_name=f"ratexp:{target or self.skill}")
+        if eval_name is not None:
+            event["command_args"] = eval_name
+        return self.run_hook(event, env)
 
-    def ask(self, env=None, tool_id=TOOL_ID):
+    def ask(self, env=None, tool_id=TOOL_ID, eval_name=None):
         """arm -> /ratexp -> Stop -> PreToolUse. Returns the picker ready to be answered."""
         self.arm(env)
-        self.request(env=env)
+        self.request(env=env, eval_name=eval_name)
         picker = self.stop(env)
         assert picker is not None
         out, _, _ = self.pre(picker, tool_id=tool_id, env=env)
@@ -410,6 +444,7 @@ def test_full_round_trip_reaches_curl(hook):
     assert call["endpoint"] == "feedback"
     assert call["fields"]["skill_name"] == hook.skill
     assert call["fields"]["agent"] == "claude-code"
+    assert call["fields"]["eval_name"] == DEFAULT_EVAL, "none named, so core's default"
     assert call["fields"]["session_id"] == hook.session
     assert len(call["fields"]["request_id"]) == 36  # uuid-shaped
 
@@ -683,17 +718,90 @@ def test_ratexp_colon_skill_asks_about_the_newest_run(hook):
     assert picker["questions"][0]["header"] == "RateXp"
 
 
-def test_ratexp_with_the_skill_name_typed_after_it_also_asks(hook):
-    """`/ratexp poem-creator`: Claude Code passes the name as the command's arguments."""
+def test_a_skill_name_typed_after_ratexp_is_read_as_an_eval(hook):
+    """`/ratexp poem-creator`: the word after /ratexp names the eval, so this asks
+    nothing and says how a skill is rated instead."""
     hook.arm()
-    hook.run_hook(
-        hook.event(
-            "UserPromptExpansion",
-            command_name="ratexp",
-            command_args=hook.skill,
-        )
+    hook.run_hook(hook.event("UserPromptExpansion", command_name="ratexp", command_args=hook.skill))
+    out, _, _ = hook.run_hook(hook.event("Stop", stop_hook_active=False))
+    message = json.loads(out)["systemMessage"]
+    assert f"no eval named {hook.skill}" in message
+    assert "/ratexp:<skill>" in message
+    assert hook.calls() == []
+
+
+# --------------------------------------------------------------------------
+# Evals: which survey is asked
+# --------------------------------------------------------------------------
+
+
+def test_an_eval_typed_after_the_skill_words_the_survey(hook):
+    """`/ratexp:poem-creator code-quality` asks code-quality's question and answers."""
+    picker = hook.ask(eval_name="code-quality")
+    question = picker["questions"][0]
+    assert question["question"] == (
+        f"Was the code in {hook.skill} correct? — check all that apply or type a comment."
     )
-    assert hook.stop() is not None
+    assert [o["label"] for o in question["options"]] == [
+        "Correct",
+        "Wrong",
+        "Yes, store trajectory",
+        "No, do not store",
+    ]
+    assert question["options"][1]["description"] == "Bugs."
+    hook.run_hook(hook.answer(picker, "Wrong"))
+    fields = hook.calls()[0]["fields"]
+    assert fields["eval_name"] == "code-quality"
+    assert fields["score"] == "2", "the eval's second answer is the bad one"
+
+
+def test_an_eval_core_does_not_offer_asks_nothing(hook):
+    hook.arm()
+    hook.request(eval_name="nope")
+    out, _, _ = hook.run_hook(hook.event("Stop", stop_hook_active=False))
+    message = json.loads(out)["systemMessage"]
+    assert "no eval named nope" in message
+    assert ", ".join(EVALS) in message, "every eval core offers is listed"
+    assert hook.calls() == []
+
+
+@pytest.mark.parametrize(
+    ("answer", "score", "uploaded"),
+    [
+        ("Yes", "1", False),
+        ("No", "2", False),
+        # Misread as No and a comment, this would cancel out to no score at all.
+        ("Yes, No, do not store", "1", False),
+        ("No, Yes, store trajectory", "2", True),
+    ],
+)
+def test_a_label_that_opens_a_consent_label_is_told_apart(hook, answer, score, uploaded):
+    """`yes-no` answers Yes or No, the first words of the two consent labels."""
+    picker = hook.ask(eval_name="yes-no")
+    hook.run_hook(hook.answer(picker, answer))
+    fields = hook.calls()[0]["fields"]
+    assert fields.get("score") == score
+    assert "comment" not in fields
+    assert ("transcript" in hook.endpoints()) is uploaded
+
+
+def test_the_stored_eval_decides_how_the_answer_is_read(hook):
+    """A local process swapping the stored eval cannot make Good read as Bad: the
+    answer is read by the labels of the eval named, and Good is not one of them."""
+    picker = hook.ask()
+    hook.patch_pending(eval_name="code-quality")
+    hook.run_hook(hook.answer(picker, "Good"))
+    fields = hook.calls()[0]["fields"]
+    assert "score" not in fields
+    assert fields["comment"] == "Good"
+
+
+def test_a_stored_eval_core_does_not_offer_sends_nothing(hook):
+    picker = hook.ask()
+    hook.patch_pending(eval_name="nope")
+    out, _, _ = hook.run_hook(hook.answer(picker, CONSENT))
+    assert out == ""
+    assert hook.calls() == []
 
 
 def test_skill_tool_call_also_starts_a_run(hook):

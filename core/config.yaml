@@ -6,6 +6,7 @@ max_body_bytes: 5242880        # 5 MiB
 max_transcript_bytes: 262144   # 256 KiB
 rate_limit_per_minute: 120
 default_survey_every: 5
+default_survey_eval: human-satisfaction   # one of evals/<name>.yaml
 
 redaction:
   enabled: true

@@ -36,9 +36,11 @@ RUN python -m spacy download en_core_web_sm && \
     python -m spacy download pt_core_news_sm && \
     python -m spacy download ru_core_news_sm
 
-# One hook script per coding agent; core serves each at its own name.
-# modules/ carries the migration .sql files alongside the code that applies them.
+# One hook script per coding agent; core serves each at its own name, with the
+# evals baked in. modules/ carries the migration .sql files alongside the code
+# that applies them.
 COPY load_config.py config.yaml ./
+COPY evals/ ./evals/
 COPY ratexp-claude.sh ratexp-cursor.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/

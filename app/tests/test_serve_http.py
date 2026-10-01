@@ -34,6 +34,7 @@ def test_get_feedback_returns_rows(app_with_fake_pool):
                 2,
                 "ok",
                 "req-1",
+                "human-satisfaction",
             )
         ]
     )
@@ -43,6 +44,7 @@ def test_get_feedback_returns_rows(app_with_fake_pool):
     assert len(rows) == 1
     assert rows[0]["skill_name"] == "demo"
     assert rows[0]["name"] == "demo"
+    assert rows[0]["eval_name"] == "human-satisfaction"  # the dashboard's Eval column
     assert rows[0]["score"] == 2
     assert rows[0]["request_id"] == "req-1"
 
@@ -59,12 +61,14 @@ def test_get_feedback_names_a_session_rating_by_its_session(app_with_fake_pool):
                 1,
                 None,
                 None,
+                None,
             )
         ]
     )
     rows = client.get("/feedback").json()
     assert rows[0]["skill_name"] is None
     assert rows[0]["name"] == "sess-1"
+    assert rows[0]["eval_name"] is None, "a rating that named no eval shows none"
 
 
 def test_get_feedback_default_uses_view_limit(app_with_fake_pool):

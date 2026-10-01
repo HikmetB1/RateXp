@@ -14,6 +14,7 @@
   <a href="#intro">Intro</a> ·
   <a href="#showcases-see-it-in-action">Showcases</a> ·
   <a href="#quick-start-install-in-one-command">Quick start</a> ·
+  <a href="#available-evals-what-each-one-asks">Available evals</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#features-what-you-get">Features</a> ·
   <a href="#the-dashboard-read-and-export-the-feedback">Dashboard</a> ·
@@ -93,10 +94,24 @@ the whole setup; ratings land on the same dashboard.
 - **What is stored** - only with your consent: messages, reasoning, tool calls and their
   results, with personal data masked (redacted) before it is stored.
 - **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
+- **Which eval** - add an eval's name, as in `/ratexp <eval>` or `/ratexp:<skill> <eval>`;
+  without one you answer the default, `human-satisfaction`. See
+  [Available evals](#available-evals-what-each-one-asks).
 - **Tested in** - Claude Code and Cursor CLI.
 
 Want to run your own core instead of the hosted one? See
 [CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
+
+## Available evals: what each one asks
+
+Each is answered **True** or **False**.
+
+| Eval | Question |
+|---|---|
+| `human-satisfaction` (default) | Overall, are you satisfied and did it meet your expectations? |
+| `human-task-success` | Did the agent actually solve what I wanted? |
+| `human-requirement-adherence` | Did it follow my instructions and constraints? |
+| `human-time-saved` | Did the agent actually make me faster? |
 
 ## How it works
 
@@ -117,8 +132,8 @@ sequenceDiagram
     C-->>A: the hook for that coding agent, pointing back at this core
     A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
 
-    Note over H,D: then whenever the user types /ratexp or /ratexp <skill>, and every 5th turn
-    H->>C: POST /feedback (rating, optional comment)
+    Note over H,D: then whenever the user types /ratexp or /ratexp:<skill>, and every 5th turn
+    H->>C: POST /feedback (eval, rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
         C->>C: rebuild the conversation, then mask personal data
@@ -131,28 +146,31 @@ sequenceDiagram
 1. **One install, in your own coding agent** - Claude Code or Cursor, once for every
    project. Nothing has to be built into the skills or the agent you rate.
 2. **Rate the session or one skill** - the whole session every 5th turn and on `/ratexp`;
-   any skill's most recent run on `/ratexp <skill>` or `/ratexp:<skill>`, the names
-   autocompleting in Claude Code.
-3. **Ratings and comments** - a quick good/bad rating with an optional comment, asked in one
+   any skill's most recent run on `/ratexp:<skill>`, the names autocompleting in Claude Code.
+3. **Evals: pick the survey** - each eval is one survey with its own wording, such as
+   `human-satisfaction`. Whoever runs core adds one as a file in [`core/evals/`](./core/evals/);
+   users answer it with `/ratexp <eval>` or `/ratexp:<skill> <eval>`, and every rating keeps the
+   name of the eval it answered.
+4. **Ratings and comments** - a quick good/bad rating with an optional comment, asked in one
    go - one picker in Claude Code, two short questions in Cursor - so it never gets in the way.
-4. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
+5. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
    format (ATIF). The hook uploads it straight from the user's machine.
-5. **PII redaction** - personal data is masked before storage by a pluggable adapter
+6. **PII redaction** - personal data is masked before storage by a pluggable adapter
    (self-hosted Presidio or Azure AI Language), and dropped rather than stored unmasked.
-6. **Write adapters** - storage is an adapter architecture: core writes each submission to
+7. **Write adapters** - storage is an adapter architecture: core writes each submission to
    every adapter you switch on, and they run independently, so one failing never blocks the
    others. Six ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
    PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
    Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
-7. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
+8. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
    JSON export. Reading is one more adapter, and you enable exactly one of five:
    `app_be_psql` or `custom_psql` (queried with SQL), `app_be_dynatrace` or
    `custom_dynatrace` (queried with DQL), or `phoenix` (queried with `key:value` filters).
    Bluebox is write-only, so it has no read adapter.
-8. **Responsive UI** - the table reflows into cards on phones.
-9. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
+9. **Responsive UI** - the table reflows into cards on phones.
+10. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
    Fable.
-10. **Tested coding agents** - Claude Code and Cursor CLI
+11. **Tested coding agents** - Claude Code and Cursor CLI
 
 ## The dashboard: read and export the feedback
 <p align="center">
@@ -161,7 +179,7 @@ sequenceDiagram
 
 The [dashboard](https://ratexp-app.azurewebsites.net/) updates as feedback arrives. It shows
 the latest ratings and the most-rated skills; a rating with a stored conversation opens it in
-a slide-over timeline.
+a slide-over timeline. Each rating names the eval it answered in the **Eval** column.
 
 To filter things, type an **SQL** query into the filter box.
 

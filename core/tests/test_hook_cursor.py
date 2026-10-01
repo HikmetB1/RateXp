@@ -2,7 +2,8 @@
 
 Installed once, in ~/.cursor, by the person using Cursor. It rates the whole chat
 every Nth turn on its own (through the stop hook) and on /ratexp, and any skill's
-most recent run on /ratexp <skill>. Rating needs no hook: `ask` finds the chat's
+most recent run on /ratexp:<skill>, asking the eval named after either. Rating
+needs no hook: `ask` gets the request as the user typed it and finds the chat's
 transcript where Cursor's editor and CLI both keep it, the agent asks the user,
 and `report` sends the answer. Consent is a required word, never a default.
 
@@ -18,7 +19,7 @@ import subprocess
 import time
 
 import pytest
-from test_hook import CORE, EARLIER, LOCAL_URL, SENTINEL, Hook
+from test_hook import CORE, DEFAULT_EVAL, EARLIER, LOCAL_URL, SENTINEL, Hook
 
 SKILL = "poem-creator"
 
@@ -79,8 +80,10 @@ class CursorHook(Hook):
         assert SENTINEL not in out, "the script must never echo the transcript"
         return out, done.returncode
 
-    def ask(self, *target, **kw):
-        return self.run("ask", *target, **kw)
+    def ask(self, *request, **kw):
+        """`ask`, given the /ratexp request as the user typed it - or nothing at all,
+        as the stop hook's followup runs it."""
+        return self.run("ask", *request, **kw)
 
     def report(self, *args, **kw):
         return self.run("report", *args, **kw)
@@ -118,9 +121,9 @@ def test_ratexp_rates_the_whole_chat(c):
     c.use(work="SKILL-WORK")
     c.line("ORDINARY-WORK", role="assistant")
     c.request()
-    out, rc = c.ask()
+    out, rc = c.ask("/ratexp")
     assert rc == 0
-    assert '"Rate this session:"' in out
+    assert '"Rate this session"' in out
     assert f"to {LOCAL_URL}?" in out, "consent names the destination"
     assert f'bash "{c.script}" report' in out, "the agent is told exactly what to run"
 
@@ -130,6 +133,7 @@ def test_ratexp_rates_the_whole_chat(c):
     fields = c.calls()[0]["fields"]
     assert fields["agent"] == "cursor"
     assert fields["session_id"] == c.session
+    assert fields["eval_name"] == DEFAULT_EVAL, "none named, so core's default"
     assert fields["score"] == "1"
     assert "skill_name" not in fields, "a session rating names no skill"
     body = c.calls()[1]["body"]
@@ -206,7 +210,7 @@ def test_an_answer_rates_the_chat_it_was_given_in(c):
 
 
 # --------------------------------------------------------------------------
-# /ratexp <skill>: that skill's newest run
+# /ratexp:<skill>: that skill's newest run
 # --------------------------------------------------------------------------
 
 
@@ -214,10 +218,10 @@ def test_a_skill_is_rated_on_its_newest_run_only(c):
     c.use(work="RUN-1")
     c.line("BETWEEN-RUNS", role="assistant")
     c.use(work="RUN-2")
-    c.request(f"/ratexp {SKILL}")
-    out, rc = c.ask(SKILL)
+    c.request(f"/ratexp:{SKILL}")
+    out, rc = c.ask(f"/ratexp:{SKILL}")
     assert rc == 0
-    assert f'"Rate {SKILL}:"' in out
+    assert f'"Rate {SKILL}"' in out
     assert f"Upload this run of {SKILL}" in out
 
     c.report("bad", "share", "too short")
@@ -241,8 +245,8 @@ def test_a_skill_rating_leaves_out_what_came_after_the_run(c):
     c.line("THE-POEM", role="assistant")
     c.line("UNRELATED-REQUEST")
     c.line("UNRELATED-WORK", role="assistant")
-    c.request(f"/ratexp {SKILL}")
-    c.ask(SKILL)
+    c.request(f"/ratexp:{SKILL}")
+    c.ask(f"/ratexp:{SKILL}")
     c.report("good", "share")
     body = c.calls()[1]["body"]
     assert b"SAD-PLEASE" in body and b"THE-POEM" in body
@@ -265,8 +269,8 @@ def test_a_skill_the_agent_picked_itself_is_found(c):
         },
     )
     c.line("PICKED-RUN", role="assistant")
-    c.request(f"/ratexp {SKILL}")
-    assert c.ask(SKILL)[1] == 0
+    c.request(f"/ratexp:{SKILL}")
+    assert c.ask(f"/ratexp:{SKILL}")[1] == 0
     c.report("good", "share")
     body = c.calls()[1]["body"]
     assert b"PICKED-RUN" in body
@@ -274,17 +278,76 @@ def test_a_skill_the_agent_picked_itself_is_found(c):
 
 
 def test_a_skill_that_never_ran_cannot_be_rated(c):
-    c.request(f"/ratexp {SKILL}")
-    out, rc = c.ask(SKILL)
+    c.request(f"/ratexp:{SKILL}")
+    out, rc = c.ask(f"/ratexp:{SKILL}")
     assert rc == 1
     assert f"no run of {SKILL}" in out
     assert c.report("good", "share")[1] == 1, "nothing was handed out to answer"
 
 
-@pytest.mark.parametrize("name", ["../etc", "a b", "-rf", "x;y"])
+@pytest.mark.parametrize("name", ["../etc", "-rf", "x;y"])
 def test_a_skill_name_that_is_not_a_name_is_refused(c, name):
     c.request()
-    assert c.ask(name)[1] == 1
+    out, rc = c.ask(f"/ratexp:{name}")
+    assert rc == 1
+    assert "is not a skill name" in out
+
+
+# --------------------------------------------------------------------------
+# Evals: which survey is asked
+# --------------------------------------------------------------------------
+
+
+def test_an_eval_typed_after_the_skill_words_the_questions(c):
+    c.use(work="THE-RUN")
+    c.request(f"/ratexp:{SKILL} code-quality")
+    out, rc = c.ask(f"/ratexp:{SKILL} code-quality")
+    assert rc == 0
+    assert f'"Was the code in {SKILL} correct?"' in out
+    assert "options Correct (It worked.), Wrong (Bugs.)" in out
+    assert "good for Correct, bad for Wrong" in out, "the agent maps the labels to the verbs"
+    c.report("bad", "private")
+    fields = c.calls()[0]["fields"]
+    assert fields["eval_name"] == "code-quality"
+    assert fields["skill_name"] == SKILL
+    assert fields["score"] == "2"
+
+
+def test_an_eval_typed_after_ratexp_is_asked_about_the_chat(c):
+    c.request("/ratexp code-quality")
+    out, rc = c.ask("/ratexp code-quality")
+    assert rc == 0
+    assert '"Was the code in this session correct?"' in out
+    c.report("good", "private")
+    fields = c.calls()[0]["fields"]
+    assert fields["eval_name"] == "code-quality"
+    assert "skill_name" not in fields
+
+
+def test_the_request_may_arrive_as_separate_words(c):
+    """An agent may leave the request unquoted; the shell then splits it."""
+    c.use(work="THE-RUN")
+    c.request(f"/ratexp:{SKILL} code-quality")
+    assert c.ask(f"/ratexp:{SKILL}", "code-quality")[1] == 0
+    c.report("good", "private")
+    assert c.calls()[0]["fields"]["eval_name"] == "code-quality"
+
+
+def test_an_eval_core_does_not_offer_is_refused(c):
+    c.request("/ratexp nope")
+    out, rc = c.ask("/ratexp nope")
+    assert rc == 1
+    assert "no eval named nope" in out
+    assert "/ratexp:<skill>" in out, "a skill typed after /ratexp is told how to rate it"
+    assert c.report("good", "share")[1] == 1, "nothing was handed out to answer"
+
+
+def test_a_request_not_as_the_user_typed_it_is_refused(c):
+    """Only a /ratexp request is read; a bare skill name gets told the shape."""
+    c.request(f"/ratexp:{SKILL}")
+    out, rc = c.ask(SKILL)
+    assert rc == 1
+    assert "as the user typed it" in out
 
 
 # --------------------------------------------------------------------------
@@ -355,8 +418,9 @@ def test_the_followup_leads_to_a_rating_of_the_whole_chat(c):
     c.line("THE-WORK", role="assistant")
     c.line(followup(c.end_turn("gen-1", env=env)))  # Cursor sends it as the next prompt
     out, rc = c.ask()
-    assert rc == 0 and '"Rate this session:"' in out
+    assert rc == 0 and '"Rate this session"' in out
     c.report("good", "share")
+    assert c.calls()[0]["fields"]["eval_name"] == DEFAULT_EVAL, "no one named another"
     assert b"THE-WORK" in c.calls()[1]["body"]
 
 
@@ -370,10 +434,10 @@ def test_session_start_writes_the_ratexp_command(c):
     commands = c.agent_dir / "commands"
     assert [p.name for p in commands.iterdir()] == ["ratexp.md"], "one file, no per-skill entries"
     text = (commands / "ratexp.md").read_text(encoding="utf-8")
-    assert f'bash "{c.script}" ask <that-name>' in text
-    assert f'bash "{c.script}" ask`' in text
-    # Cursor reads /ratexp:<skill> as /ratexp followed by the skill's name.
-    assert "`/ratexp:<name>`" in text
+    # Cursor runs this one file for /ratexp:<skill> too, so the request is handed
+    # over as typed - single-quoted, so nothing in it runs as a command.
+    assert f"bash \"{c.script}\" ask '<request>'" in text
+    assert "exactly as they typed it" in text
     assert "RateXp survey" in text, "the chat is found by this"
 
 
@@ -533,6 +597,9 @@ SHARED = (
     "good_url",
     "post",
     "file_info",
+    "ratexp_request",
+    "find_eval",
+    "unknown_eval_line",
 )
 
 

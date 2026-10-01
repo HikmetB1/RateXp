@@ -14,6 +14,7 @@ class Feedback(BaseModel):
     skill_name: str | None = None  # absent when the rating is for a whole session
     name: str | None = None  # the skill_name, or the session_id for a whole-session rating
     agent: str
+    eval_name: str | None = None  # the eval (survey) the rating answered
     score: int | None = Field(default=None, ge=1, le=2)  # 1 = good, 2 = bad
     comment: str | None = None
     request_id: str | None = None

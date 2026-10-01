@@ -12,7 +12,7 @@ import logging
 import urllib.request
 from typing import TYPE_CHECKING
 
-from load_config import CORE_URL
+from load_config import CORE_URL, EVAL_NAME
 from modules.submit.build_trajectory import messages_to_atif
 
 if TYPE_CHECKING:
@@ -26,7 +26,13 @@ _HTTP_TIMEOUT_SECONDS = 30
 def post_feedback(run: SeededRun, rating: Rating) -> bool:
     """Send the agent's rating to core's /feedback. True if core accepted it."""
     return _post(
-        "/feedback", {**run.model_dump(), "score": int(rating.score), "comment": rating.comment}
+        "/feedback",
+        {
+            **run.model_dump(),
+            "eval_name": EVAL_NAME,
+            "score": int(rating.score),
+            "comment": rating.comment,
+        },
     )
 
 

@@ -13,7 +13,13 @@ from api.limit_request_rate import RateLimiter
 from api.record_schemas import Feedback, Transcript
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import PlainTextResponse
-from load_config import DEFAULT_SURVEY_EVERY, MAX_BODY_BYTES, RATE_LIMIT_PER_MINUTE
+from load_config import (
+    DEFAULT_SURVEY_EVAL,
+    DEFAULT_SURVEY_EVERY,
+    EVALS,
+    MAX_BODY_BYTES,
+    RATE_LIMIT_PER_MINUTE,
+)
 from modules.write.dispatch_to_adapters import WriteError, close_adapters, get_adapters
 from pydantic import ValidationError
 from starlette.formparsers import MultiPartException
@@ -28,6 +34,8 @@ CLAUDE_SH = CORE_DIR / "ratexp-claude.sh"
 CURSOR_SH = CORE_DIR / "ratexp-cursor.sh"
 URL_PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
+EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
+EVALS_PLACEHOLDER = "'__RATEXP_EVALS__'"
 PUBLIC_URL = os.environ.get("RATEXP_PUBLIC_URL", "http://localhost:8000").rstrip("/")
 
 _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
@@ -114,12 +122,22 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def _evals_as_shell_words() -> str:
+    """Every eval as one line of shell words: its name, then its fields in order."""
+    lines = (
+        " ".join(shlex.quote(word) for word in (name, *survey)) for name, survey in EVALS.items()
+    )
+    return "".join(f"\n    {line}" for line in lines) + "\n"
+
+
 def _serve_hook(path: Path) -> str:
     """Render deployment settings as shell literals in a downloadable hook."""
     return (
         path.read_text(encoding="utf-8")
         .replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
         .replace(EVERY_PLACEHOLDER, shlex.quote(str(DEFAULT_SURVEY_EVERY)))
+        .replace(EVAL_PLACEHOLDER, shlex.quote(DEFAULT_SURVEY_EVAL))
+        .replace(EVALS_PLACEHOLDER, _evals_as_shell_words())
     )
 
 

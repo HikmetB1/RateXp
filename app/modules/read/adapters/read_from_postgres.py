@@ -54,7 +54,8 @@ class PostgresReadAdapter:
         with self._ensure_pool().connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT created_at, session_id, skill_name, agent, score, comment, request_id
+                SELECT created_at, session_id, skill_name, agent, score, comment, request_id,
+                       eval_name
                 FROM feedback
                 ORDER BY created_at DESC
                 LIMIT %s

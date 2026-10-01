@@ -4,6 +4,7 @@ schema_version: ATIF-v1.7
 
 model: openai:gpt-4o-mini          # any init_chat_model id; env MODEL overrides
 core_url: http://localhost:8000    # env RATEXP_CORE_URL overrides
+eval_name: human-satisfaction      # the eval the prompts below answer, named as in core's evals/
 
 temperature: 0.7
 max_rounds: 40

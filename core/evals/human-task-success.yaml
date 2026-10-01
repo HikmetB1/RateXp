@@ -1,0 +1,7 @@
+question: Did the agent actually solve what I wanted?
+good:
+  label: "True"
+  description: It did what I wanted.
+bad:
+  label: "False"
+  description: It missed what I wanted.

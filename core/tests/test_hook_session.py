@@ -1,10 +1,10 @@
 """Black-box tests for core/ratexp-claude.sh across a whole session.
 
 The whole session is rated every Nth turn on its own and whenever the user types
-`/ratexp`, always from byte zero; `/ratexp <skill>` picks one skill's newest run
-out of it; and the hook writes `/ratexp` itself, plus a `/ratexp:<skill>` menu
-entry for every installed skill. The sandbox, fake curl and event helpers come
-from test_hook.py.
+`/ratexp`, always from byte zero; `/ratexp:<skill>` picks one skill's newest run
+out of it; an eval's name after either picks the survey; and the hook writes
+`/ratexp` itself, plus a `/ratexp:<skill>` menu entry for every installed skill.
+The sandbox, fake curl and event helpers come from test_hook.py.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from test_hook import CONSENT, EARLIER, SENTINEL, Hook
+from test_hook import CONSENT, DEFAULT_EVAL, EARLIER, SENTINEL, Hook
 
 # What the session survey asks. The skill survey says "Rate <skill> - ..." instead.
 SESSION_QUESTION = "Rate this Claude Code session — check all that apply or type a comment."
@@ -28,13 +28,16 @@ class SessionHook(Hook):
         self.append(type="assistant", text=text)
         return self.stop(env)
 
-    def ratexp_command(self, env=None):
-        """The user typing /ratexp."""
-        return self.run_hook(self.event("UserPromptExpansion", command_name="ratexp"), env)
+    def ratexp_command(self, env=None, eval_name=None):
+        """The user typing /ratexp, and an eval's name after it if one is given."""
+        event = self.event("UserPromptExpansion", command_name="ratexp")
+        if eval_name is not None:
+            event["command_args"] = eval_name
+        return self.run_hook(event, env)
 
-    def ask(self, text=SENTINEL, env=None):
+    def ask(self, text=SENTINEL, env=None, eval_name=None):
         """The user typing /ratexp, and the turn that follows. Returns its picker."""
-        self.ratexp_command(env)
+        self.ratexp_command(env, eval_name)
         return self.turn(text, env)
 
 
@@ -159,6 +162,34 @@ def test_a_typed_comment_is_sent_with_the_session_rating(s):
 
 
 # --------------------------------------------------------------------------
+# Evals: which survey is asked
+# --------------------------------------------------------------------------
+
+
+def test_an_eval_typed_after_ratexp_is_asked_about_the_session(s):
+    picker = s.ask(eval_name="code-quality")
+    assert picker["questions"][0]["question"] == (
+        "Was the code in this Claude Code session correct? — check all that apply or type a comment."
+    )
+    s.pre(picker)
+    s.run_hook(s.answer(picker, "Correct"))
+    fields = s.calls()[0]["fields"]
+    assert fields["eval_name"] == "code-quality"
+    assert fields["score"] == "1"
+    assert "skill_name" not in fields
+
+
+def test_every_nth_turn_asks_the_default_eval(s):
+    """No one typed an eval, so the survey asked on its own is core's default one."""
+    env = {"RATEXP_EVERY": "1"}
+    picker = s.turn(env=env)
+    assert picker["questions"][0]["question"] == SESSION_QUESTION
+    s.pre(picker, env=env)
+    s.run_hook(s.answer(picker, "Good"), env)
+    assert s.calls()[0]["fields"]["eval_name"] == DEFAULT_EVAL
+
+
+# --------------------------------------------------------------------------
 # Picker integrity
 # --------------------------------------------------------------------------
 
@@ -177,7 +208,7 @@ def test_an_edited_session_picker_is_denied(s):
 
 
 # --------------------------------------------------------------------------
-# /ratexp <skill>: one skill's newest run
+# /ratexp:<skill>: one skill's newest run
 # --------------------------------------------------------------------------
 
 SKILL = "handoff"  # any skill; nothing inside it knows about RateXp
@@ -238,10 +269,11 @@ def test_a_skill_that_opens_the_session_can_be_rated(s):
 
 def test_the_newest_ratexp_request_decides(s):
     """An interrupted turn fires no Stop, so its /ratexp request is still waiting
-    when the user asks again - and the new request decides what is rated."""
+    when the user asks again - and the new request decides what is rated, and
+    which eval is asked."""
     start_skill(s)
     s.append(type="assistant", text="THE-RUN")
-    s.run_hook(s.event("UserPromptExpansion", command_name="ratexp"))  # then interrupted
+    s.ratexp_command(eval_name="code-quality")  # then interrupted
     picker = rate(s)
     assert picker["questions"][0]["question"].startswith(f"Rate {SKILL} — ")
 
@@ -270,8 +302,8 @@ def test_the_ratexp_request_is_not_taken_for_a_skill_run(s):
 def test_session_start_writes_ratexp_itself(s):
     s.run_hook(s.event("SessionStart", source="startup"))
     text = (s.script.parent / "commands" / "ratexp.md").read_text(encoding="utf-8")
-    assert "RateXp target: $ARGUMENTS" in text, "a skill typed after /ratexp is the target"
-    assert 'argument-hint: "[skill-name]"' in text
+    assert "RateXp target: this session" in text
+    assert 'argument-hint: "[eval]"' in text, "an eval's name is what may follow /ratexp"
 
 
 def test_session_start_adds_one_entry_per_installed_skill(s):
@@ -285,6 +317,7 @@ def test_session_start_adds_one_entry_per_installed_skill(s):
     assert sorted(p.name for p in entries.iterdir()) == ["in-home.md", "in-project.md"]
     text = (entries / "in-project.md").read_text(encoding="utf-8")
     assert "RateXp target: in-project" in text
+    assert 'argument-hint: "[eval]"' in text
 
 
 def test_an_existing_command_is_left_alone(s):

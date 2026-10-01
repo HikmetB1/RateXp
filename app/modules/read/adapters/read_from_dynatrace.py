@@ -28,7 +28,7 @@ _POLL_INTERVAL = 0.5
 # Fields we pull for each row shape (dotted OTLP attribute names).
 _FEEDBACK_FIELDS = (
     "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent, "
-    "ratexp.score, ratexp.comment, ratexp.request_id"
+    "ratexp.score, ratexp.comment, ratexp.request_id, ratexp.eval_name"
 )
 _TRANSCRIPT_FIELDS = (
     "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent, "
@@ -122,6 +122,7 @@ class DynatraceReadAdapter:
                 _int_or_none(r.get("ratexp.score")),
                 r.get("ratexp.comment"),
                 r.get("ratexp.request_id"),
+                r.get("ratexp.eval_name"),
             )
             for r in recs
         ]

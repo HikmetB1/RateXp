@@ -25,6 +25,11 @@ ROOT = Path(__file__).resolve().parent.parent
 CANONICAL_HOOK = ROOT / "core" / "ratexp-claude.sh"
 PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
+EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
+EVALS_PLACEHOLDER = "'__RATEXP_EVALS__'"
+# The one eval the hook copy below asks, as core bakes evals in: its name, its
+# question, then the label and description of the good answer and of the bad one.
+HOOK_EVAL = ("e2e-eval", "Rate {subject}", "Good", "Helpful.", "Bad", "Not helpful.")
 
 # The hook refuses to post anywhere but https or the loopback host.
 LOOPBACK_HTTP = re.compile(r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(/|$)")
@@ -73,14 +78,16 @@ def test_feedback_round_trip(app_url, http, post_feedback):
         request_id=str(uuid.uuid4()),
         skill_name=skill,
         agent="claude-code",
+        eval_name="human-satisfaction",
         score=2,
         comment="end-to-end ok",
     )
     assert r.status_code == 201
 
-    # 2. The dashboard reads it back.
+    # 2. The dashboard reads it back, with the eval it answered.
     row = _poll(lambda: _find(_get(http, f"{app_url}/feedback", full="true"), skill))
     assert row is not None, f"{skill} never appeared on the dashboard"
+    assert row["eval_name"] == "human-satisfaction"
     assert row["score"] == 2
     assert row["comment"] == "end-to-end ok"
 
@@ -171,7 +178,10 @@ def hook(tmp_path, core_url) -> Path:
     assert PLACEHOLDER in source, f"{CANONICAL_HOOK} no longer carries {PLACEHOLDER}"
     script = folder / "ratexp-claude.sh"
     script.write_text(
-        source.replace(PLACEHOLDER, shlex.quote(core_url)).replace(EVERY_PLACEHOLDER, "5"),
+        source.replace(PLACEHOLDER, shlex.quote(core_url))
+        .replace(EVERY_PLACEHOLDER, "5")
+        .replace(EVAL_PLACEHOLDER, HOOK_EVAL[0])
+        .replace(EVALS_PLACEHOLDER, "\n    " + " ".join(map(shlex.quote, HOOK_EVAL)) + "\n"),
         encoding="utf-8",
     )
     return script
@@ -309,10 +319,11 @@ def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
     else:
         assert "Transcript kept private" in message, message
 
-    # 1. The rating is on the dashboard, under the skill's name.
+    # 1. The rating is on the dashboard, under the skill's name and the eval asked.
     row = _poll(lambda: _find(_get(http, f"{app_url}/feedback", full="true"), skill))
     assert row is not None, f"{skill} never appeared on the dashboard"
     assert row["score"] == 1  # "Good"
+    assert row["eval_name"] == HOOK_EVAL[0]
     assert row["session_id"] == session_id
 
     # 2. The transcript is stored only when consent was given. The hook finished

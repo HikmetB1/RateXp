@@ -1,0 +1,7 @@
+question: Overall, are you satisfied and did it meet your expectations?
+good:
+  label: "True"
+  description: I'm satisfied; it met my expectations.
+bad:
+  label: "False"
+  description: I'm not satisfied; it fell short of my expectations.

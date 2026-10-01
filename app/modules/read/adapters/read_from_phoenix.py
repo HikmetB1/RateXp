@@ -203,6 +203,7 @@ class PhoenixReadAdapter:
             attributes.get(f"{_PREFIX}score"),
             attributes.get(f"{_PREFIX}comment"),
             attributes.get(f"{_PREFIX}request_id"),
+            attributes.get(f"{_PREFIX}eval_name"),
         )
 
     def _transcript_row(self, span: dict) -> tuple:
