@@ -1,0 +1,10 @@
+# The Dockerfile copies each path it wants by name, so this keeps local caches out
+# of the folders it copies - they sit at any depth and a bare pattern only matches
+# at the root, hence **/ - and the build context small. .env stays listed so a
+# broader COPY could never bake a secret into the image.
+.env
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.venv
+tests
