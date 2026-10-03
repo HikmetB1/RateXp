@@ -85,8 +85,8 @@ services:
     ports:
       - "${APP_HOST_PORT:-8001}:8000"
 
-  # Opt-in demo seeder: a LangChain agent uses a bundled skill and submits feedback to
-  # core, continuously. Only runs under the `seed` profile because it spends API credits.
+  # Opt-in demo seeder: a LangChain agent uses a bundled skill, then does a plain coding
+  # session, and submits feedback for each to core, continuously. Only runs under the `seed` profile because it spends API credits.
   # Needs seeder/.env (cp from .env.example) with MODEL + matching key.
   seed:
     build: ./seeder

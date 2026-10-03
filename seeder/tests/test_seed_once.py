@@ -1,45 +1,64 @@
-"""One run end to end, with the skill run and the two posts stubbed out."""
+"""Both kinds of run end to end, with the agent run and the two posts stubbed out."""
 
 from __future__ import annotations
 
+import pytest
 from api import seed_once as seed_module
 from api.record_schemas import Rating
-from api.seed_once import seed_once
+from api.seed_once import seed_session_once, seed_skill_once
 
 _SKILL = {"name": "demo", "prompt": "x"}
 
 
-def _stub_run(monkeypatch, result):
-    monkeypatch.setattr(seed_module, "load_skill_pool", lambda: (_SKILL,))
-    monkeypatch.setattr(seed_module, "run_skill_task", lambda skill: result)
-
-
-def test_a_rated_run_submits_both_records(monkeypatch):
-    _stub_run(monkeypatch, (Rating(score=1, comment="clear"), ["m"]))
-    submitted = []
+@pytest.fixture
+def submitted(monkeypatch):
+    """Every post the run makes, as ``(kind, run)``; both report success."""
+    sent = []
     monkeypatch.setattr(
-        seed_module,
-        "post_feedback",
-        lambda run, rating: submitted.append(("feedback", run)) is None,
+        seed_module, "post_feedback", lambda run, rating: sent.append(("feedback", run)) is None
     )
     monkeypatch.setattr(
         seed_module,
         "post_transcript",
-        lambda run, messages: submitted.append(("transcript", run)) is None,
+        lambda run, messages: sent.append(("transcript", run)) is None,
     )
+    return sent
 
-    assert seed_once() == {"skill": "demo", "feedback_sent": True, "transcript_stored": True}
+
+def _stub_skill_run(monkeypatch, result):
+    monkeypatch.setattr(seed_module, "load_skill_pool", lambda: (_SKILL,))
+    monkeypatch.setattr(seed_module, "run_skill_task", lambda skill: result)
+
+
+def test_a_rated_skill_run_submits_both_records(monkeypatch, submitted):
+    _stub_skill_run(monkeypatch, (Rating(score=1, comment="clear"), ["m"]))
+
+    assert seed_skill_once() == {"skill": "demo", "feedback_sent": True, "transcript_stored": True}
     # Both posts describe the same run.
     assert [kind for kind, _ in submitted] == ["feedback", "transcript"]
     assert submitted[0][1].request_id == submitted[1][1].request_id
+    assert submitted[0][1].skill_name == "demo"
 
 
-def test_an_unrated_run_still_submits_its_transcript(monkeypatch):
-    _stub_run(monkeypatch, (None, ["m"]))
-    monkeypatch.setattr(seed_module, "post_feedback", lambda run, rating: True)
-    monkeypatch.setattr(seed_module, "post_transcript", lambda run, messages: True)
+def test_a_session_run_submits_both_records_with_no_skill(monkeypatch, submitted):
+    monkeypatch.setattr(seed_module, "SESSION_TASKS", ["write a todo app"])
+    monkeypatch.setattr(
+        seed_module, "run_session_task", lambda task: (Rating(score=1, comment="done"), ["m"])
+    )
 
-    assert seed_once() == {"skill": "demo", "feedback_sent": False, "transcript_stored": True}
+    assert seed_session_once() == {
+        "session": "write a todo app",
+        "feedback_sent": True,
+        "transcript_stored": True,
+    }
+    assert [run.skill_name for _, run in submitted] == [None, None]
+
+
+def test_an_unrated_run_still_submits_its_transcript(monkeypatch, submitted):
+    _stub_skill_run(monkeypatch, (None, ["m"]))
+
+    assert seed_skill_once() == {"skill": "demo", "feedback_sent": False, "transcript_stored": True}
+    assert [kind for kind, _ in submitted] == ["transcript"]
 
 
 def test_a_failed_run_is_reported_not_raised(monkeypatch):
@@ -49,7 +68,7 @@ def test_a_failed_run_is_reported_not_raised(monkeypatch):
         raise RuntimeError("nope")
 
     monkeypatch.setattr(seed_module, "run_skill_task", boom)
-    assert seed_once() == {
+    assert seed_skill_once() == {
         "skill": "demo",
         "feedback_sent": False,
         "transcript_stored": False,
@@ -59,6 +78,6 @@ def test_a_failed_run_is_reported_not_raised(monkeypatch):
 
 def test_an_empty_skill_pool_is_reported(monkeypatch):
     monkeypatch.setattr(seed_module, "load_skill_pool", lambda: ())
-    result = seed_once()
+    result = seed_skill_once()
     assert result["skill"] is None
     assert "no skills" in result["error"]

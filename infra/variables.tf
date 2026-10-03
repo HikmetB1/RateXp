@@ -82,9 +82,9 @@ variable "enable_seeder" {
 }
 
 variable "seed_schedule" {
-  description = "NCRONTAB cadence (with seconds) for the seeder timer trigger. Default fires every 30s (each run is a multi-call agent; faster overlaps runs and hits the model's rate limit)."
+  description = "NCRONTAB cadence (with seconds) for the seeder's two timer triggers, one skill run and one session run per tick. Default fires once a minute (each run is a multi-call agent; faster overlaps runs and hits the model's rate limit)."
   type        = string
-  default     = "*/30 * * * * *"
+  default     = "0 * * * * *"
 }
 
 variable "seeder_model" {
@@ -124,9 +124,9 @@ variable "aoai_deployment_sku" {
 }
 
 variable "aoai_capacity" {
-  description = "Deployment capacity in thousands of tokens per minute (TPM). Drawn from the subscription's regional quota."
+  description = "Deployment capacity in thousands of tokens per minute (TPM). Drawn from the subscription's regional quota. 100 leaves room for the seeder's skill and session runs firing together; GlobalStandard bills per token used, not per capacity."
   type        = number
-  default     = 20
+  default     = 100
 }
 
 variable "openai_api_version" {

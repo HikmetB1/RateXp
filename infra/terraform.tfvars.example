@@ -17,7 +17,7 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # model passwordlessly via its Managed Identity (no key) and costs model credits.
 # enable_seeder   = true
 # aoai_deployment = "gpt-4o-mini"
-# aoai_capacity   = 20
+# aoai_capacity   = 100
 
 # PostgreSQL Entra admin = the identity running `terraform apply`. By default
 # Terraform uses the deployer's object id; set these only to use a different

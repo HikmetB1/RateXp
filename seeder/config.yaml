@@ -10,9 +10,9 @@ temperature: 0.7
 max_rounds: 40
 critical_ratio: 0.3                # 0 = always lenient, 1 = always tough
 oversized_ratio: 0.2               # 0 = never oversized, 1 = always
-interval_seconds: 3                # local loop only; the deployed timer uses SEED_SCHEDULE
+interval_seconds: 60               # local loop only; the deployed timer uses SEED_SCHEDULE
 
-# {name} = the skill for this call, {max_rounds} = turn budget.
+# Skill runs. {name} = the skill for this call, {max_rounds} = turn budget.
 system_prompt: |
   You are a developer's coding agent. You have one skill, "{name}", via the load_skill
   tool, and a scratch workspace with list_files, read_file, and write_file to actually
@@ -31,11 +31,43 @@ task_prompt: |
   the skill itself and finish with your assessment: an honest score (1 = good, 2 = bad)
   and a short comment naming what made it that way. Don't stop before you have rated it.
 
-# Appended to the task on a `critical_ratio` share of runs so the seeder isn't all praise.
+# Session runs: a plain coding task, no skill, and the whole session is rated.
+# {task} = one of session_tasks, picked at random; {max_rounds} = turn budget.
+session_system_prompt: |
+  You are a developer's coding agent with a scratch workspace and list_files, read_file,
+  and write_file to actually do the work. Carry out the developer's task for real —
+  create and edit the files it calls for, one step at a time, reading things back as a
+  careful developer would, over as many turns as it needs (up to {max_rounds}). Don't
+  shortcut straight to the verdict. But you MUST always finish the same way: once the
+  work is done (or if the task turns out small or ambiguous), assess the session as the
+  developer who asked for it would — did it go well and get them what they wanted — and
+  answer with an honest score (1 = good, 2 = bad) plus a short, specific comment. Never
+  end your turn without that assessment.
+
+session_task_prompt: |
+  {task}
+
+  Do the work in your workspace — write the real files and check them, taking as many
+  steps as the task needs (up to {max_rounds}). Then judge the session as a whole and
+  finish with your assessment: an honest score (1 = good, 2 = bad) and a short comment
+  naming what made it that way. Don't stop before you have rated it.
+
+session_tasks:
+  - Write a Python function that parses a semantic version string like "1.4.2-beta" and compares two versions, with a few tests.
+  - Add input validation and clear error messages to a small Flask signup endpoint you write first.
+  - Write a bash script that backs up a folder to a dated tar.gz and keeps only the last 7 backups.
+  - Refactor a 60-line Python script you write first so its parsing, logic, and output are separate functions.
+  - Write a SQL schema for a small library (books, members, loans) plus a query for overdue loans.
+  - Build a tiny command-line todo app in Python that stores items in a JSON file.
+  - Write a TypeScript debounce function with types and a short usage example.
+  - Add a README with install and usage sections to a small Python package you sketch first.
+
+# Appended to the task on a `critical_ratio` share of runs, skill and session alike,
+# so the seeder isn't all praise.
 critical_prompt: |
-  For this run, review the skill as a tough, demanding user who does not give it the
-  benefit of the doubt. Hold it to a high bar: if anything is unclear, incomplete, clunky,
-  out of date, or makes you work harder than it should, that is a real flaw — give it a
-  bad score (2) and a short, specific comment naming exactly what fell short. Only rate it
+  For this run, review as a tough, demanding user who does not give it the benefit of
+  the doubt. Hold it to a high bar: if anything is unclear, incomplete, clunky, out of
+  date, or makes you work harder than it should, that is a real flaw — give it a bad
+  score (2) and a short, specific comment naming exactly what fell short. Only rate it
   good (1) if it genuinely left nothing to complain about. Stay honest — don't invent
   problems — but don't soften or round up a mediocre experience into a good rating.

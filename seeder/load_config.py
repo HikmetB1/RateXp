@@ -55,4 +55,10 @@ for _name, _ratio in (("critical_ratio", CRITICAL_RATIO), ("oversized_ratio", OV
 # The agent's instructions. {name} is the skill for this run, {max_rounds} its turn budget.
 SYSTEM_PROMPT: str = str(_require("system_prompt"))
 TASK_PROMPT: str = str(_require("task_prompt"))
+# Session runs: {task} is one of SESSION_TASKS.
+SESSION_SYSTEM_PROMPT: str = str(_require("session_system_prompt"))
+SESSION_TASK_PROMPT: str = str(_require("session_task_prompt"))
+SESSION_TASKS: list[str] = [str(t) for t in _require("session_tasks")]
+if not SESSION_TASKS:
+    raise RuntimeError("session_tasks must list at least one task")
 CRITICAL_PROMPT: str = str(_require("critical_prompt"))

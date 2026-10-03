@@ -1,18 +1,19 @@
 # seeder
 
-The seeder keeps the demo dashboard from being empty: on a timer, an agent picks one of the
-bundled skills, actually does a small task with it, then rates the skill and posts that rating
-and its trajectory to core like any real hook would. It is entirely optional and it spends
-model credits, so nothing starts it by accident.
+The seeder keeps the demo dashboard from being empty. On every tick it makes two separate
+runs: a skill run, where an agent picks one of the bundled skills, does a small task with it
+and rates the skill, and a session run, where an agent does a plain coding task and rates the
+whole session. Each posts its rating and trajectory to core like any real hook would. It is
+entirely optional and it spends model credits, so nothing starts it by accident.
 
 ## Layout: what lives in this folder
 
 ```text
 seeder/
-├── api/                 seed_once.py is one run end to end; run_continuously.py repeats it
-├── azure_function/      the deployed timer trigger + host.json, flattened into the image root
+├── api/                 seed_once.py is one skill or session run end to end; run_continuously.py repeats both
+├── azure_function/      the two deployed timer triggers + host.json, flattened into the image root
 ├── modules/
-│   ├── agent/           the model, the skill pool, and the sandboxed run itself
+│   ├── agent/           the model, the skill pool, and the sandboxed skill and session runs
 │   └── submit/          messages → ATIF, and the two posts to core
 ├── skills/              the pool a run picks from (third-party, see ATTRIBUTION.md)
 ├── tests/               the seeder's own tests: mocked, no model calls
@@ -46,16 +47,19 @@ uv sync && uv run python -m api.run_continuously
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
 
 - `schema_version`: ATIF version stamped on every seeded trajectory (matches core's)
-- `model` / `temperature` / `max_rounds`: which model runs a skill, how it samples, and how
+- `model` / `temperature` / `max_rounds`: which model runs a skill or session, how it samples, and how
   many turns it gets before it has to rate
 - `core_url`: where the rating and the trajectory are posted
 - `eval_name`: the eval the rating answers, named as in core's [`evals/`](../core/evals/) -
   the prompts below ask its question
-- `interval_seconds`: gap between runs for the local loop only - the deployed timer takes its
-  cadence from `SEED_SCHEDULE` instead
+- `interval_seconds`: gap between rounds (one skill run, then one session run) for the local
+  loop only - the deployed timers take their cadence from `SEED_SCHEDULE` instead
 - `critical_ratio` / `oversized_ratio`: share of runs that review harshly, and share bloated
   past core's size limit on purpose so core stores a meta-only stub
-- `system_prompt` / `task_prompt` / `critical_prompt`: the agent's own instructions
+- `system_prompt` / `task_prompt`: the agent's instructions for a skill run
+- `session_system_prompt` / `session_task_prompt` / `session_tasks`: the same for a session
+  run, and the coding tasks it picks from at random
+- `critical_prompt`: the tough-reviewer stance added on a `critical_ratio` share of both kinds
 
 ## Env: the secrets it reads
 
@@ -67,8 +71,8 @@ Secrets and per-environment wiring, in `seeder/.env` ([example](./.env.example))
   through its Managed Identity
 - `MODEL` / `RATEXP_CORE_URL`: override the two `config.yaml` keys of the same meaning, so a
   deployment can point elsewhere without editing the file
-- `SEED_SCHEDULE`: the deployed timer's cadence, NCRONTAB with seconds (`*/30 * * * * *` is
-  every 30s). Ignored by the local loop
+- `SEED_SCHEDULE`: the deployed timers' cadence, shared by the skill and the session timer -
+  NCRONTAB with seconds (`0 * * * * *` is once a minute). Ignored by the local loop
 
 ## Tests: how to run them
 
