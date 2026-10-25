@@ -213,7 +213,7 @@ resource "azurerm_linux_web_app" "app" {
     RATEXP_ENV          = "prod"
     RATEXP_CORS_ORIGINS = local.app_url # same-origin; the UI is served by app itself
     RATEXP_CORE_URL     = local.core_url
-    # Which source the dashboard reads is app/config.yaml read_adapters, baked into the
+    # Which source the dashboard reads is app/ratexp/config.yaml read_adapters, baked into the
     # image. These only supply the credentials for it when that source is Dynatrace.
     DT_QUERY_URL    = var.dynatrace_query_url
     DT_ACCESS_TOKEN = var.dynatrace_access_token

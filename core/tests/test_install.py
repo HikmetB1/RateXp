@@ -557,7 +557,7 @@ def test_the_installed_claude_hooks_are_the_ones_the_popup_and_the_hook_know(mac
         event: groups[0].get("matcher", "")
         for event, groups in read_json(machine.settings("claude"))["hooks"].items()
     }
-    popup_source = (REPO / "app" / "FE" / "src" / "App.jsx").read_text(encoding="utf-8")
+    popup_source = (REPO / "app" / "ratexp" / "FE" / "src" / "App.jsx").read_text(encoding="utf-8")
     popup_block = popup_source.split("const CLAUDE_SETTINGS = {", 1)[1].split("\n}\n", 1)[0]
     popup = {
         event: matcher or ""

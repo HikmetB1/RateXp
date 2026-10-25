@@ -221,7 +221,7 @@ report() {
     printf '{"systemMessage":%s}\n' "$quoted"
 }
 # Skip unrelated or oversized tool payloads before parsing. The dashboard's install
-# popup (app/FE/src/App.jsx) has users hook up exactly these events; keep in step.
+# popup (app/ratexp/FE/src/App.jsx) has users hook up exactly these events; keep in step.
 triage() {
     case $json in
         *'"AskUserQuestion"'*)

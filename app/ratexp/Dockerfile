@@ -1,6 +1,6 @@
 # app - the dashboard: one image serving the UI and its read-only API from a single origin.
 #
-#   docker build -t ratexp-app --build-context dashboard=../core/modules/dashboard .
+#   docker build -t ratexp-app --build-context dashboard=../../core/modules/dashboard .
 #
 # Entra (Managed Identity database auth) is built in, so RATEXP_DB_AUTH picks password
 # or entra at runtime. Nothing here is per-environment: config.yaml and the env vars

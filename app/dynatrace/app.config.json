@@ -1,0 +1,15 @@
+{
+  "$schema": "./.dt-app/app.config.schema.json",
+  "environmentUrl": "https://ywg0584d.dev.apps.dynatracelabs.com/",
+  "app": {
+    "name": "RateXp",
+    "version": "0.1.0",
+    "description": "RateXp's Dashboard view: skill and session ratings, filters and downloads.",
+    "id": "my.ratexp",
+    "icon": "./ui/assets/ratexp-icon.png",
+    "scopes": [
+      { "name": "storage:logs:read", "comment": "the ratexp.* feedback and transcript logs core writes" },
+      { "name": "storage:buckets:read", "comment": "fetch logs reads them from their bucket" }
+    ]
+  }
+}

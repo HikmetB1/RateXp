@@ -196,6 +196,9 @@ two views:
   conversation opens it in a slide-over timeline. Each rating names the eval it answered in
   the **Eval** column. To filter things, type an **SQL** query into the query box.
 
+The Dashboard view also comes as a [Dynatrace app](./app/dynatrace/README.md), drawn with
+Dynatrace's own charts from the logs core writes there; only users of your tenant can open it.
+
 The query box only ever shows the most recent matches. To get more than that, use **Download JSON**.
 What it writes depends on the last query you ran:
 

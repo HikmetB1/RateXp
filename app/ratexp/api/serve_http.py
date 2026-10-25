@@ -43,7 +43,7 @@ from modules.read.open_read_source import open_read_source
 
 ENV = os.environ.get("RATEXP_ENV", "local").lower()
 CORS_ORIGINS_RAW = os.environ.get("RATEXP_CORS_ORIGINS")
-# app/static, one level up from this package - the UI the Dockerfile builds in. Resolved
+# app/ratexp/static, one level up from this package - the UI the Dockerfile builds in. Resolved
 # from __file__ so the working directory doesn't matter. Absent in a checkout.
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 

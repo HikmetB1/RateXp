@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uvx ruff check core/ app/ seeder/ tests/
-      - run: uvx ruff format --check core/ app/ seeder/ tests/
+      - run: uvx ruff check core/ app/ratexp/ seeder/ tests/
+      - run: uvx ruff format --check core/ app/ratexp/ seeder/ tests/
 
   test:
     runs-on: ubuntu-latest
@@ -25,7 +25,7 @@ jobs:
           uv sync --frozen --extra test --extra dynatrace-otlp
           uv run pytest -q
       - name: Test app
-        working-directory: app
+        working-directory: app/ratexp
         run: |
           uv sync --frozen --extra test
           uv run pytest -q
@@ -66,9 +66,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - working-directory: app/FE
+      - working-directory: app/ratexp/FE
         run: |
           npm ci
+          npm run build
+
+  dynatrace-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - working-directory: app/dynatrace
+        run: |
+          npm ci
+          npm test
+          npm run lint
           npm run build
 
   docker:
@@ -76,4 +90,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t ratexp-core ./core
-      - run: docker build -t ratexp-app -f app/Dockerfile --build-context dashboard=./core/modules/dashboard ./app
+      - run: docker build -t ratexp-app -f app/ratexp/Dockerfile --build-context dashboard=./core/modules/dashboard ./app/ratexp

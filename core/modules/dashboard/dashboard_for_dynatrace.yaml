@@ -9,6 +9,9 @@
 # own 24 hours. A null skill or eval is shown and matched as "(none)", because
 # matchesValue() drops nulls - "*" would lose whole-session ratings and ratings stored
 # before evals had names.
+#
+# download.dql is the "Download trajectories" button of the Dynatrace app (app/dynatrace/),
+# which draws these same panels; the published dashboard has no button and skips it.
 name: RateXp
 filters:
   dql: >-
@@ -28,6 +31,15 @@ filters:
       data record(eval="*") | append [fetch logs | filter ratexp.record_type == "feedback"
       | summarize count(), by:{eval=coalesce(ratexp.eval_name, "(none)")}
       | fields eval | sort eval asc]
+# The newest 1000 ratings, as the app's list_max_limit; the app adds each one's
+# conversation, the transcript with the same request_id.
+download:
+  dql: >-
+    fetch logs | filter ratexp.record_type == "feedback" {filters}
+    | sort timestamp desc | limit 1000
+    | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name,
+    agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score,
+    comment=ratexp.comment, request_id=ratexp.request_id
 panels:
   total_ratings:
     title: Total ratings

@@ -62,18 +62,18 @@ services:
 
   app:
     build:
-      context: ./app
+      context: ./app/ratexp
       dockerfile: Dockerfile
       # The Dashboard view's panels are defined in core; the Dockerfile copies two files
       # out of this extra context (see CONTRIBUTING.md).
       additional_contexts:
         dashboard: ./core/modules/dashboard
     restart: unless-stopped
-    # The dashboard's own read-source credentials live with app (cp app/.env.example
-    # app/.env). Keep those keys out of `environment:` below - it wins over env_file, so
-    # re-listing one here would blank out whatever app/.env sets.
+    # The dashboard's own read-source credentials live with app (cp app/ratexp/.env.example
+    # app/ratexp/.env). Keep those keys out of `environment:` below - it wins over env_file, so
+    # re-listing one here would blank out whatever app/ratexp/.env sets.
     env_file:
-      - path: ./app/.env
+      - path: ./app/ratexp/.env
         required: false
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}

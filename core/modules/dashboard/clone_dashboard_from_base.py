@@ -8,9 +8,9 @@ is their order on the dashboard.
 
 The YAML files sit beside this file.
 
-core and the app each keep this file (core/modules/dashboard/ and app/modules/read/), so
+core and the app each keep this file (core/modules/dashboard/ and app/ratexp/modules/read/), so
 each service builds on its own. Their code must stay the same - change both in one
-commit; app/tests/test_clone_dashboard_from_base.py fails when they differ.
+commit; app/ratexp/tests/test_clone_dashboard_from_base.py fails when they differ.
 """
 
 from __future__ import annotations

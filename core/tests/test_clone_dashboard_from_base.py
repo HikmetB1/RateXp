@@ -196,6 +196,16 @@ def test_every_dynatrace_panel_takes_the_shared_filter_and_only_ratings_24h_pins
         assert dql.startswith(f'data record({key}="*") | append ['), key
 
 
+def test_the_dynatrace_download_takes_the_shared_filter_and_returns_the_app_download_columns():
+    dql = clone_dashboard("dynatrace")["download"]["dql"]
+    sql = clone_dashboard("app")["download"]["sql"]
+    assert dql.count("{filters}") == 1
+    assert "from:" not in dql
+    columns = re.match(r"SELECT (.*?) FROM", sql).group(1).split(", ")
+    for column in columns:
+        assert re.search(rf"\b{column}=", dql), column
+
+
 @pytest.mark.parametrize(
     ("destination", "language", "stand_in"),
     [

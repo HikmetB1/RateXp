@@ -10,9 +10,9 @@ The YAML files live in core/modules/dashboard/ - the one description of the dash
 and the app image copies them in at build, so the same relative path works on a dev
 machine and in the container (see CONTRIBUTING.md).
 
-core and the app each keep this file (core/modules/dashboard/ and app/modules/read/), so
+core and the app each keep this file (core/modules/dashboard/ and app/ratexp/modules/read/), so
 each service builds on its own. Their code must stay the same - change both in one
-commit; app/tests/test_clone_dashboard_from_base.py fails when they differ.
+commit; app/ratexp/tests/test_clone_dashboard_from_base.py fails when they differ.
 """
 
 from __future__ import annotations
@@ -21,9 +21,9 @@ from pathlib import Path
 
 import yaml
 
-# app/../core/modules/dashboard: <repo>/core/modules/dashboard in a checkout,
-# /core/modules/dashboard in the image.
-DASHBOARD_DIR = (Path(__file__).resolve().parents[2] / "../core/modules/dashboard").resolve()
+# app/ratexp/../../core/modules/dashboard: <repo>/core/modules/dashboard in a checkout,
+# /core/modules/dashboard in the image (/app/../.. is /).
+DASHBOARD_DIR = (Path(__file__).resolve().parents[2] / "../../core/modules/dashboard").resolve()
 KINDS = ("number", "line", "bar", "table")
 
 

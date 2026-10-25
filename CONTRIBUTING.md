@@ -20,7 +20,8 @@ its own README covering its layout, how to run it and what it reads:
 | Service | What it is |
 |---------|------------|
 | [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor) and `install.sh`, which adds either to its agent's settings, takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
-| [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives: a Dashboard view of panels with filters, and a Query & table view with the query box. |
+| [app](./app/ratexp/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives: a Dashboard view of panels with filters, and a Query & table view with the query box. |
+| [app/dynatrace](./app/dynatrace/README.md) | Optional. The same Dashboard view as a Dynatrace app, reading the logs core wrote to Dynatrace. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
 
 ## Reading the feedback: where each adapter shows it
@@ -31,8 +32,9 @@ adapter wrote:
 
 - **The app** - **Query & table** works with any read adapter; the **Dashboard** view only
   with PostgreSQL, so with any other the app opens on Query & table.
-- **Dynatrace** - in its logs, or its
-  [dashboard](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
+- **Dynatrace** - in its logs, its
+  [dashboard](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace), or the RateXp
+  Dynatrace app.
 - **Arize Phoenix** - in its spans (traces), or its built-in dashboard. On the current Phoenix
   plan that dashboard is fixed - you can't build a custom one.
 - **Bluebox** - by asking it plain-English questions. The app can't read from it.
@@ -54,6 +56,10 @@ Every dashboard file lives in [`core/modules/dashboard/`](./core/modules/dashboa
   using SQL.
 - **Dashboard in Dynatrace** - the same panels, drawn from `dashboard_for_dynatrace.yaml` using
   DQL. You send it to Dynatrace by running `publish_to_dynatrace.py` (its docstring says how).
+- **App in Dynatrace** - [`app/dynatrace/`](./app/dynatrace/README.md) draws the
+  `dashboard_for_dynatrace.yaml` panels with Dynatrace's own charts, plus the app's filters
+  and **Download trajectories** (its `download` query). It bundles a copy of the panels,
+  which its tests keep equal to the YAML.
 - **One shared base** - `dashboard_base.yaml` lists the panels every dashboard must have, each
   with an id, a title and a kind (number, line, bar or table). Each platform's file must
   include all of them, and `core/tests/test_clone_dashboard_from_base.py` fails if one is
@@ -66,7 +72,7 @@ Each service carries its own settings in two files beside its code:
 | Service  | Settings                                  | Secrets                            |
 |----------|-------------------------------------------|------------------------------------|
 | core     | [`core/config.yaml`](./core/config.yaml)     | `core/.env` ([example](./core/.env.example))     |
-| app      | [`app/config.yaml`](./app/config.yaml)       | `app/.env` ([example](./app/.env.example))       |
+| app      | [`app/ratexp/config.yaml`](./app/ratexp/config.yaml)       | `app/ratexp/.env` ([example](./app/ratexp/.env.example))       |
 | seeder   | [`seeder/config.yaml`](./seeder/config.yaml) | `seeder/.env` ([example](./seeder/.env.example)) |
 
 - `config.yaml` holds the non-secret tunables. **Every key is required** - a missing one fails
@@ -75,7 +81,7 @@ Each service carries its own settings in two files beside its code:
 - core also reads its surveys, one file per eval, from [`core/evals/`](./core/evals/) -
   checked at startup just as strictly.
 - What each key and variable means is listed in that service's README:
-  [core](./core/README.md), [app](./app/README.md), [seeder](./seeder/README.md).
+  [core](./core/README.md), [app](./app/ratexp/README.md), [seeder](./seeder/README.md).
 
 	> Stack wiring that spans services (ports, `DATABASE_URL`, `RATEXP_PUBLIC_URL`) has working
 defaults in [`docker-compose.yml`](./docker-compose.yml); to override one, put it in a root
@@ -112,7 +118,7 @@ everything and wipes the data.
 > You can also run just one service on its own - outside compose, the UI with live reload, or
 > the demo seeder. Each service's README shows how:
 > [core](./core/README.md#running-locally-start-it-on-your-machine),
-> [app](./app/README.md#running-locally-start-it-on-your-machine),
+> [app](./app/ratexp/README.md#running-locally-start-it-on-your-machine),
 > [seeder](./seeder/README.md#running-locally-start-it-on-your-machine).
 
 ## Deploy to Azure: from zero to live
@@ -136,7 +142,7 @@ terraform init && terraform apply
 ```bash
 az acr login --name "$(terraform output -raw acr_name)"
 docker build -t "$(terraform output -raw core_image)" ../core && docker push "$(terraform output -raw core_image)"
-docker build -t "$(terraform output -raw app_image)" -f ../app/Dockerfile --build-context dashboard=../core/modules/dashboard ../app && docker push "$(terraform output -raw app_image)"
+docker build -t "$(terraform output -raw app_image)" -f ../app/ratexp/Dockerfile --build-context dashboard=../core/modules/dashboard ../app/ratexp && docker push "$(terraform output -raw app_image)"
 ```
 
 **3. Let the two apps into the database.** Run
@@ -166,10 +172,12 @@ destination's endpoint, key and project.
 │       ├── dashboard/          The dashboard definitions: one base, one file per destination, and the publish command
 │       ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
 │       └── write/              Write destinations + the fan-out + the SQL migrations
-├── app/                        Dashboard service: read-only API, and it serves the UI
-│   ├── api/                    The HTTP surface: routes, schemas, snapshots, the live feed
-│   ├── modules/read/           Read sources - the dashboard reads from the one enabled source
-│   └── FE/                     React dashboard (source)
+├── app/                        The two apps that show the feedback
+│   ├── ratexp/                 The RateXp web app: read-only API, and it serves the UI
+│   │   ├── api/                The HTTP surface: routes, schemas, snapshots, the live feed
+│   │   ├── modules/read/       Read sources - the dashboard reads from the one enabled source
+│   │   └── FE/                 React dashboard (source)
+│   └── dynatrace/              The Dashboard view as a Dynatrace app (React + Strato), built with dt-app
 ├── seeder/                     Optional demo seeder: an agent uses a skill, then rates it
 │   ├── api/                    One run end to end, and the two ways one gets started
 │   ├── azure_function/         The deployed timer trigger + host.json
@@ -187,7 +195,7 @@ destination's endpoint, key and project.
 └── pyproject.toml              Shared ruff config; each service has its own project file
 ```
 
-`core/`, `app/` and `seeder/` are each self-contained - they deliberately duplicate small
+`core/`, `app/ratexp/` and `seeder/` are each self-contained - they deliberately duplicate small
 helpers (database connection, config loading, `clone_dashboard_from_base.py`) so any one of
 them can be built and deployed on its own. The one exception: the app image copies
 `dashboard_base.yaml` and `dashboard_for_app.yaml` out of `core/modules/dashboard/` at build
@@ -201,7 +209,8 @@ Two layers: run the per-service ones while you work, the whole-app ones before y
 
 **Per-service** - fast and mocked, so no network and no database. Each service runs the same
 way from its own folder; the command is in its README:
-[core](./core/README.md#tests-how-to-run-them), [app](./app/README.md#tests-how-to-run-them),
+[core](./core/README.md#tests-how-to-run-them), [app](./app/ratexp/README.md#tests-how-to-run-them),
+[app/dynatrace](./app/dynatrace/README.md#tests-how-to-run-them),
 [seeder](./seeder/README.md#tests-how-to-run-them).
 
 **Whole-app** - the real services talking over HTTP: core stores a rating, the dashboard reads
@@ -278,7 +287,7 @@ they are read front to back by someone who knows nothing yet, so they may run lo
 6. **Copy the shape of the README next door.**
    Folders get read side by side, so the same question should carry the same heading in
    each: `core/README.md` puts its settings under `## Config: every key in config.yaml`,
-   one bullet per key, and `app/README.md` follows it word for word. A second shape for one
+   one bullet per key, and `app/ratexp/README.md` follows it word for word. A second shape for one
    job costs the reader a re-read.
 
 7. **Put the answer in the heading.**

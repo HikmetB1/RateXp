@@ -11,7 +11,7 @@ umask 077
 export LC_ALL=C
 DEFAULT_URL='__RATEXP_URL__'
 # The hooks each agent needs. Claude Code's are every event ratexp-claude.sh handles
-# (its triage()); the dashboard's install popup (app/FE/src/App.jsx) lists the same
+# (its triage()); the dashboard's install popup (app/ratexp/FE/src/App.jsx) lists the same
 # ones for pasting by hand. Keep the three in step.
 CLAUDE_EVENTS=(SessionStart UserPromptExpansion Stop PreToolUse PostToolUse PostToolUseFailure)
 CLAUDE_MATCHERS=('' '' '' 'Skill|AskUserQuestion' AskUserQuestion AskUserQuestion)

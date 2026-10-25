@@ -1,6 +1,6 @@
 """Shared fixtures for the whole-app (integration) test suite.
 
-Unlike the per-service suites under core/, app/ and seeder/, these tests are
+Unlike the per-service suites under core/, app/ratexp/ and seeder/, these tests are
 black-box: they talk to *running* services over HTTP, exactly like a real client
 would. Two modes:
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 # pytest puts this folder on sys.path, not its parent, so `api.*` and `modules.*`
-# would not resolve. Add app/ itself, the directory the container imports from.
+# would not resolve. Add app/ratexp/ itself, the directory the container imports from.
 _APP_DIR = Path(__file__).resolve().parent.parent
 if str(_APP_DIR) not in sys.path:
     sys.path.insert(0, str(_APP_DIR))

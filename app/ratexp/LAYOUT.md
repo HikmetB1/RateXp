@@ -1,7 +1,7 @@
-# Proposed layout for `app/`
+# Proposed layout for `app/ratexp/`
 
 ```
-app/                                 THE DASHBOARD  (image: app)
+app/ratexp/                          THE DASHBOARD  (image: app)
 │
 ├── api/                          ── the read-only HTTP surface
 │   ├── serve_http.py                routes, CORS, the static UI mount, startup/shutdown
@@ -15,7 +15,7 @@ app/                                 THE DASHBOARD  (image: app)
 │   └── read/                     ── get records back from the one chosen source
 │       ├── open_read_source.py      reads config, builds the single enabled source
 │       ├── connect_to_postgres.py   password / Entra connection modes
-│       ├── clone_dashboard_from_base.py   the panels, from ../core/modules/dashboard/ (copied into the image); core's code, kept equal by a test
+│       ├── clone_dashboard_from_base.py   the panels, from ../../core/modules/dashboard/ (copied into the image); core's code, kept equal by a test
 │       └── adapters/
 │           ├── read_adapter_interface.py       what a source must implement
 │           ├── read_from_postgres.py           shared SQL reading logic, and the Dashboard view's SQL

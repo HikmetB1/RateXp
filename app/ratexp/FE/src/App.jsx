@@ -452,7 +452,7 @@ function ViewPanel({ viewKey, view, children }) {
 }
 
 // Short red note under the Feedback heading: the table is a real-time preview of the
-// latest rows only (capped in app/config.yaml). The full story - including how Download
+// latest rows only (capped in app/ratexp/config.yaml). The full story - including how Download
 // JSON behaves per query - lives in the shared info popup. Hidden while filtering.
 function PreviewNote({ onInfo }) {
   return (
@@ -474,7 +474,7 @@ function okJson(r) {
 // every record a request_id, and a rating and its transcript are posted under the same one.
 // A looser match (the same session, say) could only borrow another run's conversation, such
 // as when the user declined to store their own. The Dashboard's Download trajectories pairs
-// by the same rule (app/api/run_dashboard_panels.py).
+// by the same rule (app/ratexp/api/run_dashboard_panels.py).
 function indexTranscripts(transcripts) {
   return new Map(transcripts.filter((t) => t.request_id).map((t) => [t.request_id, t]))
 }
