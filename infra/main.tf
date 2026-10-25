@@ -179,6 +179,10 @@ resource "azurerm_linux_web_app" "core" {
     # the token via TF_VAR_dynatrace_access_token.
     DT_TENANT_URL   = var.dynatrace_tenant_url
     DT_ACCESS_TOKEN = var.dynatrace_access_token
+    # Same for the phoenix destination adapter; supply the key via TF_VAR_phoenix_api_key.
+    PHOENIX_COLLECTOR_ENDPOINT = var.phoenix_collector_endpoint
+    PHOENIX_API_KEY            = var.phoenix_api_key
+    PHOENIX_PROJECT_NAME       = var.phoenix_project_name
   }
 }
 

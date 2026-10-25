@@ -189,6 +189,27 @@ variable "dynatrace_access_token" {
   sensitive   = true
 }
 
+# Phoenix destination adapter (see core/modules/write/adapters/write_to_phoenix.py). Whether it
+# runs is in core/config.yaml; empty values leave it enabled but inert, like Dynatrace above.
+variable "phoenix_collector_endpoint" {
+  description = "Arize Phoenix space URL, e.g. https://app.phoenix.arize.com/s/your-space. Sets PHOENIX_COLLECTOR_ENDPOINT on core."
+  type        = string
+  default     = ""
+}
+
+variable "phoenix_api_key" {
+  description = "Arize Phoenix API key. Secret - pass via TF_VAR_phoenix_api_key or a gitignored *.tfvars, never commit it. Sets PHOENIX_API_KEY on core."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "phoenix_project_name" {
+  description = "Phoenix project core writes into. Sets PHOENIX_PROJECT_NAME on core."
+  type        = string
+  default     = ""
+}
+
 variable "dynatrace_query_url" {
   description = "Dynatrace DQL/apps host (e.g. https://xxxx.apps.dynatrace.com) the dashboard queries when the dynatrace read source is enabled. Sets DT_QUERY_URL on app."
   type        = string

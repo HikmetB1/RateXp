@@ -18,6 +18,12 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # enable_seeder   = true
 # aoai_deployment = "gpt-4o-mini"
 # aoai_capacity   = 100
+# seed_schedule   = "0 * * * * *"   # NCRONTAB with seconds; cost grows with cadence
+
+# Phoenix destination adapter (on in core/config.yaml). Empty = it stays inert.
+# phoenix_collector_endpoint = "https://app.phoenix.arize.com/s/your-space"
+# phoenix_api_key            = ""   # secret; or pass TF_VAR_phoenix_api_key
+# phoenix_project_name       = "ratexp"
 
 # PostgreSQL Entra admin = the identity running `terraform apply`. By default
 # Terraform uses the deployer's object id; set these only to use a different
