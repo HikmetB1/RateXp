@@ -36,8 +36,8 @@ class ReadAdapter(Protocol):
         """Newest `limit` transcript rows (created_at, session_id, skill_name, agent, schema_version, atif, request_id)."""
         ...
 
-    def select_transcripts_by_ids(self, request_ids: list, session_ids: list) -> list[tuple]:
-        """Transcript rows matching any of the given request_id / session_id keys."""
+    def select_transcripts_by_request_ids(self, request_ids: list) -> list[tuple]:
+        """Transcript rows whose request_id is one of `request_ids`: each rating's own conversation."""
         ...
 
     def select_top_skills(self, limit: int) -> list[dict]:

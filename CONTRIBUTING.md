@@ -1,6 +1,8 @@
 # Contributing to RateXp
 
 - [The three services](#the-three-services-who-does-what)
+- [Reading the feedback](#reading-the-feedback-where-each-adapter-shows-it)
+  - [Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace)
 - [Config and env](#config-and-env-where-settings-live)
 - [Running locally](#running-locally-the-whole-stack-at-once)
 - [Deploy to Azure](#deploy-to-azure-from-zero-to-live)
@@ -18,11 +20,44 @@ its own README covering its layout, how to run it and what it reads:
 | Service | What it is |
 |---------|------------|
 | [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
-| [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives. |
+| [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives: a Dashboard view of panels with filters, and a Query & table view with the query box. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
 
-Both use adapters, switched on in `config.yaml`: core **writes** to every one enabled, app
-**reads** from exactly one - today PostgreSQL, so the filter box takes SQL.
+## Reading the feedback: where each adapter shows it
+
+Core's `config.yaml` sets where to write (one or more adapters); the app's `config.yaml` sets
+where it reads from (one adapter only, for now). Each destination shows only what its own
+adapter wrote:
+
+- **The app** - **Query & table** works with any read adapter; the **Dashboard** view only
+  with PostgreSQL, so with any other the app opens on Query & table.
+- **Dynatrace** - in its logs, or its
+  [dashboard](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
+- **Arize Phoenix** - in its spans (traces), or its built-in dashboard. On the current Phoenix
+  plan that dashboard is fixed - you can't build a custom one.
+- **Bluebox** - by asking it plain-English questions. The app can't read from it.
+
+The app's query box (in **Query & table**) speaks the language of its read source:
+
+| Read source | Query box language  |
+|-------------|---------------------|
+| PostgreSQL  | SQL                 |
+| Dynatrace   | DQL                 |
+| Phoenix     | `key:value` filters |
+| Bluebox     | not supported       |
+
+### Dashboards: one panel list, drawn in the app and Dynatrace
+
+Every dashboard file lives in [`core/modules/dashboard/`](./core/modules/dashboard/):
+
+- **Dashboard in the RateXp app** - the **Dashboard** view, drawn from `dashboard_for_app.yaml`
+  using SQL.
+- **Dashboard in Dynatrace** - the same panels, drawn from `dashboard_for_dynatrace.yaml` using
+  DQL. You send it to Dynatrace by running `publish_to_dynatrace.py` (its docstring says how).
+- **One shared base** - `dashboard_base.yaml` lists the panels every dashboard must have, each
+  with an id, a title and a kind (number, line, bar or table). Each platform's file must
+  include all of them, and `core/tests/test_clone_dashboard_from_base.py` fails if one is
+  missing.
 
 ## Config and env: where settings live
 
@@ -101,7 +136,7 @@ terraform init && terraform apply
 ```bash
 az acr login --name "$(terraform output -raw acr_name)"
 docker build -t "$(terraform output -raw core_image)" ../core && docker push "$(terraform output -raw core_image)"
-docker build -t "$(terraform output -raw app_image)" -f ../app/Dockerfile ../app && docker push "$(terraform output -raw app_image)"
+docker build -t "$(terraform output -raw app_image)" -f ../app/Dockerfile --build-context dashboard=../core/modules/dashboard ../app && docker push "$(terraform output -raw app_image)"
 ```
 
 **3. Let the two apps into the database.** Run
@@ -114,7 +149,8 @@ just pushed. `az webapp restart` does **not** - it keeps running the old cached 
 
 **Optional extras**, switched on in `terraform.tfvars`: `enable_redaction` masks personal data
 in transcripts, and `enable_seeder` deploys the demo seeder. With the seeder on, build and
-push `seeder_image` the same way as step 2.
+push `seeder_image` the same way as step 2. The `phoenix_*` values hand core the Arize Phoenix
+destination's endpoint, key and project.
 
 ## Repository layout: what each folder holds
 
@@ -126,6 +162,7 @@ push `seeder_image` the same way as step 2.
 │   ├── evals/                  The surveys users answer, one file per eval
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   └── modules/
+│       ├── dashboard/          The dashboard definitions: one base, one file per destination, and the publish command
 │       ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
 │       └── write/              Write destinations + the fan-out + the SQL migrations
 ├── app/                        Dashboard service: read-only API, and it serves the UI
@@ -150,8 +187,12 @@ push `seeder_image` the same way as step 2.
 ```
 
 `core/`, `app/` and `seeder/` are each self-contained - they deliberately duplicate small
-helpers (database connection, config loading) so any one of them can be built and deployed on
-its own.
+helpers (database connection, config loading, `clone_dashboard_from_base.py`) so any one of
+them can be built and deployed on its own. The one exception: the app image copies
+`dashboard_base.yaml` and `dashboard_for_app.yaml` out of `core/modules/dashboard/` at build
+time (the extra build context named `dashboard` in `docker-compose.yml` and the build commands
+above), so every destination's dashboard lives in that one folder - see
+[Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
 
 ## Tests: per-service and whole-app
 

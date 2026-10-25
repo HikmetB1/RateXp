@@ -1,10 +1,10 @@
 """Shared SQL read logic for the PostgreSQL read adapters (app_be_psql, custom_psql).
 
-Reads the feedback/transcript tables and runs the dashboard's SQL filter box
-(SELECT-only, validated, capped, read-only). The pool is built lazily from the
-dsn/auth the concrete adapter supplies (see read_from_app_be_psql.py /
-read_from_custom_psql.py), so a database that's briefly unreachable at boot doesn't
-disable the adapter.
+Reads the feedback/transcript tables, runs the dashboard's SQL filter box (SELECT-only,
+validated, capped, read-only) and the Dashboard view's SQL - panels, dropdowns, download
+(read-only, timed). The pool is built lazily from the dsn/auth the concrete adapter
+supplies (see read_from_app_be_psql.py / read_from_custom_psql.py), so a database that's
+briefly unreachable at boot doesn't disable the adapter.
 """
 
 from __future__ import annotations
@@ -77,19 +77,19 @@ class PostgresReadAdapter:
             )
             return cur.fetchall()
 
-    def select_transcripts_by_ids(self, request_ids: list, session_ids: list) -> list[tuple]:
-        if not request_ids and not session_ids:
+    def select_transcripts_by_request_ids(self, request_ids: list) -> list[tuple]:
+        if not request_ids:
             return []
         with self._ensure_pool().connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id
                 FROM transcript
-                WHERE request_id = ANY(%s) OR session_id = ANY(%s)
+                WHERE request_id = ANY(%s)
                 ORDER BY created_at DESC
                 LIMIT %s
                 """,
-                (request_ids, session_ids, LIST_MAX_LIMIT),
+                (request_ids, LIST_MAX_LIMIT),
             )
             return cur.fetchall()
 
@@ -117,11 +117,24 @@ class PostgresReadAdapter:
     ) -> tuple[list[str], list[tuple]]:
         # Validate SELECT-only, wrap in a row-capping subquery, run read-only + timed.
         wrapped = f"SELECT * FROM ({_validate_select(query)}) AS _q LIMIT %s"
+        return self._select_read_only(wrapped, (max_rows,), timeout_ms)
+
+    def run_dashboard_sql(
+        self, sql: str, params: dict, timeout_ms: int
+    ) -> tuple[list[str], list[tuple]]:
+        # The SQL is the Dashboard view's - a panel, a dropdown or the download, from
+        # core/modules/dashboard/dashboard_for_app.yaml - ours, not a user's, so the filter
+        # box's SELECT-only check would only guard against ourselves; the read-only
+        # transaction still holds. Named parameters throughout: psycopg refuses to mix them
+        # with the positional %s the filter box binds its LIMIT with.
+        return self._select_read_only(sql, params, timeout_ms)
+
+    def _select_read_only(self, sql: str, params, timeout_ms: int) -> tuple[list[str], list[tuple]]:
         with self._ensure_pool().connection() as conn, conn.transaction(), conn.cursor() as cur:
             # SET needs a literal, not a bound param; int() keeps the inlining injection-safe.
             cur.execute(f"SET LOCAL statement_timeout = {int(timeout_ms)}")
             cur.execute("SET TRANSACTION READ ONLY")
-            cur.execute(wrapped, (max_rows,))
+            cur.execute(sql, params)
             columns = [d.name for d in cur.description] if cur.description else []
             rows = cur.fetchall()
         return columns, rows

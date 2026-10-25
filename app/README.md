@@ -1,19 +1,19 @@
 # app
 
-app is the dashboard: it shows the feedback core has stored. It can read that feedback from
-five different places - RateXp's PostgreSQL or your own, RateXp's Dynatrace or your own, or an
-Arize Phoenix project. Each one is a "read adapter", and you switch exactly one on. The filter
-box then uses whatever query language that place speaks: SQL for PostgreSQL, DQL for Dynatrace,
-`key:value` filters for Phoenix.
+app is the dashboard: it reads what core stored back from the one source `read_adapters` turns
+on and shows it in [two views](../README.md#the-ratexp-app-read-and-export-the-feedback). The
+Dashboard view reads PostgreSQL only; with any other source the app opens on Query & table.
 
 ## Layout: what lives in this folder
 
 ```text
 app/
-├── api/                 routes, record schemas, snapshot building, the live feed
+├── api/                 routes, record schemas, snapshot building, the dashboard panels, the live feed
 ├── modules/
-│   └── read/            the one source the dashboard reads back from, one adapter each
-├── FE/                  the React dashboard: src/, public/, vite.config.js
+│   └── read/            the one source the dashboard reads back from, one adapter each, and
+│                        clone_dashboard_from_base.py: the Dashboard view's panels, read from
+│                        ../core/modules/dashboard/ (see CONTRIBUTING.md)
+├── FE/                  the React dashboard: src/{App.jsx, Dashboard.jsx, styles.js}, public/, vite.config.js
 ├── tests/               the app's own tests: mocked, no database
 ├── config.yaml          the settings below; load_config.py reads it
 └── Dockerfile           stage 1 builds FE/, stage 2 runs the API with the bundle inside
@@ -42,17 +42,20 @@ cd FE && npm install && npm run dev
 - `schema_version`: ATIF version expected on stored transcripts (matches core's)
 - `core_url`: the core the install popup tells users to install from
 - `list_view_limit` / `list_max_limit`: rows the list endpoints return by default, and the
-  hard ceiling on any one response
+  hard ceiling on any one response - so **Download trajectories** saves the newest
+  `list_max_limit` ratings that match its filters
 - `top_skills_limit`: how many skills the "Top skills" panel shows
-- `query_enabled` / `query_timeout_ms` / `query_max_rows`: the filter box; `false` turns the
-  endpoint off, the other two cap how long a query runs and how much it returns
+- `query_enabled` / `query_timeout_ms` / `query_max_rows`: the query box; `false` turns the
+  endpoint off, the other two cap how long a query runs and how much it returns. The timeout
+  also caps each Dashboard view query
 - `ws_enabled` / `ws_broadcast_interval_ms`: the live feed; `false` turns it off, the interval
   is how often it checks for new data
 - `read_adapters`: which single source the dashboard reads from. It mirrors core's write side
   but is single-select - enable **exactly one**. The choice lives only here, so switching
-  source means editing this file and rebuilding. The `*_dynatrace` sources return transcripts
-  truncated, because the attribute they arrive in is capped on ingest; `phoenix` sorts rows
-  and counts the top skills in the dashboard, because its API can do neither
+  source means editing this file and rebuilding. The `*_dynatrace` sources read a transcript
+  from its log's content; a log whose content is not ATIF JSON shows as an empty trajectory;
+  `phoenix` sorts rows and counts the top skills in the dashboard, because its API can do
+  neither
 
 ## Env: the secrets it reads
 

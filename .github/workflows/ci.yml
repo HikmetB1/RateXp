@@ -22,7 +22,7 @@ jobs:
       - name: Test core
         working-directory: core
         run: |
-          uv sync --frozen --extra test
+          uv sync --frozen --extra test --extra dynatrace-otlp
           uv run pytest -q
       - name: Test app
         working-directory: app
@@ -76,4 +76,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t ratexp-core ./core
-      - run: docker build -t ratexp-app -f app/Dockerfile ./app
+      - run: docker build -t ratexp-app -f app/Dockerfile --build-context dashboard=./core/modules/dashboard ./app

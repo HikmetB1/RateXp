@@ -39,6 +39,13 @@ LOOPBACK_HTTP = re.compile(r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(/|$
 # over that while staying under the 1 MiB per-part limit the form parser enforces.
 OVERSIZE_PAD_BYTES = 600_000
 
+# The columns the Dashboard view draws each panel kind from.
+DASHBOARD_KIND_COLUMNS = {
+    "number": {"value"},
+    "line": {"day", "good", "bad"},
+    "bar": {"name", "total", "good", "bad", "percent_good"},
+}
+
 # Driving the hook means really running it: a POSIX shell plus the tools it uses.
 needs_shell = pytest.mark.skipif(
     os.name != "posix" or not (shutil.which("bash") and shutil.which("curl")),
@@ -159,6 +166,56 @@ def test_trajectory_round_trip(app_url, http, post_feedback, post_transcript):
     assert tx is not None, "trajectory missing - feedback and transcript not linked in snapshot"
     assert tx["session_id"] == session_id
     assert tx["atif"]["steps"][0]["message"] == "do the thing"
+
+
+def test_dashboard_view_round_trip(app_url, http, post_feedback, post_transcript):
+    """Every panel the Dashboard view lists runs on the stored data, unfiltered and filtered
+    to a new skill, which counts its one rating; the export carries that rating with its
+    conversation."""
+    session_id = str(uuid.uuid4())
+    request_id = str(uuid.uuid4())
+    skill = f"e2e-{uuid.uuid4().hex[:8]}"
+    shared = {
+        "session_id": session_id,
+        "request_id": request_id,
+        "skill_name": skill,
+        "agent": "claude-code",
+    }
+    assert post_feedback(**shared, eval_name="human-satisfaction", score=1).status_code == 201
+    atif = {
+        "agent": {"name": "claude-code", "model_name": "test"},
+        "session_id": session_id,
+        "steps": [{"source": "user", "message": "chart the thing", "step_id": 1}],
+    }
+    assert post_transcript(**shared, atif=atif).status_code == 201
+
+    info = _get(http, f"{app_url}/dashboard")
+    if not info["available"]:
+        pytest.skip(info["reason"])
+
+    def _panel(panel: dict, filters: dict) -> dict:
+        r = http.post(f"{app_url}/dashboard/panel", json={"panel": panel["id"], "filters": filters})
+        assert r.status_code == 200, (panel["id"], r.text)
+        body = r.json()
+        # A table panel names its own columns; the other kinds draw from fixed ones.
+        needed = DASHBOARD_KIND_COLUMNS.get(panel["kind"], set())
+        assert needed <= set(body["columns"]), (panel["id"], body["columns"])
+        return body
+
+    for panel in info["panels"]:
+        _panel(panel, {})
+        _panel(panel, {"skill": skill})
+
+    total = next(p for p in info["panels"] if p["id"] == "total_ratings")
+    counted = _poll(lambda: _panel(total, {"skill": skill})["rows"], ready=lambda r: r == [[1]])
+    assert counted == [[1]], f"total_ratings filtered to {skill} reads {counted}"
+
+    exported = _poll(
+        lambda: _get(http, f"{app_url}/dashboard/export", skill=skill),
+        ready=lambda rows: rows and rows[0]["conversation"],
+    )
+    assert [row["request_id"] for row in exported] == [request_id]
+    assert exported[0]["conversation"]["steps"][0]["message"] == "chart the thing"
 
 
 # --- the real hook, driven the way Claude Code drives it -----------------------

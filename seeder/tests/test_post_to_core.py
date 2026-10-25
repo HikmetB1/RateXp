@@ -40,6 +40,14 @@ def test_transcript_carries_the_atif_under_the_same_ids(run, posted, monkeypatch
     assert sent["body"]["atif"]["session_id"] == "s"
 
 
+def test_transcript_carries_the_configured_eval(run, posted, monkeypatch):
+    monkeypatch.setattr(post_to_core, "EVAL_NAME", "some-other-eval")
+    monkeypatch.setattr(build_trajectory, "OVERSIZED_RATIO", 0)
+
+    assert post_transcript(run, []) is True
+    assert posted.sent[0]["body"]["eval_name"] == "some-other-eval"
+
+
 def test_a_non_2xx_answer_is_not_accepted(run, posted):
     posted.status = 500
     assert post_feedback(run, Rating(score=1, comment="fine")) is False

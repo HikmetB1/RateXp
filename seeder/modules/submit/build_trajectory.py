@@ -2,8 +2,8 @@
 stores for a real Claude Code session (see core/api/build_trajectory.py).
 
 Message types map across as human/ai/tool -> user/agent/system. A turn that says
-nothing and calls nothing is dropped. Per-turn token usage is kept on agent steps
-and totalled into ``final_metrics``.
+nothing and calls nothing is dropped. Per-turn token usage, prompt-cache hits
+included, is kept on agent steps and totalled into ``final_metrics``.
 
 On an ``oversized_ratio`` share of runs the body is padded past core's
 ``max_transcript_bytes`` on purpose, so the "too large -> store a meta-only stub"
@@ -33,8 +33,10 @@ def messages_to_atif(run: SeededRun, messages: list) -> dict:
     """Build one complete ATIF trajectory dict. Touches nothing outside this process."""
     steps = _steps(messages)
     total_steps = len(steps)
-    prompt_tokens = sum(s["metrics"]["prompt_tokens"] for s in steps if "metrics" in s)
-    completion_tokens = sum(s["metrics"]["completion_tokens"] for s in steps if "metrics" in s)
+    metrics = [s["metrics"] for s in steps if "metrics" in s]
+    prompt_tokens = sum(m["prompt_tokens"] for m in metrics)
+    completion_tokens = sum(m["completion_tokens"] for m in metrics)
+    cached_tokens = sum(m.get("cached_tokens", 0) for m in metrics)
     if random.random() < OVERSIZED_RATIO:
         steps.append(
             {
@@ -52,6 +54,9 @@ def messages_to_atif(run: SeededRun, messages: list) -> dict:
         "final_metrics": {
             "total_prompt_tokens": prompt_tokens,
             "total_completion_tokens": completion_tokens,
+            # With no usage recorded at all, how much came from the cache is
+            # unknown, and a zero would read as nothing cached.
+            "total_cached_tokens": cached_tokens if prompt_tokens or completion_tokens else None,
             "total_steps": total_steps,
         },
     }
@@ -88,6 +93,11 @@ def _steps(messages: list) -> list[dict]:
                 "prompt_tokens": usage.get("input_tokens") or 0,
                 "completion_tokens": usage.get("output_tokens") or 0,
             }
+            # input_tokens already counts the cache hits; ATIF names them apart because
+            # they are billed at a fraction of the input rate.
+            cached_tokens = (usage.get("input_token_details") or {}).get("cache_read") or 0
+            if cached_tokens:
+                step["metrics"]["cached_tokens"] = cached_tokens
         steps.append(step)
     return steps
 

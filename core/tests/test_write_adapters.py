@@ -186,9 +186,22 @@ def test_an_unrated_run_still_becomes_a_log_record():
     assert "ratexp.score" not in record["attributes"]
 
 
-def test_a_huge_trajectory_is_truncated_and_says_so():
-    # Dynatrace rejects an oversized attribute outright, which would lose the
-    # whole record instead of the tail of one field.
+def test_a_trajectory_is_the_log_content_whole():
+    # Dynatrace caps an attribute at 32 KiB but takes a 10 MB body, so the
+    # conversation rides as the content and comes back as the JSON it went in as.
+    pytest.importorskip("opentelemetry.sdk._logs")
+    adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    emitted = _with_fake_logger(adapter)
+    atif = {"steps": [{"message": "x" * 300_000}]}
+    adapter.write_transcript(Transcript(skill_name="demo", agent="claude-code", atif=atif))
+    (record,) = emitted
+    assert json.loads(record["body"]) == atif
+    assert "ratexp.atif" not in record["attributes"]
+
+
+def test_a_trajectory_log_carries_its_summary_and_eval_as_attributes():
+    # A log viewer charts attributes, not a body, so the few numbers a dashboard
+    # wants ride beside the conversation.
     pytest.importorskip("opentelemetry.sdk._logs")
     adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
     emitted = _with_fake_logger(adapter)
@@ -196,12 +209,56 @@ def test_a_huge_trajectory_is_truncated_and_says_so():
         Transcript(
             skill_name="demo",
             agent="claude-code",
-            atif={"steps": [{"message": "x" * 300_000}]},
+            eval_name="human-satisfaction",
+            atif={
+                "agent": {"name": "claude-code", "model_name": "claude-opus-4-8"},
+                "steps": [
+                    {"step_id": 1, "source": "user", "message": "hi"},
+                    {"step_id": 2, "source": "agent", "tool_calls": [{"name": "Bash"}]},
+                ],
+                "final_metrics": {
+                    "total_prompt_tokens": 12,
+                    "total_completion_tokens": 5,
+                    "total_cached_tokens": 9,
+                },
+            },
         )
     )
     attributes = emitted[0]["attributes"]
-    assert attributes["ratexp.atif_truncated"] is True
-    assert len(attributes["ratexp.atif"]) == 200_000
+    assert attributes["ratexp.record_type"] == "transcript"
+    assert attributes["ratexp.eval_name"] == "human-satisfaction"
+    assert attributes["ratexp.steps"] == 2
+    assert attributes["ratexp.tool_calls"] == 1
+    assert attributes["ratexp.prompt_tokens"] == 12
+    assert attributes["ratexp.cached_tokens"] == 9
+    assert attributes["ratexp.completion_tokens"] == 5
+    assert attributes["ratexp.model"] == "claude-opus-4-8"
+
+
+def test_a_summary_fact_that_is_unknown_is_left_off_the_log():
+    # Cursor records no usage, so there is no token attribute to chart as zero;
+    # its model comes from the agent label the hook posted.
+    pytest.importorskip("opentelemetry.sdk._logs")
+    adapter = DynatraceWriteAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    emitted = _with_fake_logger(adapter)
+    adapter.write_transcript(
+        Transcript(
+            agent="cursor default",
+            atif={
+                "agent": {"name": "cursor", "model_name": None},
+                "steps": [{"step_id": 1, "source": "user", "message": "hi"}],
+                "final_metrics": {"total_prompt_tokens": None, "total_completion_tokens": None},
+            },
+        )
+    )
+    attributes = emitted[0]["attributes"]
+    assert attributes["ratexp.steps"] == 1
+    assert attributes["ratexp.tool_calls"] == 0
+    assert attributes["ratexp.model"] == "default"
+    assert "ratexp.prompt_tokens" not in attributes
+    assert "ratexp.cached_tokens" not in attributes
+    assert "ratexp.completion_tokens" not in attributes
+    assert "ratexp.eval_name" not in attributes
 
 
 def test_a_tenant_url_or_token_that_is_missing_is_refused():

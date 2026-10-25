@@ -1,6 +1,6 @@
 # app - the dashboard: one image serving the UI and its read-only API from a single origin.
 #
-#   docker build -t ratexp-app .
+#   docker build -t ratexp-app --build-context dashboard=../core/modules/dashboard .
 #
 # Entra (Managed Identity database auth) is built in, so RATEXP_DB_AUTH picks password
 # or entra at runtime. Nothing here is per-environment: config.yaml and the env vars
@@ -40,6 +40,10 @@ RUN uv sync --frozen --no-install-project --no-dev --extra entra
 COPY load_config.py config.yaml ./
 COPY api/ ./api/
 COPY modules/ ./modules/
+# The Dashboard view's panels live in core/modules/dashboard/; the folder comes in as the
+# extra build context named "dashboard" (see CONTRIBUTING.md) and lands at the same path
+# relative to modules/read/clone_dashboard_from_base.py as on a dev machine.
+COPY --from=dashboard dashboard_base.yaml dashboard_for_app.yaml /core/modules/dashboard/
 # The built dashboard, served by api/serve_http.py at "/".
 COPY --from=frontend /fe/dist ./static
 

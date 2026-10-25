@@ -88,14 +88,14 @@ def test_query_filter_returns_most_recent_first(app_with_fake_pool):
 
 
 def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
-    """A filter carries its rows' transcripts, looked up by their request_id/session_id."""
+    """A filter carries its rows' transcripts, looked up by their request_id."""
     client, pool = app_with_fake_pool
     pool.set_columns(["skill_name", "created_at", "request_id", "session_id"])
     pool.set_select_rows([("handoff", "2026-06-10T00:00:00Z", "req1", "sess1")])
     captured = {}
 
-    def fake_transcripts(req_ids, sess_ids):
-        captured["req"], captured["sess"] = req_ids, sess_ids
+    def fake_transcripts(request_ids):
+        captured["request_ids"] = request_ids
         return [
             (
                 "2026-06-10T00:00:00Z",
@@ -108,12 +108,14 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
             )
         ]
 
-    monkeypatch.setattr(client.app.state.read, "select_transcripts_by_ids", fake_transcripts)
+    monkeypatch.setattr(
+        client.app.state.read, "select_transcripts_by_request_ids", fake_transcripts
+    )
     body = client.post(
         "/query",
         json={"query": "SELECT skill_name, created_at, request_id, session_id FROM feedback"},
     ).json()
-    assert captured == {"req": ["req1"], "sess": ["sess1"]}  # ids taken from the shown rows
+    assert captured == {"request_ids": ["req1"]}  # ids taken from the shown rows
     assert len(body["transcripts"]) == 1
     assert body["transcripts"][0]["request_id"] == "req1"
 
@@ -127,7 +129,7 @@ def test_query_full_skips_transcripts(app_with_fake_pool, monkeypatch):
     def boom(*_):
         raise AssertionError("transcripts must not be fetched for a full export")
 
-    monkeypatch.setattr(client.app.state.read, "select_transcripts_by_ids", boom)
+    monkeypatch.setattr(client.app.state.read, "select_transcripts_by_request_ids", boom)
     body = client.post("/query", json={"query": "SELECT * FROM feedback", "full": True}).json()
     assert body["transcripts"] == []
 

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import Dashboard from './Dashboard.jsx'
+import { cardHeading, glassCard, groupBox } from './styles.js'
 
 // Same origin as the API in the built image (VITE_API_BASE ""); defaults to the API on :8001 in dev.
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8001'
@@ -91,7 +93,7 @@ function downloadInfoMd(queryLanguage = 'SQL', queryExample = EXAMPLE_SQL) {
   const example = queryExample || EXAMPLE_SQL
   return `### Preview & downloads
 
-The dashboard updates in **real time**. To stay fast, the table and the filter box
+The dashboard updates in **real time**. To stay fast, the table and the query box
 only ever show the **10 most recent** entries. An entry is one rating: either one
 **skill** run, or a whole **agent session** (Claude Code or Cursor).
 
@@ -128,52 +130,24 @@ function subjectExample(example, field) {
   return example.replace('skill_name', field)
 }
 
-// Outer frame bundling the inner cards into one section (the chunky "big box").
-const groupBox = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 14,
-  border: '4px solid var(--ink)',
-  padding: 14,
-  marginBottom: 24,
-  background: 'var(--box)',
-  boxShadow: '5px 5px 0 var(--ink)',
-}
-
-// The inner card each section sits in. Shared so the cards stay identical.
-const glassCard = {
-  margin: 0,
-  border: '4px solid var(--ink)',
-  padding: '18px 20px',
-  background: 'var(--panel)',
-  boxShadow: '5px 5px 0 var(--ink)',
-}
-
-// Heading shared by all three cards: a pixel-font block in the button colour.
-const cardHeading = {
-  margin: 0,
-  display: 'inline-block',
-  fontFamily: "'Press Start 2P', monospace",
-  fontSize: 13,
-  color: 'var(--btnfg)',
-  background: 'var(--btn)',
-  padding: '7px 11px',
-  border: '3px solid var(--ink)',
-  boxShadow: '3px 3px 0 var(--box)',
-}
+// The two pages under the header: the panel dashboard, and the query box with its table.
+const VIEWS = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'table', label: 'Query & table' },
+]
 
 export default function App() {
   const [allRows, setAllRows] = useState([]) // full list from /feedback
   const [rows, setRows] = useState([]) // what the table shows (all, or filtered)
   const [stats, setStats] = useState([]) // top-rated skills from /stats/top-skills
-  const [byKey, setByKey] = useState({}) // transcripts for the live preview rows
-  const [filterByKey, setFilterByKey] = useState({}) // transcripts for the filtered rows
+  const [byRequestId, setByRequestId] = useState(() => new Map()) // transcripts for the live preview rows
+  const [filterByRequestId, setFilterByRequestId] = useState(() => new Map()) // transcripts for the filtered rows
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState(null) // { truncated } while a filter is active
   const [live, setLive] = useState(false) // true while the live WebSocket is connected
   const [meta, setMeta] = useState({ query_language: 'SQL', query_example: EXAMPLE_SQL }) // filter-box language and the install popup's core, from /meta
-  const [liveTick, setLiveTick] = useState(0) // bumped on every live snapshot, to re-run an active filter
+  const [liveTick, setLiveTick] = useState(0) // bumped on every live snapshot, the on-connect one too, to re-run an active filter and the Dashboard
   // Theme is applied to <html data-theme> (see index.html/index.css). Default dark.
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'light')
   // Which row's transcript is shown in the slide-over trajectory drawer.
@@ -182,17 +156,28 @@ export default function App() {
   const [guideOpen, setGuideOpen] = useState(false)
   // Whether the "preview & download" info popup is open (shared by the notes and the (i) badge).
   const [infoOpen, setInfoOpen] = useState(false)
+  // Which page is showing: 'dashboard' (panels) or 'table' (query box + feedback table). Until
+  // the user picks a tab, a read source other than SQL opens on the table: its Dashboard only
+  // says the panels need PostgreSQL (the same test GET /dashboard makes).
+  const [pickedView, setPickedView] = useState(null)
+  const view = pickedView ?? (meta.query_language === 'SQL' ? 'dashboard' : 'table')
 
   // Mirror filter into a ref so the WS handler reads the latest value without re-subscribing.
   const filterRef = useRef(false)
   useEffect(() => { filterRef.current = !!filter }, [filter])
+  // Set once any data has been applied, so a slow initial fetch that fails after a live
+  // snapshot landed does not hide that data behind its error.
+  const dataApplied = useRef(false)
 
   // Apply a dataset (initial fetch or live snapshot). Index transcripts so each row
-  // finds its conversation; leave the visible rows alone while a filter is active.
+  // finds its conversation; leave the visible rows alone while a filter is active. A live
+  // snapshot clears a failed initial fetch's error, so the view recovers on its own.
   const applyData = useCallback((feedback, transcripts, topSkills) => {
     const index = indexTranscripts(transcripts)
+    dataApplied.current = true
+    setError(null)
     setAllRows(feedback)
-    setByKey(index)
+    setByRequestId(index)
     setStats(topSkills ?? [])
     if (!filterRef.current) setRows(feedback)
   }, [])
@@ -213,7 +198,7 @@ export default function App() {
     // shape the live WS pushes, so every row finds its trajectory.
     fetch(`${API_BASE}/snapshot`).then(okJson)
       .then((d) => applyData(d.feedback ?? [], d.transcripts ?? [], d.stats ?? []))
-      .catch((e) => setError(String(e)))
+      .catch((e) => { if (!dataApplied.current) setError(String(e)) })
       .finally(() => setLoading(false))
   }, [applyData])
 
@@ -234,7 +219,10 @@ export default function App() {
           const msg = JSON.parse(e.data)
           if (msg.type === 'snapshot') {
             applyData(msg.feedback ?? [], msg.transcripts ?? [], msg.stats ?? [])
-            setLiveTick((n) => n + 1) // nudge an active filter to re-run against fresh data
+            // One re-fetch of an active filter and the Dashboard per snapshot, the on-connect
+            // one too (so usually one or two on page load): it is what retries a Dashboard
+            // whose first load failed.
+            setLiveTick((n) => n + 1)
           }
         } catch { /* ignore malformed frames */ }
       }
@@ -254,10 +242,7 @@ export default function App() {
 
   // While filtering, resolve trajectories from the filter's own index (its rows' transcripts);
   // otherwise from the live preview index.
-  const transcriptFor = (r) => {
-    const index = filter ? filterByKey : byKey
-    return index[`r:${r.request_id}`] || index[`s:${r.session_id}`] || null
-  }
+  const transcriptFor = (r) => (filter ? filterByRequestId : byRequestId).get(r.request_id)
 
   // Claude Code records the model per turn inside the trajectory, so it is known
   // for rows whose conversation was consented. Runtimes that put it in the agent
@@ -273,12 +258,12 @@ export default function App() {
   // the full list.
   const applyFilter = (resultRows, transcripts, meta) => {
     setRows(resultRows)
-    setFilterByKey(indexTranscripts(transcripts))
+    setFilterByRequestId(indexTranscripts(transcripts))
     setFilter(meta)
   }
   const clearFilter = () => {
     setRows(allRows)
-    setFilterByKey({})
+    setFilterByRequestId(new Map())
     setFilter(null)
   }
 
@@ -331,61 +316,70 @@ export default function App() {
           </button>
         </div>
       </div>
-      {(loading || error || filter) && (
-        <p style={{ color: 'var(--muted)', marginTop: 4 }}>
-          <StatusLine loading={loading} error={error} filtered={!!filter} />
-        </p>
-      )}
-      <div className="glow-edge" style={groupBox}>
-        <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
-        {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
-        {!loading && !error && (
-          <section className="glow-edge" style={glassCard}>
-            <h2 style={cardHeading}>Feedback</h2>
-            <PreviewNote onInfo={() => setInfoOpen(true)} />
-            {/* Scrolls sideways inside the card on tight widths instead of overflowing. */}
-            <div className="table-scroll">
-            <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
-              <thead>
-                <tr>
-                  <Th>When</Th>
-                  <Th>Type</Th>
-                  <Th>Name</Th>
-                  <Th>Agent</Th>
-                  <Th>Model</Th>
-                  <Th>Eval</Th>
-                  <Th>Score</Th>
-                  <Th>Comment</Th>
-                  <Th>Trajectory</Th>
-                  <Th>Session</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => (
-                  <tr key={i}>
-                    <Td label="When">{r.created_at}</Td>
-                    <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
-                    <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
-                    <Td label="Agent"><code>{r.agent}</code></Td>
-                    <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
-                    <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
-                    <Td label="Score">{scoreLabel(r.score)}</Td>
-                    <Td label="Comment">{r.comment ?? <Dash />}</Td>
-                    <Td label="Trajectory"><Trajectory transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
-                    <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </section>
+      <ViewModeTabs view={view} onChange={setPickedView} />
+      {/* Both views stay mounted and only hide, so switching back keeps the typed query,
+          the chosen filters and the drawn panels. Hidden, the Dashboard asks the API
+          nothing; shown again, it refreshes once. */}
+      <ViewPanel viewKey="dashboard" view={view}>
+        <Dashboard apiBase={API_BASE} liveTick={liveTick} active={view === 'dashboard'} />
+      </ViewPanel>
+      <ViewPanel viewKey="table" view={view}>
+        {(loading || error || filter) && (
+          <p style={{ color: 'var(--muted)', marginTop: 4 }}>
+            <StatusLine loading={loading} error={error} filtered={!!filter} />
+          </p>
         )}
-      </div>
-      {!loading && !error && (
         <div className="glow-edge" style={groupBox}>
-          <TopSkills skills={stats} />
+          <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
+          {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
+          {!loading && !error && (
+            <section className="glow-edge" style={glassCard}>
+              <h2 style={cardHeading}>Feedback</h2>
+              <PreviewNote onInfo={() => setInfoOpen(true)} />
+              {/* Scrolls sideways inside the card on tight widths instead of overflowing. */}
+              <div className="table-scroll">
+              <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
+                <thead>
+                  <tr>
+                    <Th>When</Th>
+                    <Th>Type</Th>
+                    <Th>Name</Th>
+                    <Th>Agent</Th>
+                    <Th>Model</Th>
+                    <Th>Eval</Th>
+                    <Th>Score</Th>
+                    <Th>Comment</Th>
+                    <Th>Trajectory</Th>
+                    <Th>Session</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={i}>
+                      <Td label="When">{r.created_at}</Td>
+                      <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
+                      <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
+                      <Td label="Agent"><code>{r.agent}</code></Td>
+                      <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
+                      <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
+                      <Td label="Score">{scoreLabel(r.score)}</Td>
+                      <Td label="Comment">{r.comment ?? <Dash />}</Td>
+                      <Td label="Trajectory"><Trajectory transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
+                      <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+            </section>
+          )}
         </div>
-      )}
+        {!loading && !error && (
+          <div className="glow-edge" style={groupBox}>
+            <TopSkills skills={stats} />
+          </div>
+        )}
+      </ViewPanel>
       {/* Subtle credit: barely above the background, brightens on hover. */}
       <footer className="app-footer">
         developed by{' '}
@@ -396,6 +390,41 @@ export default function App() {
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
       <InstallGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} coreUrl={meta.core_url} />
       <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
+    </div>
+  )
+}
+
+// "View mode:" label and one tab per page, in the same tab buttons the install popup
+// uses to pick a coding agent.
+function ViewModeTabs({ view, onChange }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 10, color: 'var(--onbg)', marginRight: 4 }}>View mode:</span>
+      <div role="tablist" aria-label="View mode" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {VIEWS.map((v) => (
+          <button
+            key={v.key}
+            id={`view-tab-${v.key}`}
+            role="tab"
+            aria-selected={view === v.key}
+            aria-controls={`view-panel-${v.key}`}
+            className="btn-edge"
+            onClick={() => onChange(v.key)}
+            style={{ padding: '7px 14px', lineHeight: 1.2, opacity: view === v.key ? 1 : 0.55 }}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// One page under ViewModeTabs, named by the tab that shows it.
+function ViewPanel({ viewKey, view, children }) {
+  return (
+    <div role="tabpanel" id={`view-panel-${viewKey}`} aria-labelledby={`view-tab-${viewKey}`} hidden={view !== viewKey}>
+      {children}
     </div>
   )
 }
@@ -419,14 +448,13 @@ function okJson(r) {
   return r.json()
 }
 
-// Index transcripts by request_id (1:1) then session_id (fallback) so a row finds its conversation.
+// Transcripts by request_id, the one key a rating finds its conversation by: core gives
+// every record a request_id, and a rating and its transcript are posted under the same one.
+// A looser match (the same session, say) could only borrow another run's conversation, such
+// as when the user declined to store their own. The Dashboard's Download trajectories pairs
+// by the same rule (app/api/run_dashboard_panels.py).
 function indexTranscripts(transcripts) {
-  const index = {}
-  for (const t of transcripts) {
-    if (t.request_id) index[`r:${t.request_id}`] = t
-    if (t.session_id) index[`s:${t.session_id}`] = t
-  }
-  return index
+  return new Map(transcripts.filter((t) => t.request_id).map((t) => [t.request_id, t]))
 }
 
 // Dot showing whether the live WebSocket is connected: green when streaming, grey when offline.
@@ -577,10 +605,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
         exportRows = rows.slice(0, 10)
       }
       const index = indexTranscripts(await fetch(`${apiBase}/transcript?full=true`).then(okJson))
-      const exportWithConversation = exportRows.map((r) => {
-        const transcript = index[`r:${r.request_id}`] || index[`s:${r.session_id}`]
-        return { ...r, conversation: transcript?.atif ?? null }
-      })
+      const exportWithConversation = exportRows.map((r) => ({ ...r, conversation: index.get(r.request_id)?.atif ?? null }))
       const json = JSON.stringify(exportWithConversation, null, 2)
       const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
       const a = document.createElement('a')

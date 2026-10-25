@@ -26,6 +26,7 @@ class Transcript(BaseModel):
     session_id: str | None = None  # server fills if missing
     skill_name: str | None = None  # absent when the rating is for a whole session
     agent: str  # required; identifies the calling agent runtime
+    eval_name: str | None = None  # the eval (survey) the rating answered, named as in evals/
     schema_version: str = SCHEMA_VERSION  # from config.yaml
     atif: dict  # ATIF trajectory; required
     request_id: str | None = None  # idempotency key; dedup when present

@@ -56,10 +56,8 @@ def test_azure_dashboard_links_feedback_to_its_trajectory(http):
     if not data["feedback"]:
         pytest.skip("nothing rated on the deployed dashboard yet")
 
-    # Either id links the two; both are optional, so a missing one must not match.
-    tx_ids = {t["request_id"] for t in data["transcripts"]}
-    tx_ids |= {t["session_id"] for t in data["transcripts"]}
-    tx_ids.discard(None)
-    assert any(f["request_id"] in tx_ids or f["session_id"] in tx_ids for f in data["feedback"]), (
+    # The dashboard pairs a rating with its trajectory by request_id alone.
+    tx_ids = {t["request_id"] for t in data["transcripts"]} - {None}
+    assert any(f["request_id"] in tx_ids for f in data["feedback"]), (
         "no feedback row has a matching transcript - trajectories would show empty"
     )

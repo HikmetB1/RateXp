@@ -148,28 +148,53 @@ def test_session_state_lines_are_not_conversation_and_stay_out():
 
 def test_final_metrics_total_the_steps_and_tokens():
     metrics = claude_jsonl_to_atif(SESSION, session_id="s", agent="x")["final_metrics"]
-    assert metrics == {"total_prompt_tokens": 12, "total_completion_tokens": 5, "total_steps": 4}
+    assert metrics == {
+        "total_prompt_tokens": 12,
+        "total_completion_tokens": 5,
+        "total_cached_tokens": 0,  # usage was recorded, and none of it was a cache hit
+        "total_steps": 4,
+    }
 
 
-def test_cached_context_counts_towards_prompt_tokens():
-    # With prompt caching, input_tokens alone is a tiny slice of what the model
-    # actually processed. Summing all three input kinds gives 7 + 100 + 20.
-    raw = json.dumps(
+def _turn_using(usage: dict) -> str:
+    return json.dumps(
         {
             "type": "assistant",
             "message": {
                 "role": "assistant",
                 "content": [{"type": "text", "text": "hi"}],
-                "usage": {
-                    "input_tokens": 7,
-                    "output_tokens": 3,
-                    "cache_read_input_tokens": 100,
-                    "cache_creation_input_tokens": 20,
-                },
+                "usage": usage,
             },
         }
     )
-    assert _steps(raw)[0]["metrics"] == {"prompt_tokens": 127, "completion_tokens": 3}
+
+
+CACHED_TURN = _turn_using(
+    {
+        "input_tokens": 7,
+        "output_tokens": 3,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 20,
+    }
+)
+
+
+def test_cached_context_counts_towards_prompt_tokens_and_its_cache_hits_are_kept():
+    # With prompt caching, input_tokens alone is a tiny slice of what the model
+    # actually processed. Summing all three input kinds gives 7 + 100 + 20; the
+    # 100 read from the cache are ATIF's cached_tokens, billed at the cache rate.
+    assert _steps(CACHED_TURN)[0]["metrics"] == {
+        "prompt_tokens": 127,
+        "completion_tokens": 3,
+        "cached_tokens": 100,
+    }
+
+
+def test_the_cache_hits_are_totalled_across_turns():
+    raw = "\n".join([CACHED_TURN, CACHED_TURN, _turn_using({"input_tokens": 5})])
+    metrics = claude_jsonl_to_atif(raw, session_id="s", agent="x")["final_metrics"]
+    assert metrics["total_prompt_tokens"] == 127 + 127 + 5
+    assert metrics["total_cached_tokens"] == 200
 
 
 def test_blank_and_unparsable_lines_are_ignored():
@@ -183,6 +208,8 @@ def test_an_empty_session_file_yields_no_steps():
     trajectory = claude_jsonl_to_atif("", session_id="s", agent="x")
     assert trajectory["steps"] == []
     assert trajectory["final_metrics"]["total_steps"] == 0
+    # No usage recorded, so the cache hits are unknown rather than zero.
+    assert trajectory["final_metrics"]["total_cached_tokens"] is None
 
 
 # The three turns that ask for a rating (the instruction the hook hands the agent,
@@ -320,12 +347,14 @@ def test_a_cursor_model_name_comes_from_the_agent_label_when_no_line_carries_one
     assert trajectory["agent"] == {"name": "cursor", "model_name": "gpt-5.1-codex"}
 
 
-def test_cursor_token_totals_are_zero_because_cursor_records_none():
-    """Not a free session - Cursor simply never writes usage to the transcript."""
+def test_cursor_token_totals_are_unknown_because_cursor_records_none():
+    """Not a free session - Cursor simply never writes usage to the transcript, so
+    the totals are None (not recorded) rather than a zero that reads as free."""
     metrics = cursor_jsonl_to_atif(CURSOR_SESSION, session_id="s", agent="cursor")["final_metrics"]
     assert metrics == {
-        "total_prompt_tokens": 0,
-        "total_completion_tokens": 0,
+        "total_prompt_tokens": None,
+        "total_completion_tokens": None,
+        "total_cached_tokens": None,
         "total_steps": 3,
     }
 

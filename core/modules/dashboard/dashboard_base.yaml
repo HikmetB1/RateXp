@@ -1,0 +1,11 @@
+# What every RateXp dashboard shows, whichever destination draws it: a panel id, its
+# title and its kind (number | line | bar | table). Each dashboard_for_<destination>.yaml
+# clones this file - it carries every id below, adds how that destination draws it, and
+# may add panels of its own (see clone_dashboard_from_base.py).
+panels:
+  good_bad_over_time:
+    title: Good vs bad per day
+    kind: line
+  sessions_usage:
+    title: "Sessions: steps, tool calls, tokens, model"
+    kind: table

@@ -603,6 +603,34 @@ summary:hover { opacity: 0.8; }
   overflow-wrap: anywhere;
 }
 
+/* Dashboard view: the filter controls and the panel grid (Dashboard.jsx). Panels sit on a
+   12-column grid: number tiles four across, bar panels three across, the rest full width.
+   minmax(0, 1fr) + min-width: 0 let a wide table scroll inside its panel instead of
+   stretching the grid. */
+.dashboard-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  color: var(--muted);
+}
+.dashboard-field { display: flex; flex-direction: column; gap: 5px; }
+.dashboard-select {
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel2);
+  border: 3px solid var(--ink);
+  padding: 7px 8px;
+  min-width: 140px;
+  max-width: 240px;
+}
+.dashboard-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.dashboard-grid > * { min-width: 0; }
+.panel-number { grid-column: span 3; }
+.panel-bar { grid-column: span 4; }
+.panel-line, .panel-table { grid-column: span 12; }
+.chart-label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; fill: var(--muted); }
+
 /* Phones (<=640px): tighten and turn the table into a stack of cards. */
 @media (max-width: 640px) {
   .app { padding: 16px 14px; }
@@ -648,4 +676,10 @@ summary:hover { opacity: 0.8; }
      pushing the page wider than it. */
   .btn-install { display: flex; flex-direction: column; padding: 9px 12px; }
   .btn-install span { white-space: normal; overflow-wrap: anywhere; }
+
+  /* Dashboard panels: number tiles two across, everything else one per row. */
+  .panel-number { grid-column: span 6; }
+  .panel-bar { grid-column: span 12; }
+  .dashboard-field { width: 100%; }
+  .dashboard-select { width: 100%; max-width: none; }
 }

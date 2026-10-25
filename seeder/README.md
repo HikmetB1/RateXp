@@ -51,7 +51,8 @@ uv sync && uv run python -m api.run_continuously
   many turns it gets before it has to rate
 - `core_url`: where the rating and the trajectory are posted
 - `eval_name`: the eval the rating answers, named as in core's [`evals/`](../core/evals/) -
-  the prompts below ask its question
+  the prompts below ask its question. The rating carries it, and so does the trajectory, for
+  the Dynatrace dashboard to filter transcripts by
 - `interval_seconds`: gap between rounds (one skill run, then one session run) for the local
   loop only - the deployed timers take their cadence from `SEED_SCHEDULE` instead
 - `critical_ratio` / `oversized_ratio`: share of runs that review harshly, and share bloated

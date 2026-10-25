@@ -4,7 +4,7 @@ version = "2.0.0"
 description = "RateXp dashboard: read-only API over stored feedback, plus the dashboard UI."
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.110",
+    "fastapi>=0.115",
     "uvicorn[standard]>=0.27",
     "pyyaml>=6.0",
     "psycopg[binary]>=3.1",

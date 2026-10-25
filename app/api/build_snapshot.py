@@ -1,8 +1,8 @@
 """The dashboard's whole view in one payload: feedback, their transcripts, and stats.
 
-Transcripts are looked up by the shown feedback's request_id/session_id, not fetched as
-"the newest N" - any rating stored without a transcript would otherwise push the two
-lists out of step, and rows would show no trajectory though one exists.
+Transcripts are looked up by the shown feedback's request_id, not fetched as "the newest
+N" - any rating stored without a transcript would otherwise push the two lists out of
+step, and rows would show no trajectory though one exists.
 """
 
 from __future__ import annotations
@@ -47,10 +47,8 @@ def row_to_transcript(r) -> Transcript:
 
 
 def transcripts_for(read: ReadAdapter, feedback_rows: list[tuple]) -> list[tuple]:
-    """Transcript rows belonging to `feedback_rows`, matched by request_id / session_id."""
-    request_ids = [r[6] for r in feedback_rows if r[6]]
-    session_ids = [r[1] for r in feedback_rows if r[1]]
-    return read.select_transcripts_by_ids(request_ids, session_ids)
+    """Transcript rows belonging to `feedback_rows`, matched by request_id."""
+    return read.select_transcripts_by_request_ids([r[6] for r in feedback_rows if r[6]])
 
 
 def build_snapshot(read: ReadAdapter) -> dict:

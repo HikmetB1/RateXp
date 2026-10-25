@@ -5,27 +5,30 @@ app/                                 THE DASHBOARD  (image: app)
 │
 ├── api/                          ── the read-only HTTP surface
 │   ├── serve_http.py                routes, CORS, the static UI mount, startup/shutdown
-│   ├── record_schemas.py            Feedback, Transcript, QueryRequest
+│   ├── record_schemas.py            Feedback, Transcript, QueryRequest, PanelFilters, PanelRequest
 │   ├── build_snapshot.py            rows → models, and the feedback↔transcript matching
 │   ├── trim_result_rows.py          newest-first, the view cap, the Download rule
+│   ├── run_dashboard_panels.py      the Dashboard view: filter values, one panel's rows, the export
 │   └── broadcast_live.py            the /ws client set and the one broadcaster loop
 │
 ├── modules/
 │   └── read/                     ── get records back from the one chosen source
 │       ├── open_read_source.py      reads config, builds the single enabled source
 │       ├── connect_to_postgres.py   password / Entra connection modes
+│       ├── clone_dashboard_from_base.py   the panels, from ../core/modules/dashboard/ (copied into the image); core's code, kept equal by a test
 │       └── adapters/
 │           ├── read_adapter_interface.py       what a source must implement
-│           ├── read_from_postgres.py           shared SQL reading logic
+│           ├── read_from_postgres.py           shared SQL reading logic, and the Dashboard view's SQL
 │           ├── read_from_dynatrace.py          shared DQL reading logic
 │           ├── read_from_app_be_psql.py        RateXp's own database
 │           ├── read_from_custom_psql.py        an adopter's PostgreSQL
 │           ├── read_from_app_be_dynatrace.py   RateXp's Dynatrace tenant
-│           └── read_from_custom_dynatrace.py   an adopter's Dynatrace tenant
+│           ├── read_from_custom_dynatrace.py   an adopter's Dynatrace tenant
+│           └── read_from_phoenix.py            an Arize Phoenix project
 │
 ├── FE/                           ── the React dashboard
 │   ├── index.html, vite.config.js, package.json, package-lock.json
-│   ├── src/{App.jsx, main.jsx, index.css}
+│   ├── src/{App.jsx, Dashboard.jsx, styles.js, main.jsx, index.css}
 │   └── public/                      favicons, logo, og-image
 │
 ├── tests/                        ── the app's own tests, mocked, no database
@@ -33,8 +36,10 @@ app/                                 THE DASHBOARD  (image: app)
 │   ├── test_serve_http.py
 │   ├── test_serve_http_query.py
 │   ├── test_serve_http_cors.py
+│   ├── test_serve_http_dashboard.py
 │   ├── test_build_snapshot.py
 │   ├── test_broadcast_live.py
+│   ├── test_clone_dashboard_from_base.py
 │   └── test_read_adapters.py
 │
 ├── load_config.py                   reads config.yaml, fails loudly on a missing key

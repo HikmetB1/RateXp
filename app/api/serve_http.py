@@ -2,7 +2,8 @@
 
 This service never writes - core is the only writer - so it can run with a read-only
 database identity. The one read source is opened at startup and every endpoint goes
-through it, so nothing here knows which of the four sources is actually answering.
+through it; only the Dashboard endpoints need it to be PostgreSQL, because their panel SQL
+is PostgreSQL's.
 """
 
 from __future__ import annotations
@@ -12,10 +13,18 @@ import contextlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
 from api.broadcast_live import broadcast_changes, hub
 from api.build_snapshot import build_snapshot, display_name, row_to_feedback, row_to_transcript
-from api.record_schemas import Feedback, QueryRequest, Transcript
+from api.record_schemas import Feedback, PanelFilters, PanelRequest, QueryRequest, Transcript
+from api.run_dashboard_panels import (
+    export_feedback,
+    filter_values,
+    find_panel,
+    load_dashboard,
+    run_panel,
+)
 from api.trim_result_rows import apply_download_rule, jsonable, most_recent
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -194,10 +203,9 @@ def run_query(req: QueryRequest) -> dict:
     transcripts: list[dict] = []
     if not req.full:
         request_ids = [r["request_id"] for r in result if r.get("request_id")]
-        session_ids = [r["session_id"] for r in result if r.get("session_id")]
         transcripts = [
             row_to_transcript(t).model_dump()
-            for t in read.select_transcripts_by_ids(request_ids, session_ids)
+            for t in read.select_transcripts_by_request_ids(request_ids)
         ]
 
     return {
@@ -207,6 +215,65 @@ def run_query(req: QueryRequest) -> dict:
         "row_count": len(result),
         "truncated": truncated,
     }
+
+
+def _dashboard_unavailable_reason(read) -> str | None:
+    # The Dashboard SQL is PostgreSQL's, so run_dashboard_sql is only on PostgresReadAdapter,
+    # not on the ReadAdapter Protocol: Dynatrace draws its dashboard in its own tool.
+    if read.query_language == "SQL":
+        return None
+    return f"the Dashboard view reads from PostgreSQL only; this app reads from {read.name}"
+
+
+@app.get("/dashboard")
+def dashboard() -> dict:
+    """What the Dashboard view draws: the dropdown values, the panels (id, title, kind), and
+    how many ratings its download holds at most."""
+    read = app.state.read
+    if reason := _dashboard_unavailable_reason(read):
+        return {"available": False, "reason": reason}
+    dashboard = load_dashboard()
+    try:
+        filters = filter_values(read, dashboard)
+    except Exception as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
+    return {
+        "available": True,
+        "filters": filters,
+        "panels": [
+            {"id": p["id"], "title": p["title"], "kind": p["kind"]} for p in dashboard["panels"]
+        ],
+        "download_limit": LIST_MAX_LIMIT,
+    }
+
+
+@app.post("/dashboard/panel")
+def dashboard_panel(req: PanelRequest) -> dict:
+    """One panel's columns and rows, the filters applied."""
+    read = app.state.read
+    if reason := _dashboard_unavailable_reason(read):
+        raise HTTPException(status.HTTP_409_CONFLICT, reason)
+    dashboard = load_dashboard()
+    panel = find_panel(dashboard, req.panel)
+    if panel is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"unknown panel {req.panel!r}")
+    try:
+        return run_panel(read, dashboard, panel, req.filters)
+    except Exception as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
+
+
+@app.get("/dashboard/export")
+def dashboard_export(filters: Annotated[PanelFilters, Query()]) -> list[dict]:
+    """The newest ratings that match the filters, with their conversations ("Download
+    trajectories")."""
+    read = app.state.read
+    if reason := _dashboard_unavailable_reason(read):
+        raise HTTPException(status.HTTP_409_CONFLICT, reason)
+    try:
+        return export_feedback(read, load_dashboard(), filters)
+    except Exception as e:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
 
 
 def _ws_origin_allowed(websocket: WebSocket) -> bool:

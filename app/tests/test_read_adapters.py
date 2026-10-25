@@ -54,7 +54,39 @@ def test_select_top_skills_maps():
     assert a.select_top_skills(10) == [{"skill_name": "demo", "total": 5, "good": 4, "bad": 1}]
 
 
-def test_transcript_valid_atif_parsed():
+def test_transcript_atif_is_parsed_from_the_log_content():
+    a = DynatraceReadAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    captured = {}
+
+    def _dql(query):
+        captured["query"] = query
+        return [
+            {
+                "timestamp": "2026-07-12T10:15:13Z",
+                "ratexp.session_id": "s1",
+                "ratexp.skill_name": "demo",
+                "ratexp.agent": "cc",
+                "ratexp.schema_version": "ATIF-v1.7",
+                "content": '{"schema_version":"ATIF-v1.7","steps":[]}',
+                "ratexp.request_id": "r1",
+            }
+        ]
+
+    a._dql = _dql
+    (row,) = a.select_transcript(10)
+    assert row[5] == {"schema_version": "ATIF-v1.7", "steps": []}
+    assert "content" in captured["query"]  # the trajectory rides in the log body, not an attribute
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"steps":[{"message":"hi',  # cut off -> invalid JSON
+        "a plain line",
+        None,  # a log with no content at all
+    ],
+)
+def test_transcript_without_atif_in_its_content_becomes_stub(content):
     a = _adapter(
         [
             {
@@ -63,32 +95,13 @@ def test_transcript_valid_atif_parsed():
                 "ratexp.skill_name": "demo",
                 "ratexp.agent": "cc",
                 "ratexp.schema_version": "ATIF-v1.7",
-                "ratexp.atif": '{"schema_version":"ATIF-v1.7","steps":[]}',
+                "content": content,
                 "ratexp.request_id": "r1",
             }
         ]
     )
     (row,) = a.select_transcript(10)
     assert row[5] == {"schema_version": "ATIF-v1.7", "steps": []}
-
-
-def test_transcript_truncated_atif_becomes_stub():
-    a = _adapter(
-        [
-            {
-                "timestamp": "2026-07-12T10:15:13Z",
-                "ratexp.session_id": "s1",
-                "ratexp.skill_name": "demo",
-                "ratexp.agent": "cc",
-                "ratexp.schema_version": "ATIF-v1.7",
-                "ratexp.atif": '{"steps":[{"message":"hi',  # truncated -> invalid JSON
-                "ratexp.request_id": "r1",
-            }
-        ]
-    )
-    (row,) = a.select_transcript(10)
-    assert row[5]["dynatrace_truncated"] is True
-    assert row[5]["steps"] == []
 
 
 def test_dynatrace_run_query_executes_dql_and_maps():
@@ -134,14 +147,24 @@ def test_dynatrace_query_language_is_dql():
     assert DynatraceReadAdapter("x", "https://t", "tok").query_language == "DQL"
 
 
-def test_transcripts_by_ids_empty_skips_query():
+def test_transcripts_by_request_ids_filters_on_request_id_only():
+    captured = []
+    a = DynatraceReadAdapter("app_be_dynatrace", "https://tenant.example", "tok")
+    a._dql = lambda query: captured.append(query) or []
+    a.select_transcripts_by_request_ids(["r1", 'r"2'])
+    (query,) = captured
+    assert 'in(ratexp.request_id, "r1", "r\\"2")' in query
+    assert "session_id)" not in query
+
+
+def test_transcripts_by_request_ids_empty_skips_query():
     a = DynatraceReadAdapter("app_be_dynatrace", "https://tenant.example", "tok")
 
     def _boom(_query):
         raise AssertionError("must not query when there are no ids")
 
     a._dql = _boom
-    assert a.select_transcripts_by_ids([], []) == []
+    assert a.select_transcripts_by_request_ids([]) == []
 
 
 def test_requires_query_url_and_token():
@@ -274,20 +297,19 @@ def test_phoenix_top_skills_leaves_out_whole_session_ratings():
     assert a.select_top_skills(10) == [{"skill_name": "demo", "total": 1, "good": 1, "bad": 0}]
 
 
-def test_phoenix_transcripts_by_ids_matches_either_id():
-    a = _phoenix([_span(request_id="r1", session_id="s1"), _span(request_id="r2", session_id="s2")])
-    assert [row[6] for row in a.select_transcripts_by_ids(["r2"], [])] == ["r2"]
-    assert [row[6] for row in a.select_transcripts_by_ids([], ["s1"])] == ["r1"]
+def test_phoenix_transcripts_by_request_ids_skips_the_same_sessions_other_runs():
+    a = _phoenix([_span(request_id="r1", session_id="s1"), _span(request_id="r2", session_id="s1")])
+    assert [row[6] for row in a.select_transcripts_by_request_ids(["r2"])] == ["r2"]
 
 
-def test_phoenix_transcripts_by_ids_empty_skips_query():
+def test_phoenix_transcripts_by_request_ids_empty_skips_query():
     a = PhoenixReadAdapter("https://phoenix.example", "key", "ratexp")
 
     def _boom(params, timeout=30.0):
         raise AssertionError("must not query when there are no ids")
 
     a._spans = _boom
-    assert a.select_transcripts_by_ids([], []) == []
+    assert a.select_transcripts_by_request_ids([]) == []
 
 
 def test_phoenix_filter_box_becomes_query_params():

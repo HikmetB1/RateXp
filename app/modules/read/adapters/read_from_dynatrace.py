@@ -6,8 +6,8 @@ shapes the PostgreSQL adapter returns, so ``api/`` stays unchanged. Stdlib only.
 The filter box speaks **DQL** here (``query_language = "DQL"``): ``run_query`` runs the
 user's DQL read query, row-capped, and normalizes the columns for the table. Inherent
 limits (Dynatrace is a log store):
-- Transcripts carry only the truncated ``ratexp.atif`` attribute, so full trajectories
-  don't reconstruct; a stub atif is returned for those.
+- A transcript's trajectory is the log's ``content``; a transcript log whose content is
+  not the ATIF JSON object comes back as a stub atif with no steps.
 - Each read is an async DQL query, so the live feed costs more than a SQL count.
 """
 
@@ -32,7 +32,7 @@ _FEEDBACK_FIELDS = (
 )
 _TRANSCRIPT_FIELDS = (
     "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent, "
-    "ratexp.schema_version, ratexp.atif, ratexp.request_id"
+    "ratexp.schema_version, content, ratexp.request_id"
 )
 
 
@@ -58,7 +58,7 @@ def _dql_str(value) -> str:
 def _norm_col(name: str) -> str:
     """Map a DQL result column to the dashboard's shape: strip the ratexp. prefix and
     rename timestamp -> created_at, so feedback-record queries render in the table
-    (and the transcript lookup finds request_id / session_id)."""
+    (and the transcript lookup finds request_id)."""
     if name == "timestamp":
         return "created_at"
     return name.removeprefix("ratexp.")
@@ -134,38 +134,25 @@ class DynatraceReadAdapter:
         )
         return [self._transcript_row(r) for r in recs]
 
-    def select_transcripts_by_ids(self, request_ids: list, session_ids: list) -> list[tuple]:
-        if not request_ids and not session_ids:
+    def select_transcripts_by_request_ids(self, request_ids: list) -> list[tuple]:
+        if not request_ids:
             return []
-        clauses = []
-        if request_ids:
-            clauses.append(
-                "in(ratexp.request_id, " + ", ".join(_dql_str(x) for x in request_ids) + ")"
-            )
-        if session_ids:
-            clauses.append(
-                "in(ratexp.session_id, " + ", ".join(_dql_str(x) for x in session_ids) + ")"
-            )
-        where = " or ".join(clauses)
+        ids = ", ".join(_dql_str(x) for x in request_ids)
         recs = self._dql(
             f'fetch logs, from:{_LOOKBACK} | filter ratexp.record_type == "transcript" '
-            f"and ({where}) | sort timestamp desc | fields {_TRANSCRIPT_FIELDS}"
+            f"and in(ratexp.request_id, {ids}) | sort timestamp desc | fields {_TRANSCRIPT_FIELDS}"
         )
         return [self._transcript_row(r) for r in recs]
 
     def _transcript_row(self, r: dict) -> tuple:
-        raw = r.get("ratexp.atif")
+        raw = r.get("content")
         try:
             atif = json.loads(raw) if isinstance(raw, str) else raw
             if not isinstance(atif, dict):
                 raise ValueError
         except (ValueError, TypeError):
-            # Truncated in Dynatrace -> not valid JSON. Return a stub the UI can render.
-            atif = {
-                "schema_version": r.get("ratexp.schema_version"),
-                "steps": [],
-                "dynatrace_truncated": True,
-            }
+            # Content that is not the ATIF JSON object -> a stub the UI can render.
+            atif = {"schema_version": r.get("ratexp.schema_version"), "steps": []}
         return (
             _iso_seconds(r.get("timestamp")),
             r.get("ratexp.session_id"),

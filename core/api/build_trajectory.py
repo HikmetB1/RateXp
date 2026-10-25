@@ -30,9 +30,9 @@ Cursor writes one JSON object per line as well, but carries far less: the role
 sits on the line itself instead of in a `type` field, user turns are wrapped in
 `<user_query>` and prefixed with an inline `<timestamp>`, tool calls are usually
 logged without their results, and there are no token counts anywhere in the file.
-Its token totals are therefore zero because Cursor never recorded them - not
-because nothing was spent. It names no model either; ratexp-cursor.sh posts the
-one Cursor's stop hook reported as the agent label's second word, e.g. "cursor gpt-5".
+Its token totals are therefore None - not recorded, rather than nothing spent. It
+names no model either; ratexp-cursor.sh posts the one Cursor's stop hook reported
+as the agent label's second word, e.g. "cursor gpt-5".
 """
 
 from __future__ import annotations
@@ -175,6 +175,7 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
     steps: list[dict] = []
     total_prompt = 0
     total_completion = 0
+    total_cached = 0
 
     for line in raw.splitlines():
         line = line.strip()
@@ -234,9 +235,12 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
             # Claude reports cached context separately from fresh input. Sum all
             # input kinds so prompt_tokens reflects the tokens actually processed,
             # not just the uncached slice (which, with prompt caching, is tiny).
+            # ATIF keeps the cache hits among them as cached_tokens, because they
+            # are billed at a fraction of the input rate.
+            cached_tokens = usage.get("cache_read_input_tokens") or 0
             prompt_tokens = (
                 (usage.get("input_tokens") or 0)
-                + (usage.get("cache_read_input_tokens") or 0)
+                + cached_tokens
                 + (usage.get("cache_creation_input_tokens") or 0)
             )
             completion_tokens = usage.get("output_tokens") or 0
@@ -245,8 +249,11 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
                     "prompt_tokens": prompt_tokens,
                     "completion_tokens": completion_tokens,
                 }
+                if cached_tokens:
+                    step["metrics"]["cached_tokens"] = cached_tokens
                 total_prompt += prompt_tokens
                 total_completion += completion_tokens
+                total_cached += cached_tokens
             # An assistant turn with no text and no tool calls carries nothing.
             if "message" not in step and "tool_calls" not in step:
                 continue
@@ -271,6 +278,9 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
         "final_metrics": {
             "total_prompt_tokens": total_prompt,
             "total_completion_tokens": total_completion,
+            # With no usage recorded at all, how much came from the cache is
+            # unknown, and a zero would read as nothing cached.
+            "total_cached_tokens": total_cached if total_prompt or total_completion else None,
             "total_steps": len(steps),
         },
     }
@@ -281,7 +291,7 @@ def cursor_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
 
     Every step keeps what Cursor recorded for it: the text, any reasoning, the
     tool calls with their arguments, and a tool result wherever one was logged.
-    Cursor records no token usage, so the totals stay zero.
+    Cursor records no token usage, so the token totals are None.
     """
     harness, _, agent_model = (agent or "").partition(" ")
     model_name: str | None = agent_model or None
@@ -351,11 +361,12 @@ def cursor_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
         "session_id": session_id,
         "agent": {"name": harness or "unknown", "model_name": model_name},
         "steps": steps,
-        # Cursor writes no usage anywhere in the file, so these are zero rather
-        # than unknown. Do not read them as a session that cost nothing.
+        # Cursor writes no usage anywhere in the file, so the totals are unknown,
+        # not zero: a zero would read as a session that cost nothing.
         "final_metrics": {
-            "total_prompt_tokens": 0,
-            "total_completion_tokens": 0,
+            "total_prompt_tokens": None,
+            "total_completion_tokens": None,
+            "total_cached_tokens": None,
             "total_steps": len(steps),
         },
     }

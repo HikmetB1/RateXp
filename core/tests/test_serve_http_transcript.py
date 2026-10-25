@@ -129,6 +129,14 @@ def test_the_agent_that_produced_the_run_is_required(client, captured_writes):
     assert captured_writes == []
 
 
+def test_the_eval_the_run_was_rated_against_rides_with_its_trajectory(client, captured_writes):
+    """The hook posts the same fields with the transcript as with the rating, so a
+    dashboard can split trajectories by eval without joining on the rating."""
+    response = client.post("/transcript", files=_multipart(eval_name="human-satisfaction"))
+    assert response.status_code == 201
+    assert captured_writes[-1].eval_name == "human-satisfaction"
+
+
 def test_a_trajectory_for_a_whole_session_carries_no_skill(client, captured_writes):
     """A session is not rated against any one skill, so it arrives without a name."""
     fields = {name: value for name, value in _multipart().items() if name != "skill_name"}

@@ -2,8 +2,12 @@
 
 ``DynatraceWriteAdapter`` turns a rating/transcript into an OTLP log record and exports
 it via the OpenTelemetry SDK to ``<tenant_url>/api/v2/otlp/v1/logs`` (Dynatrace
-accepts protobuf there, not JSON). The concrete adapters that use it live in their
-own files and differ only in which tenant + token they carry:
+accepts protobuf there, not JSON). A rating's log line is readable text; a
+transcript's log content is the whole ATIF JSON, with the record's ids and the
+trajectory's summary (steps, tool calls, tokens, model - see
+../summarize_trajectory.py) on ``ratexp.*`` attributes beside it. The concrete
+adapters that use it live in their own files and differ only in which tenant +
+token they carry:
 
 - ``write_to_app_be_dynatrace.py`` -> ``AppBeDynatraceWriteAdapter`` (RateXp's own tenant).
 - ``write_to_custom_dynatrace.py`` -> ``CustomDynatraceWriteAdapter`` (an adopter's own tenant).
@@ -19,11 +23,10 @@ import json
 from datetime import datetime
 from typing import Any
 
+from modules.write.summarize_trajectory import summarize_trajectory
+
 _OTLP_LOGS_PATH = "/api/v2/otlp/v1/logs"
 _SEVERITY_NUMBERS = {"INFO": 9, "WARN": 13, "WARNING": 13, "ERROR": 17}
-# Cap the serialised trajectory attached to a transcript log so one huge
-# conversation can't get the record rejected by the ingest size limit.
-_MAX_ATIF_CHARS = 200_000
 _SCORE_LABELS = {1: "good", 2: "bad"}
 
 
@@ -121,26 +124,30 @@ class DynatraceWriteAdapter:
         )
 
     def write_transcript(self, record) -> None:
-        atif_json = json.dumps(record.atif, ensure_ascii=False)
-        truncated = len(atif_json) > _MAX_ATIF_CHARS
+        summary = summarize_trajectory(record.atif, record.agent)
         self._emit(
             _compact(
                 {
                     "timestamp": record.created_at,
-                    "content": (
-                        f"RateXp transcript · {_subject(record)} · "
-                        f"agent={record.agent} · session={record.session_id}"
-                    ),
+                    # The trajectory is the log content, not an attribute: Dynatrace
+                    # caps an attribute at 32 KiB but takes a 10 MB body, and core
+                    # already caps a conversation at max_transcript_bytes.
+                    "content": json.dumps(record.atif, ensure_ascii=False),
                     "severity": "INFO",
                     "log.source": "ratexp-core",
                     "ratexp.record_type": "transcript",
                     "ratexp.session_id": record.session_id,
                     "ratexp.skill_name": record.skill_name,
                     "ratexp.agent": record.agent,
+                    "ratexp.eval_name": record.eval_name,
                     "ratexp.schema_version": record.schema_version,
                     "ratexp.request_id": record.request_id,
-                    "ratexp.atif": atif_json[:_MAX_ATIF_CHARS] if truncated else atif_json,
-                    "ratexp.atif_truncated": truncated or None,
+                    "ratexp.steps": summary["steps"],
+                    "ratexp.tool_calls": summary["tool_calls"],
+                    "ratexp.prompt_tokens": summary["prompt_tokens"],
+                    "ratexp.cached_tokens": summary["cached_tokens"],
+                    "ratexp.completion_tokens": summary["completion_tokens"],
+                    "ratexp.model": summary["model"],
                 }
             )
         )

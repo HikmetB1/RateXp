@@ -40,3 +40,24 @@ class QueryRequest(BaseModel):
     query: str  # a read-only query in the source's language
     limit: int | None = None  # optional row cap; clamped to query_max_rows
     full: bool = False  # true = full export (up to query_max_rows); else the view
+
+
+class PanelFilters(BaseModel):
+    """What the Dashboard view's filter row picked. None means all; ``since`` is ISO 8601
+    (PostgreSQL casts it)."""
+
+    skill: str | None = None
+    agent: str | None = None
+    eval: str | None = None
+    since: str | None = None
+
+    def params(self) -> dict:
+        # "" (an empty query-string value) binds as NULL too, which the fragment reads as "all".
+        return {key: value or None for key, value in self.model_dump().items()}
+
+
+class PanelRequest(BaseModel):
+    """One Dashboard panel to run, by its id, with the filters to apply."""
+
+    panel: str
+    filters: PanelFilters = PanelFilters()

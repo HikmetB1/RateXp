@@ -16,11 +16,11 @@ def test_snapshot_returns_correlated_shape(app_with_fake_pool):
     assert r.json() == {"type": "snapshot", "feedback": [], "transcripts": [], "stats": []}
 
 
-def test_transcripts_for_queries_by_feedback_ids(app_with_fake_pool):
+def test_transcripts_for_queries_by_feedback_request_ids(app_with_fake_pool):
     client, pool = app_with_fake_pool
 
     # A feedback row is (created_at, session_id, ..., request_id, eval_name): match on
-    # both ids.
+    # request_id alone.
     feedback = [
         (
             datetime(2026, 5, 25, tzinfo=UTC),
@@ -47,7 +47,8 @@ def test_transcripts_for_queries_by_feedback_ids(app_with_fake_pool):
         ]
     )
     rows = transcripts_for(client.app.state.read, feedback)
-    assert pool.store["params"] == (["req-1"], ["sess-1"], LIST_MAX_LIMIT)
+    assert pool.store["params"] == (["req-1"], LIST_MAX_LIMIT)
+    assert "session_id = ANY" not in pool.store["sql"]
     assert len(rows) == 1 and rows[0][6] == "req-1"
 
 

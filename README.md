@@ -17,7 +17,7 @@
   <a href="#available-evals-what-each-one-asks">Available evals</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#features-what-you-get">Features</a> ·
-  <a href="#the-dashboard-read-and-export-the-feedback">Dashboard</a> ·
+  <a href="#the-ratexp-app-read-and-export-the-feedback">RateXp app</a> ·
   <a href="#contact-how-to-reach-me">Contact</a> ·
   <a href="#acknowledgements-and-citations-projects-ratexp-builds-on">Acknowledgements</a> ·
   <a href="#license-what-you-may-do-with-it">License</a>
@@ -162,28 +162,30 @@ sequenceDiagram
    others. Six ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
    PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
    Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
-8. **Live dashboard** - a read-only view of feedback as it arrives, with a filter box and
-   JSON export. Reading is one more adapter, and you enable exactly one of five:
-   `app_be_psql` or `custom_psql` (queried with SQL), `app_be_dynatrace` or
-   `custom_dynatrace` (queried with DQL), or `phoenix` (queried with `key:value` filters).
-   Bluebox is write-only, so it has no read adapter.
+8. **Live dashboard** - shows feedback as it arrives, with panels, a query box and JSON
+   export ([which adapter it reads](./CONTRIBUTING.md#reading-the-feedback-where-each-adapter-shows-it)).
 9. **Responsive UI** - the table reflows into cards on phones.
 10. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
    Fable.
 11. **Tested coding agents** - Claude Code and Cursor CLI
 
-## The dashboard: read and export the feedback
+## The RateXp app: read and export the feedback
 <p align="center">
   <img src="./assets/dashboard.png" alt="The RateXp dashboard" width="720">
 </p>
 
-The [dashboard](https://ratexp-app.azurewebsites.net/) updates as feedback arrives. It shows
-the latest ratings and the most-rated skills; a rating with a stored conversation opens it in
-a slide-over timeline. Each rating names the eval it answered in the **Eval** column.
+The [RateXp app](https://ratexp-app.azurewebsites.net/) updates as feedback arrives and has
+two views:
 
-To filter things, type an **SQL** query into the filter box.
+- **Dashboard** - panels: totals, good versus bad per day and per skill, agent and eval, the
+  latest comments, and each session's steps, tool calls, tokens and model - filtered by skill,
+  agent, eval and time range, with **Download trajectories** saving the newest matching
+  ratings and their conversations as JSON.
+- **Query & table** - the latest ratings and the most-rated skills; a rating with a stored
+  conversation opens it in a slide-over timeline. Each rating names the eval it answered in
+  the **Eval** column. To filter things, type an **SQL** query into the query box.
 
-The box only ever shows the most recent matches. To get more than that, use **Download JSON**.
+The query box only ever shows the most recent matches. To get more than that, use **Download JSON**.
 What it writes depends on the last query you ran:
 
 | Last query run | What the download contains |

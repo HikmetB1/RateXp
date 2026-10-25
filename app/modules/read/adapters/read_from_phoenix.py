@@ -127,18 +127,16 @@ class PhoenixReadAdapter:
     def select_transcript(self, limit: int) -> list[tuple]:
         return [self._transcript_row(span) for span in self._newest_first("transcript", limit)]
 
-    def select_transcripts_by_ids(self, request_ids: list, session_ids: list) -> list[tuple]:
-        wanted_requests = {x for x in request_ids if x}
-        wanted_sessions = {x for x in session_ids if x}
-        if not wanted_requests and not wanted_sessions:
+    def select_transcripts_by_request_ids(self, request_ids: list) -> list[tuple]:
+        if not request_ids:
             return []
-        # Phoenix ANDs its attribute filters and has no "one of", so the match on
-        # either id list happens here, over a window of the newest transcripts.
+        wanted = set(request_ids)
+        # Phoenix ANDs its attribute filters and has no "one of", so the match happens
+        # here, over a window of the newest transcripts.
         return [
             self._transcript_row(span)
             for span in self._newest_first("transcript", LIST_MAX_LIMIT)
-            if (span.get("attributes") or {}).get(f"{_PREFIX}request_id") in wanted_requests
-            or (span.get("attributes") or {}).get(f"{_PREFIX}session_id") in wanted_sessions
+            if (span.get("attributes") or {}).get(f"{_PREFIX}request_id") in wanted
         ]
 
     def select_top_skills(self, limit: int) -> list[dict]:

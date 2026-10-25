@@ -70,6 +70,7 @@ core/
 ├── ratexp-cursor.sh     the same for Cursor
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
 ├── modules/
+│   ├── dashboard/       the dashboards: a shared base, one file per destination, the publish command
 │   ├── redaction/       masks PII before storage: the presidio or azure adapter
 │   └── write/           the destinations, the fan-out, and the SQL migrations
 ├── tests/               core's own tests: mocked, no network or database
@@ -121,7 +122,8 @@ DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api
   image, so switching is one value plus a restart, never a rebuild
 - `write_adapters`: the destinations every submission is written to. They are independent -
   one failing is logged and never blocks the others - but the request fails with `503` if
-  none of them accepted. Each shapes a record its own way:
+  none of them accepted. Each shapes a record its own way, as the top of its file in
+  [`modules/write/adapters/`](./modules/write/adapters/) says:
   - `app_be_psql`, `custom_psql` - one table row
   - `app_be_dynatrace`, `custom_dynatrace`, `bluebox` - one OTLP log line
   - `phoenix` - one span
@@ -141,16 +143,22 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
   `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: one group per
   destination, named (never valued) in `config.yaml`. A destination missing its value is
   skipped with a warning instead of failing
+- `DT_QUERY_URL` / `DT_DASHBOARD_TOKEN`: the apps host and token the Dynatrace dashboard is
+  published with, read only by `modules/dashboard/publish_to_dynatrace.py` (its docstring
+  gives the scopes), never by the running service
 
 ## Tests: how to run them
 
 ```bash
-uv sync --extra test && uv run pytest
+uv sync --extra test --extra dynatrace-otlp && uv run pytest
 ```
 
 Mocked, so no network or database. They also drive the hooks themselves with a fake curl.
+Without `dynatrace-otlp` the Dynatrace writer tests skip quietly.
 
 ## Deploy: how it gets to Azure
 
 core is one of the two web apps in the Terraform stack - see
-[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
+[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live). The Dynatrace
+dashboard goes out by hand: `publish_to_dynatrace.py` in
+[`modules/dashboard/`](./modules/dashboard/) says how to run it.

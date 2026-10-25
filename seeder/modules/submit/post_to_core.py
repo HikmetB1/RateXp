@@ -38,7 +38,12 @@ def post_feedback(run: SeededRun, rating: Rating) -> bool:
 
 def post_transcript(run: SeededRun, messages: list) -> bool:
     """Send the run's ATIF trajectory to core's /transcript. True if core accepted it."""
-    return _post("/transcript", {**run.model_dump(), "atif": messages_to_atif(run, messages)})
+    # Same eval as the rating: the Dynatrace dashboard filters transcripts by eval off
+    # the transcript itself, without joining it to its rating.
+    return _post(
+        "/transcript",
+        {**run.model_dump(), "eval_name": EVAL_NAME, "atif": messages_to_atif(run, messages)},
+    )
 
 
 def _post(path: str, payload: dict) -> bool:
