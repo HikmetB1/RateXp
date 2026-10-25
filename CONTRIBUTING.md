@@ -217,6 +217,7 @@ uv run --no-project --with-requirements tests/requirements.txt pytest tests/
 | `test_smoke.py` | Both services answer `/healthz`; core serves both hook scripts with its own URL baked in, and takes a `/feedback` post. |
 | `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the real `ratexp-claude.sh` rating a skill, so the bytes a real install sends are the ones checked. |
 | `test_azure_live.py` | Read-only checks against a deployed stack. Skipped unless you opt in, see below. |
+| `test_agents_production.py` | The real `claude` and `cursor-agent` CLIs in a scratch project, on production: the one-line install, the hooks running, `/ratexp` asking, a rating and its trajectory reaching the dashboard, and uninstall. Skipped unless you opt in, see below. |
 
 The stack need not be local: the tests read `RATEXP_CORE_URL` and `RATEXP_APP_URL`, defaulting
 to the compose ports `8000` and `8001`. If nothing answers there, they skip with a hint rather
@@ -231,6 +232,17 @@ export RATEXP_AZURE_LIVE=1
 export RATEXP_AZURE_CORE_URL=https://<your-core>.azurewebsites.net
 export RATEXP_AZURE_APP_URL=https://<your-app>.azurewebsites.net
 uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_azure_live.py
+```
+
+**With the real agents, on production.** Run `test_agents_production.py` after deploying a change
+to `core/ratexp-*.sh` or `core/install.sh`. It installs from the production core and reads the
+production dashboard, so it needs no local stack - only a logged-in `claude` and `cursor-agent`,
+and a few cents of model use. Only the click on the survey is scripted. Every run leaves its
+ratings in production, with their short, masked test conversations, each marked with the comment
+`ratexp-live-test <time>`.
+
+```bash
+RATEXP_PROD_AGENTS=1 uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_agents_production.py -v
 ```
 
 ## README rules: what belongs in a folder README
