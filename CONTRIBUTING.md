@@ -19,7 +19,7 @@ its own README covering its layout, how to run it and what it reads:
 
 | Service | What it is |
 |---------|------------|
-| [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor), takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
+| [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor) and `install.sh`, which adds either to its agent's settings, takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
 | [app](./app/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives: a Dashboard view of panels with filters, and a Query & table view with the query box. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
 
@@ -103,7 +103,7 @@ docker compose up --build -d
 
 | Service | URL                     | What it is                                               |
 |---------|-------------------------|----------------------------------------------------------|
-| core    | <http://localhost:8000> | serves the hook scripts (`/ratexp-claude.sh`, `/ratexp-cursor.sh`), ingests `/feedback` + `/transcript` |
+| core    | <http://localhost:8000> | serves the hook scripts (`/ratexp-claude.sh`, `/ratexp-cursor.sh`) and `/install.sh`, ingests `/feedback` + `/transcript` |
 | app     | <http://localhost:8001> | the dashboard                                            |
 
 `docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
@@ -159,6 +159,7 @@ destination's endpoint, key and project.
 ├── core/                       Public ingestion service: serves the hook scripts, stores feedback
 │   ├── ratexp-claude.sh        The Claude Code hook: rates the session and any skill run in it
 │   ├── ratexp-cursor.sh        The same for Cursor
+│   ├── install.sh              Saves either hook and adds its hooks to the agent's settings
 │   ├── evals/                  The surveys users answer, one file per eval
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   └── modules/

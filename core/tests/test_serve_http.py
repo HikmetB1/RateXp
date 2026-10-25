@@ -131,6 +131,15 @@ def test_every_served_hook_has_this_deployments_url_baked_in(client, hook):
     assert serve_http.PUBLIC_URL in response.text
 
 
+def test_the_served_installer_downloads_hooks_from_this_deployment(client):
+    # One line installs from the core it came from, so the installer carries its URL.
+    response = client.get("/install.sh")
+    assert response.status_code == 200
+    assert response.text.startswith("#!/bin/bash")
+    assert "__RATEXP_URL__" not in response.text
+    assert serve_http.PUBLIC_URL in response.text
+
+
 @pytest.mark.parametrize("hook", HOOKS)
 def test_every_served_hook_has_the_configured_survey_frequency_baked_in(client, hook):
     # How often the whole session is asked about is a deployment setting, stamped

@@ -14,10 +14,11 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// The hooks each coding agent needs, for the user to paste into its settings. They are
-// the same for everyone: Claude Code expands $HOME, and Cursor runs the hooks in
-// ~/.cursor/hooks.json from ~/.cursor. Claude Code's are every event
-// core/ratexp-claude.sh handles (its triage()); keep the two in step.
+// The hooks each coding agent needs, for a user who would rather paste them into its
+// settings than run the installer. They are the same for everyone: Claude Code expands
+// $HOME, and Cursor runs the hooks in ~/.cursor/hooks.json from ~/.cursor. Claude Code's
+// are every event core/ratexp-claude.sh handles (its triage()), and core/install.sh
+// writes the same ones; keep the three in step.
 const CLAUDE_HOOK = { type: 'command', command: 'bash "$HOME/.claude/ratexp-claude.sh"' }
 const CLAUDE_SETTINGS = {
   hooks: {
@@ -34,12 +35,14 @@ const CURSOR_HOOKS = { version: 1, hooks: { sessionStart: [CURSOR_HOOK], stop: [
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
 // because each keeps its hooks somewhere different. It installs from this deployment's
-// own core, which /meta names. How to run it sits in its own folded box below the steps.
+// own core, which /meta names. Editing the settings by hand and how to run RateXp each sit
+// in their own folded box below the one line.
 const INSTALL_GUIDES = {
   claude: {
     dir: '~/.claude',
     script: 'ratexp-claude.sh',
     settings: '~/.claude/settings.json',
+    projectSettings: '.claude/settings.json',
     hooks: CLAUDE_SETTINGS,
     run: `1. Start a Claude Code session and work as usual.
 2. Type \`/ratexp\` to rate the whole session. It also asks on its own every 5th turn
@@ -50,6 +53,7 @@ const INSTALL_GUIDES = {
     dir: '~/.cursor',
     script: 'ratexp-cursor.sh',
     settings: '~/.cursor/hooks.json',
+    projectSettings: '.cursor/hooks.json',
     hooks: CURSOR_HOOKS,
     run: `1. Start a Cursor chat and work as usual.
 2. Type \`/ratexp\` to rate the whole chat. It also asks on its own every 5th turn
@@ -68,7 +72,29 @@ function runGuideMd(agent) {
 
 function installGuideMd(agent, coreUrl = '<your-core-url>') {
   const guide = INSTALL_GUIDES[agent]
-  return `Save the RateXp script, once for every project:
+  return `Install RateXp with one line, once for every project. The line saves the RateXp
+script and adds RateXp's hooks to \`${guide.settings}\`, keeping everything else in that file:
+
+\`\`\`bash
+curl -fsSL ${coreUrl}/install.sh | bash -s -- install ${agent}
+\`\`\`
+
+> **More options for the same line**
+> - \`uninstall\` in place of \`install\` - removes the RateXp script and RateXp's hooks
+>   from the settings file.
+> - \`status\` in place of \`install\` - checks that the RateXp script and each RateXp hook
+>   are in place.
+> - \`--settings <file>\` at the end - uses another settings file, such as one project's
+>   \`${guide.projectSettings}\`.
+
+Restart your coding agent to load the RateXp hooks.
+
+Congratulations - your agentic experience is live at RateXp! 🎉`
+}
+
+function manualGuideMd(agent, coreUrl = '<your-core-url>') {
+  const guide = INSTALL_GUIDES[agent]
+  return `Save the RateXp script:
 
 \`\`\`bash
 curl -fsSL ${coreUrl}/${guide.script} --create-dirs -o ${guide.dir}/${guide.script}
@@ -78,11 +104,7 @@ Then add the following section to \`${guide.settings}\`:
 
 \`\`\`json
 ${JSON.stringify(guide.hooks, null, 2)}
-\`\`\`
-
-Restart your coding agent to load the hooks.
-
-Congratulations - your agentic experience is live at RateXp! 🎉`
+\`\`\``
 }
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
@@ -873,8 +895,8 @@ const GUIDE_AGENTS = [
   { key: 'cursor', label: 'Cursor' },
 ]
 
-// The hooks snippet is long, so the guide folds its JSON block until clicked; the
-// one-line curl block stays open.
+// The hooks snippet is long, so the hand-editing guide folds its JSON block until clicked;
+// its one-line curl block stays open.
 const FOLD_JSON = {
   pre({ node, ...props }) {
     const pre = <pre {...props} />
@@ -944,7 +966,11 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
               </button>
             ))}
           </div>
-          <Md className="md modal-md" components={FOLD_JSON}>{installGuideMd(agent, coreUrl)}</Md>
+          <Md className="md modal-md">{installGuideMd(agent, coreUrl)}</Md>
+          <details className="md-fold md-run">
+            <summary>Prefer to edit the settings file yourself?</summary>
+            <Md className="md modal-md" components={FOLD_JSON}>{manualGuideMd(agent, coreUrl)}</Md>
+          </details>
           <details className="md-fold md-run">
             <summary>How to run RateXp in your coding agent session</summary>
             <Md className="md modal-md">{runGuideMd(agent)}</Md>

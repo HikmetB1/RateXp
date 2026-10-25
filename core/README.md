@@ -13,9 +13,9 @@ sequenceDiagram
     participant D as Destinations
 
     Note over A,C: once, while setting up
-    A->>C: GET /ratexp-claude.sh or /ratexp-cursor.sh
+    A->>C: GET /install.sh, which fetches /ratexp-claude.sh or /ratexp-cursor.sh
     C-->>A: the hook for that coding agent, pointing back at this core
-    A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
+    A->>H: saved beside the agent's settings file, its hooks added to it
 
     Note over H,D: then whenever the user types /ratexp or /ratexp:<skill>, and every 5th turn
     H->>C: POST /feedback (eval, rating, optional comment)
@@ -35,16 +35,27 @@ with Claude Code and Cursor.
 ```bash
 # Pick one
 
-# Claude Code  ->  saves ~/.claude/ratexp-claude.sh
-curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-claude.sh --create-dirs -o ~/.claude/ratexp-claude.sh
+# Claude Code  ->  saves ~/.claude/ratexp-claude.sh, adds its hooks to ~/.claude/settings.json
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
 
-# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh
-curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-cursor.sh --create-dirs -o ~/.cursor/ratexp-cursor.sh
+# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
 ```
 
-Then paste the hooks from the [dashboard](https://ratexp-app.azurewebsites.net/)'s
-**Install RateXp** popup into `~/.claude/settings.json` or `~/.cursor/hooks.json`. That is
-the whole setup; ratings land on the same dashboard.
+Everything else in the settings file stays, and a copy of the original settings file is
+saved as `<file>.ratexp-backup`.
+
+> **More options for the same line**
+> - `uninstall` in place of `install` - removes the RateXp script and RateXp's hooks from
+>   the settings file.
+> - `status` in place of `install` - checks that the RateXp script and each RateXp hook are
+>   in place.
+> - `--settings <file>` at the end - uses another settings file, such as one project's
+>   `.claude/settings.json`.
+
+Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
+**Install RateXp** popup shows them. That is the whole setup; ratings land on the same
+dashboard.
 
 ### When it asks: on /ratexp, and every 5th turn
 
@@ -68,6 +79,7 @@ Want to run your own core instead of the hosted one? See
 core/
 ├── ratexp-claude.sh     the Claude Code hook: rates the session and any skill run in it
 ├── ratexp-cursor.sh     the same for Cursor
+├── install.sh           saves either hook and adds its hooks to the agent's settings
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
 ├── modules/
 │   ├── dashboard/       the dashboards: a shared base, one file per destination, the publish command
@@ -153,7 +165,7 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
 uv sync --extra test --extra dynatrace-otlp && uv run pytest
 ```
 
-Mocked, so no network or database. They also drive the hooks themselves with a fake curl.
+Mocked, so no network or database. They also drive the hooks and the installer themselves with a fake curl.
 Without `dynatrace-otlp` the Dynatrace writer tests skip quietly.
 
 ## Deploy: how it gets to Azure

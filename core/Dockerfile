@@ -41,7 +41,7 @@ RUN python -m spacy download en_core_web_sm && \
 # that applies them.
 COPY load_config.py config.yaml ./
 COPY evals/ ./evals/
-COPY ratexp-claude.sh ratexp-cursor.sh ./
+COPY ratexp-claude.sh ratexp-cursor.sh install.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/
 

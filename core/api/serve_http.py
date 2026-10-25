@@ -1,4 +1,4 @@
-"""Serve the hook scripts; take feedback and consented transcripts."""
+"""Serve the hook scripts and their installer; take feedback and consented transcripts."""
 
 from __future__ import annotations
 
@@ -32,6 +32,8 @@ CORE_DIR = Path(__file__).resolve().parent.parent
 # the agent, and rates the whole session or any skill's most recent run in it.
 CLAUDE_SH = CORE_DIR / "ratexp-claude.sh"
 CURSOR_SH = CORE_DIR / "ratexp-cursor.sh"
+# Saves either hook and adds it to that agent's settings, in one line.
+INSTALL_SH = CORE_DIR / "install.sh"
 URL_PLACEHOLDER = "'__RATEXP_URL__'"
 EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
 EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
@@ -130,8 +132,8 @@ def _evals_as_shell_words() -> str:
     return "".join(f"\n    {line}" for line in lines) + "\n"
 
 
-def _serve_hook(path: Path) -> str:
-    """Render deployment settings as shell literals in a downloadable hook."""
+def _serve_script(path: Path) -> str:
+    """Render deployment settings as shell literals in a downloadable script."""
     return (
         path.read_text(encoding="utf-8")
         .replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
@@ -146,13 +148,19 @@ def _serve_hook(path: Path) -> str:
 @app.get("/ratexp-claude.sh", response_class=PlainTextResponse)
 def get_claude_hook() -> str:
     """The Claude Code hook: rates the session, or any skill's most recent run in it."""
-    return _serve_hook(CLAUDE_SH)
+    return _serve_script(CLAUDE_SH)
 
 
 @app.get("/ratexp-cursor.sh", response_class=PlainTextResponse)
 def get_cursor_hook() -> str:
     """The Cursor hook: rates the session, or any skill's most recent run in it."""
-    return _serve_hook(CURSOR_SH)
+    return _serve_script(CURSOR_SH)
+
+
+@app.get("/install.sh", response_class=PlainTextResponse)
+def get_installer() -> str:
+    """The installer: saves a hook and adds it to its agent's settings."""
+    return _serve_script(INSTALL_SH)
 
 
 @app.post("/feedback", status_code=status.HTTP_201_CREATED)

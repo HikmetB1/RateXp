@@ -75,16 +75,27 @@ with Claude Code and Cursor.
 ```bash
 # Pick one
 
-# Claude Code  ->  saves ~/.claude/ratexp-claude.sh
-curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-claude.sh --create-dirs -o ~/.claude/ratexp-claude.sh
+# Claude Code  ->  saves ~/.claude/ratexp-claude.sh, adds its hooks to ~/.claude/settings.json
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
 
-# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh
-curl -fsSL https://ratexp-core.azurewebsites.net/ratexp-cursor.sh --create-dirs -o ~/.cursor/ratexp-cursor.sh
+# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
 ```
 
-Then paste the hooks from the [dashboard](https://ratexp-app.azurewebsites.net/)'s
-**Install RateXp** popup into `~/.claude/settings.json` or `~/.cursor/hooks.json`. That is
-the whole setup; ratings land on the same dashboard.
+Everything else in the settings file stays, and a copy of the original settings file is
+saved as `<file>.ratexp-backup`.
+
+> **More options for the same line**
+> - `uninstall` in place of `install` - removes the RateXp script and RateXp's hooks from
+>   the settings file.
+> - `status` in place of `install` - checks that the RateXp script and each RateXp hook are
+>   in place.
+> - `--settings <file>` at the end - uses another settings file, such as one project's
+>   `.claude/settings.json`.
+
+Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
+**Install RateXp** popup shows them. That is the whole setup; ratings land on the same
+dashboard.
 
 ### When it asks: on /ratexp, and every 5th turn
 

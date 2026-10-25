@@ -5,6 +5,7 @@
 #   open http://localhost:8001                    # dashboard
 #   http://localhost:8000/ratexp-claude.sh        # the hook Claude Code users install
 #   http://localhost:8000/ratexp-cursor.sh        # the one Cursor users install
+#   http://localhost:8000/install.sh              # saves either one and adds it to the agent's settings
 #   http://localhost:8000/feedback                # where installed hooks post ratings
 #   http://localhost:8000/transcript              # where they post consented transcripts
 #
