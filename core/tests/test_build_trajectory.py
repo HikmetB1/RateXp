@@ -197,6 +197,68 @@ def test_the_cache_hits_are_totalled_across_turns():
     assert metrics["total_cached_tokens"] == 200
 
 
+def _answer_line(answer_id: str, block: dict, usage: dict) -> str:
+    """One line of a model answer the way Claude Code logs it: one content block per
+    line, every line under the answer's id and repeating the answer's usage."""
+    message = {"id": answer_id, "role": "assistant", "content": [block], "usage": usage}
+    return json.dumps({"type": "assistant", "message": message})
+
+
+USAGE = {"input_tokens": 10, "output_tokens": 62, "cache_read_input_tokens": 13696}
+
+
+def test_an_answer_split_over_several_lines_counts_its_tokens_once():
+    raw = "\n".join(
+        [
+            _answer_line("msg_1", {"type": "thinking", "thinking": "a short reply"}, USAGE),
+            _answer_line("msg_1", {"type": "text", "text": "OK"}, USAGE),
+            _answer_line(
+                "msg_1", {"type": "tool_use", "id": "t1", "name": "Bash", "input": {}}, USAGE
+            ),
+        ]
+    )
+    trajectory = claude_jsonl_to_atif(raw, session_id="s", agent="claude-code")
+    assert trajectory["final_metrics"]["total_prompt_tokens"] == 13706
+    assert trajectory["final_metrics"]["total_completion_tokens"] == 62
+    assert trajectory["final_metrics"]["total_cached_tokens"] == 13696
+    # The usage sits on the answer's first step only, so the steps add up to the total.
+    assert [s.get("metrics") for s in trajectory["steps"]] == [
+        {"prompt_tokens": 13706, "completion_tokens": 62, "cached_tokens": 13696},
+        None,
+    ]
+
+
+def test_separate_answers_each_count():
+    raw = "\n".join(
+        [
+            _answer_line("msg_1", {"type": "text", "text": "one"}, USAGE),
+            _answer_line("msg_2", {"type": "text", "text": "two"}, USAGE),
+        ]
+    )
+    metrics = claude_jsonl_to_atif(raw, session_id="s", agent="claude-code")["final_metrics"]
+    assert metrics["total_prompt_tokens"] == 2 * 13706
+
+
+def test_a_survey_answer_spends_no_tokens_of_the_run_it_rates():
+    # Its thinking line comes first and names no survey; the text line after it does.
+    raw = "\n".join(
+        [
+            _answer_line("msg_1", {"type": "text", "text": "OK"}, USAGE),
+            _answer_line(
+                "msg_2", {"type": "thinking", "thinking": "draw it"}, {"input_tokens": 999}
+            ),
+            _answer_line(
+                "msg_2",
+                {"type": "text", "text": "Rate it - check all that apply or type a comment."},
+                {"input_tokens": 999},
+            ),
+        ]
+    )
+    trajectory = claude_jsonl_to_atif(raw, session_id="s", agent="claude-code")
+    assert [s["message"] for s in trajectory["steps"]] == ["OK"]
+    assert trajectory["final_metrics"]["total_prompt_tokens"] == 13706
+
+
 def test_blank_and_unparsable_lines_are_ignored():
     raw = '\n  \nnot json\n{"type":"user","message":{"role":"user","content":"hi"}}\n'
     steps = _steps(raw)

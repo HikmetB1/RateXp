@@ -162,6 +162,23 @@ def _is_survey_turn(content) -> bool:
     return SURVEY_MARK in text or any(mark in text for mark in CLAUDE_REQUEST_MARKS)
 
 
+def _parse_line(line: str) -> dict | None:
+    """One transcript line as a JSON object, or None for a blank or broken one."""
+    try:
+        entry = json.loads(line) if line.strip() else None
+    except json.JSONDecodeError:
+        return None
+    return entry if isinstance(entry, dict) else None
+
+
+def _answer_id(entry: dict) -> str | None:
+    """The id of the model answer an assistant line belongs to, if Claude Code logged one."""
+    msg = entry.get("message")
+    if entry.get("type") != "assistant" or not isinstance(msg, dict):
+        return None
+    return msg.get("id") if isinstance(msg.get("id"), str) else None
+
+
 def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None) -> dict:
     """Build an ATIF trajectory dict from raw Claude Code .jsonl text.
 
@@ -177,17 +194,20 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
     total_completion = 0
     total_cached = 0
 
-    for line in raw.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            entry = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if not isinstance(entry, dict):
-            continue
+    entries = [entry for entry in map(_parse_line, raw.splitlines()) if entry is not None]
+    # Claude Code logs one model answer as one line per content block - thinking,
+    # text, each tool use - under the answer's id, and repeats the answer's usage on
+    # every line. So usage is counted once per answer, and a survey answer goes whole:
+    # its thinking line carries no survey mark of its own.
+    survey_answers = {
+        _answer_id(entry)
+        for entry in entries
+        if _answer_id(entry) and _is_survey_turn(entry["message"].get("content"))
+    }
+    totalled: set[str] = set()  # answers whose usage is in the totals
+    measured: set[str] = set()  # answers whose usage sits on a step
 
+    for entry in entries:
         etype = entry.get("type")
         if etype == "system":
             # Claude Code's own notes inside the conversation, such as the summary
@@ -210,7 +230,8 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
             continue  # skip summaries, meta, and anything non-conversational
 
         content = msg.get("content")
-        if _is_survey_turn(content):
+        answer = _answer_id(entry)
+        if _is_survey_turn(content) or (answer and answer in survey_answers):
             continue  # asking for the rating is not part of the run being rated
 
         timestamp = entry.get("timestamp")
@@ -244,19 +265,27 @@ def claude_jsonl_to_atif(raw: str, *, session_id: str | None, agent: str | None)
                 + (usage.get("cache_creation_input_tokens") or 0)
             )
             completion_tokens = usage.get("output_tokens") or 0
-            if prompt_tokens or completion_tokens:
+            spent = prompt_tokens or completion_tokens
+            # A line with no answer id is an answer of its own.
+            if spent and not (answer and answer in totalled):
+                total_prompt += prompt_tokens
+                total_completion += completion_tokens
+                total_cached += cached_tokens
+                if answer:
+                    totalled.add(answer)
+            # An assistant turn with no text and no tool calls carries nothing.
+            if "message" not in step and "tool_calls" not in step:
+                continue
+            # The answer's usage goes on the first of its lines that becomes a step.
+            if spent and not (answer and answer in measured):
                 step["metrics"] = {
                     "prompt_tokens": prompt_tokens,
                     "completion_tokens": completion_tokens,
                 }
                 if cached_tokens:
                     step["metrics"]["cached_tokens"] = cached_tokens
-                total_prompt += prompt_tokens
-                total_completion += completion_tokens
-                total_cached += cached_tokens
-            # An assistant turn with no text and no tool calls carries nothing.
-            if "message" not in step and "tool_calls" not in step:
-                continue
+                if answer:
+                    measured.add(answer)
         else:  # user line - either a real user message or a tool result
             observation = _observation_from_content(content)
             if observation is not None and not _has_block(content, "text"):
