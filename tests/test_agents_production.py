@@ -77,12 +77,23 @@ def installer(project, action, agent) -> subprocess.CompletedProcess:
     return run(["bash", "-o", "pipefail", "-c", line], project)
 
 
+def dashboard_rows(path) -> list[dict]:
+    """The production dashboard's newest rows at `path`, or none while it is unreachable.
+
+    The shared production plan drops the odd request under load; a wait that hits one
+    keeps waiting rather than failing the whole run on it.
+    """
+    try:
+        return httpx.get(f"{APP_URL}{path}", params={"full": "true"}, timeout=30).json()
+    except (httpx.HTTPError, ValueError):
+        return []
+
+
 def rating_on_dashboard(comment) -> dict:
     """The production dashboard's row for a test rating, waiting for it to arrive."""
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
-        rows = httpx.get(f"{APP_URL}/feedback", params={"full": "true"}, timeout=30).json()
-        found = [r for r in rows if r.get("comment") == comment]
+        found = [r for r in dashboard_rows("/feedback") if r.get("comment") == comment]
         if found:
             return found[0]
         time.sleep(2)
@@ -98,9 +109,7 @@ def trajectory_on_dashboard(row) -> dict:
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         found = [
-            t
-            for t in httpx.get(f"{APP_URL}/transcript", params={"full": "true"}, timeout=30).json()
-            if t.get("request_id") == row["request_id"]
+            t for t in dashboard_rows("/transcript") if t.get("request_id") == row["request_id"]
         ]
         if found:
             return found[0]
