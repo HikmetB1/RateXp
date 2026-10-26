@@ -234,6 +234,21 @@ variable "phoenix_project_name" {
   default     = ""
 }
 
+# Bluebox destination adapter (see core/modules/write/adapters/write_to_bluebox.py). Whether it
+# runs is in core/config.yaml; empty values leave it enabled but inert, like Dynatrace above.
+variable "bluebox_otlp_endpoint" {
+  description = "Bluebox workspace OTLP endpoint, as `bluebox otlp-endpoint` prints it. Sets BLUEBOX_OTLP_ENDPOINT on core."
+  type        = string
+  default     = ""
+}
+
+variable "bluebox_otlp_token" {
+  description = "Bluebox ingest token. Secret - pass via TF_VAR_bluebox_otlp_token or a gitignored *.tfvars, never commit it. Sets BLUEBOX_OTLP_TOKEN on core."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "dynatrace_query_url" {
   description = "Dynatrace DQL/apps host (e.g. https://xxxx.apps.dynatrace.com) the dashboard queries when the dynatrace read source is enabled. Sets DT_QUERY_URL on app."
   type        = string

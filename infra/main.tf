@@ -185,6 +185,9 @@ resource "azurerm_linux_web_app" "core" {
     PHOENIX_COLLECTOR_ENDPOINT = var.phoenix_collector_endpoint
     PHOENIX_API_KEY            = var.phoenix_api_key
     PHOENIX_PROJECT_NAME       = var.phoenix_project_name
+    # Same for the bluebox destination adapter; supply the token via TF_VAR_bluebox_otlp_token.
+    BLUEBOX_OTLP_ENDPOINT = var.bluebox_otlp_endpoint
+    BLUEBOX_OTLP_TOKEN    = var.bluebox_otlp_token
     # The account core labels trajectories with; empty leaves labeling off (see
     # core/modules/labeling/label_trajectory.py). No key: core auths with its identity.
     AZURE_OPENAI_ENDPOINT = var.enable_labeling ? local.aoai_endpoint : ""

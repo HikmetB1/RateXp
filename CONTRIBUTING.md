@@ -157,7 +157,7 @@ just pushed. `az webapp restart` does **not** - it keeps running the old cached 
 in transcripts, `enable_labeling` deploys the model core labels conversations with, and
 `enable_seeder` deploys the demo seeder. With the seeder on, build and push `seeder_image` the
 same way as step 2. The `phoenix_*` values hand core the Arize Phoenix destination's endpoint,
-key and project.
+key and project, and the `bluebox_*` values the Bluebox workspace's endpoint and token.
 
 ## Repository layout: what each folder holds
 

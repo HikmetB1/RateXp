@@ -30,6 +30,10 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # phoenix_api_key            = ""   # secret; or pass TF_VAR_phoenix_api_key
 # phoenix_project_name       = "ratexp"
 
+# Bluebox destination adapter (on in core/config.yaml). Empty = it stays inert.
+# bluebox_otlp_endpoint = "https://xxxxxxxx.live.dynatrace.com/api/v2/otlp"   # `bluebox otlp-endpoint`
+# bluebox_otlp_token    = ""   # secret; or pass TF_VAR_bluebox_otlp_token
+
 # PostgreSQL Entra admin = the identity running `terraform apply`. By default
 # Terraform uses the deployer's object id; set these only to use a different
 # admin (e.g. a group). principal_name must match the Entra display name.
