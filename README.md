@@ -70,7 +70,7 @@ skill's part of the conversation.
 ## Quick start: install in one command
 
 Install RateXp once in the coding agent you use - nothing to configure. As of now it works
-with Claude Code and Cursor.
+with Claude Code and Cursor CLI.
 
 ```bash
 # Pick one
@@ -78,7 +78,7 @@ with Claude Code and Cursor.
 # Claude Code  ->  saves ~/.claude/ratexp-claude.sh, adds its hooks to ~/.claude/settings.json
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
 
-# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
+# Cursor CLI  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
 ```
 
@@ -154,7 +154,7 @@ sequenceDiagram
 ```
 
 ## Features: what you get
-1. **One install, in your own coding agent** - Claude Code or Cursor, once for every
+1. **One install, in your own coding agent** - Claude Code or Cursor CLI, once for every
    project. Nothing has to be built into the skills or the agent you rate.
 2. **Rate the session or one skill** - the whole session every 5th turn and on `/ratexp`;
    any skill's most recent run on `/ratexp:<skill>`, the names autocompleting in Claude Code.
@@ -163,7 +163,7 @@ sequenceDiagram
    users answer it with `/ratexp <eval>` or `/ratexp:<skill> <eval>`, and every rating keeps the
    name of the eval it answered.
 4. **Ratings and comments** - a quick good/bad rating with an optional comment, asked in one
-   go - one picker in Claude Code, two short questions in Cursor - so it never gets in the way.
+   go - one picker in Claude Code, two short questions in Cursor CLI - so it never gets in the way.
 5. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
    format (ATIF). The hook uploads it straight from the user's machine.
 6. **PII redaction** - personal data is masked before storage by a pluggable adapter

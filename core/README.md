@@ -30,7 +30,7 @@ sequenceDiagram
 ## Quick start: install in one command
 
 Install RateXp once in the coding agent you use - nothing to configure. As of now it works
-with Claude Code and Cursor.
+with Claude Code and Cursor CLI.
 
 ```bash
 # Pick one
@@ -38,7 +38,7 @@ with Claude Code and Cursor.
 # Claude Code  ->  saves ~/.claude/ratexp-claude.sh, adds its hooks to ~/.claude/settings.json
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
 
-# Cursor  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
+# Cursor CLI  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
 ```
 
@@ -78,7 +78,7 @@ Want to run your own core instead of the hosted one? See
 ```text
 core/
 ├── ratexp-claude.sh     the Claude Code hook: rates the session and any skill run in it
-├── ratexp-cursor.sh     the same for Cursor
+├── ratexp-cursor.sh     the same for Cursor CLI
 ├── install.sh           saves either hook and adds its hooks to the agent's settings
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
 ├── modules/
