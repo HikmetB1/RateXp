@@ -215,4 +215,7 @@ class PhoenixReadAdapter:
             schema_version,
             _atif(attributes.get(f"{_PREFIX}atif"), schema_version),
             attributes.get(f"{_PREFIX}request_id"),
+            attributes.get(f"{_PREFIX}business_case"),
+            attributes.get(f"{_PREFIX}language"),
+            attributes.get(f"{_PREFIX}task_type"),
         )

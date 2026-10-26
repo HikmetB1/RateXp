@@ -8,13 +8,17 @@ from pathlib import Path
 
 import pytest
 import yaml
+from api.record_schemas import PanelFilters
 from modules.read import clone_dashboard_from_base
 from modules.read.clone_dashboard_from_base import DASHBOARD_DIR, clone_dashboard
 
 BASE = {
     "panels": {
         "good_bad_over_time": {"title": "Good vs bad per day", "kind": "line"},
-        "sessions_usage": {"title": "Sessions: steps, tool calls, tokens, model", "kind": "table"},
+        "sessions_usage": {
+            "title": "Sessions: labels, steps, tool calls, tokens, model",
+            "kind": "table",
+        },
     }
 }
 
@@ -52,7 +56,7 @@ def test_base_panels_take_the_destination_fields_in_its_order(tmp_path, monkeypa
     ]
     assert dashboard["panels"][1] == {
         "id": "sessions_usage",
-        "title": "Sessions: steps, tool calls, tokens, model",
+        "title": "Sessions: labels, steps, tool calls, tokens, model",
         "kind": "table",
         "sql": "SELECT 3",
     }
@@ -88,11 +92,10 @@ def test_the_real_app_dashboard_gives_every_panel_its_sql():
     if not (DASHBOARD_DIR / "dashboard_for_app.yaml").is_file():
         pytest.skip(f"{DASHBOARD_DIR} holds no dashboard_for_app.yaml yet")
     dashboard = clone_dashboard("app")
-    assert dashboard["filters"]["sql"] and set(dashboard["filters"]["values"]) == {
-        "skill",
-        "agent",
-        "eval",
-    }
+    # One dropdown per filter the panel API takes, the time range aside.
+    assert dashboard["filters"]["sql"] and set(dashboard["filters"]["values"]) == (
+        set(PanelFilters.model_fields) - {"since"}
+    )
     assert (
         "{filters}" in dashboard["download"]["sql"] and "%(limit)s" in dashboard["download"]["sql"]
     )

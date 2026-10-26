@@ -401,3 +401,41 @@ def test_postgres_validate_select():
     for bad in ("DELETE FROM feedback", "SELECT 1; DROP TABLE feedback", "   "):
         with pytest.raises(ValueError):
             _validate_select(bad)
+
+
+def test_a_dynatrace_transcript_carries_its_labels():
+    captured = {}
+    a = _adapter(
+        [
+            {
+                "timestamp": "2026-07-12T10:15:13Z",
+                "ratexp.request_id": "r1",
+                "content": "{}",
+                "ratexp.business_case": "devops",
+                "ratexp.language": "go",
+                "ratexp.task_type": "fix",
+            }
+        ]
+    )
+    dql = a._dql
+
+    def _dql(query):
+        captured["query"] = query
+        return dql(query)
+
+    a._dql = _dql
+    (row,) = a.select_transcripts_by_request_ids(["r1"])
+    assert row[7:] == ("devops", "go", "fix")
+    assert "ratexp.language" in captured["query"]
+
+
+def test_a_phoenix_transcript_carries_its_labels_and_none_for_an_unlabeled_one():
+    a = _phoenix(
+        [
+            _span(request_id="r1", language="python", business_case="ml", task_type="test"),
+            _span(request_id="r2"),
+        ]
+    )
+    labeled, unlabeled = a.select_transcript(10)
+    assert labeled[7:] == ("ml", "python", "test")
+    assert unlabeled[7:] == (None, None, None)

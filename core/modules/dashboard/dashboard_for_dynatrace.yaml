@@ -2,22 +2,32 @@
 # (modules/write/adapters/write_to_dynatrace.py). publish_to_dynatrace.py turns it into a
 # dashboard document.
 #
-# {filters} in a panel's dql is where filters.dql goes: the three dashboard variables
-# $skill, $agent and $eval, each filled by its filters.values query, whose first row "*"
-# means all - first, so the 1000-record cap on a long list cannot cut it off. The
-# dashboard's time picker scopes every tile (no from:), except ratings_24h, which pins its
-# own 24 hours. A null skill or eval is shown and matched as "(none)", because
-# matchesValue() drops nulls - "*" would lose whole-session ratings and ratings stored
-# before evals had names.
+# {filters} in a panel's dql is where filters.dql goes: the six dashboard variables
+# $skill, $agent, $eval, $business_case, $language and $task_type, each filled by its
+# filters.values query, whose first row "*" means all - first, so the 1000-record cap on a
+# long list cannot cut it off. The labels sit on the transcript record only, so the
+# fragment first looks up each record's transcript by request_id and reads them as
+# label.*; a rating whose conversation was not stored finds none. The dashboard's time
+# picker scopes every tile (no from:), except ratings_24h, which pins its own 24 hours. A
+# null skill, eval or label is shown and matched as "(none)", because matchesValue() drops
+# nulls - "*" would lose whole-session ratings, ratings stored before evals had names and
+# ratings without a labeled conversation.
 #
 # download.dql is the "Download trajectories" button of the Dynatrace app (app/dynatrace/),
 # which draws these same panels; the published dashboard has no button and skips it.
 name: RateXp
 filters:
   dql: >-
+    | lookup [fetch logs | filter ratexp.record_type == "transcript"
+    | fields request_id=ratexp.request_id, business_case=ratexp.business_case,
+    language=ratexp.language, task_type=ratexp.task_type],
+    sourceField:ratexp.request_id, lookupField:request_id, prefix:"label."
     | filter matchesValue(coalesce(ratexp.skill_name, "(none)"), $skill)
     and matchesValue(splitString(ratexp.agent, " ")[0], $agent)
     and matchesValue(coalesce(ratexp.eval_name, "(none)"), $eval)
+    and matchesValue(coalesce(label.business_case, "(none)"), $business_case)
+    and matchesValue(coalesce(label.language, "(none)"), $language)
+    and matchesValue(coalesce(label.task_type, "(none)"), $task_type)
   values:
     skill: >-
       data record(skill="*") | append [fetch logs | filter ratexp.record_type == "feedback"
@@ -31,6 +41,19 @@ filters:
       data record(eval="*") | append [fetch logs | filter ratexp.record_type == "feedback"
       | summarize count(), by:{eval=coalesce(ratexp.eval_name, "(none)")}
       | fields eval | sort eval asc]
+    business_case: >-
+      data record(business_case="*") | append [fetch logs
+      | filter ratexp.record_type == "transcript"
+      | summarize count(), by:{business_case=coalesce(ratexp.business_case, "(none)")}
+      | fields business_case | sort business_case asc]
+    language: >-
+      data record(language="*") | append [fetch logs | filter ratexp.record_type == "transcript"
+      | summarize count(), by:{language=coalesce(ratexp.language, "(none)")}
+      | fields language | sort language asc]
+    task_type: >-
+      data record(task_type="*") | append [fetch logs | filter ratexp.record_type == "transcript"
+      | summarize count(), by:{task_type=coalesce(ratexp.task_type, "(none)")}
+      | fields task_type | sort task_type asc]
 # The newest 1000 ratings, as the app's list_max_limit; the app adds each one's
 # conversation, the transcript with the same request_id.
 download:
@@ -39,7 +62,8 @@ download:
     | sort timestamp desc | limit 1000
     | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name,
     agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score,
-    comment=ratexp.comment, request_id=ratexp.request_id
+    comment=ratexp.comment, request_id=ratexp.request_id, business_case=label.business_case,
+    language=label.language, task_type=label.task_type
 panels:
   total_ratings:
     title: Total ratings
@@ -115,7 +139,8 @@ panels:
       fetch logs | filter ratexp.record_type == "transcript" {filters}
       | sort timestamp desc | limit 10
       | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent,
-      model=ratexp.model, steps=ratexp.steps, tool_calls=ratexp.tool_calls,
+      model=ratexp.model, business_case=ratexp.business_case, language=ratexp.language,
+      task_type=ratexp.task_type, steps=ratexp.steps, tool_calls=ratexp.tool_calls,
       prompt_tokens=ratexp.prompt_tokens, cached_tokens=ratexp.cached_tokens,
       completion_tokens=ratexp.completion_tokens, session_id=ratexp.session_id
   conversations:

@@ -38,6 +38,9 @@ PANEL_COLUMNS = {
         "skill_name",
         "agent",
         "model",
+        "business_case",
+        "language",
+        "task_type",
         "steps",
         "tool_calls",
         "prompt_tokens",
@@ -47,7 +50,9 @@ PANEL_COLUMNS = {
     ],
     "conversations": ["created_at", "skill_name", "agent", "session_id", "request_id", "content"],
 }
-SQL_PARAMS = {"skill", "agent", "eval", "since"}
+LABELS = {"business_case", "language", "task_type"}
+FILTER_KEYS = {"skill", "agent", "eval"} | LABELS
+SQL_PARAMS = FILTER_KEYS | {"since"}
 
 
 def _write_dashboards(tmp_path, monkeypatch, destination_yaml: str) -> None:
@@ -67,7 +72,7 @@ def test_every_destination_carries_every_base_panel_with_its_title_and_kind(dest
     panels = _by_id(clone_dashboard(destination))
     assert panels["good_bad_over_time"]["title"] == "Good vs bad per day"
     assert panels["good_bad_over_time"]["kind"] == "line"
-    assert panels["sessions_usage"]["title"] == "Sessions: steps, tool calls, tokens, model"
+    assert panels["sessions_usage"]["title"] == "Sessions: labels, steps, tool calls, tokens, model"
     assert panels["sessions_usage"]["kind"] == "table"
 
 
@@ -147,6 +152,16 @@ def test_every_app_panel_names_its_columns_and_takes_the_shared_filter_once():
     assert "split_part(agent, ' ', 1)" in fragment
     assert "COALESCE(skill_name, '(none)') = %(skill)s" in fragment
     assert "COALESCE(eval_name, '(none)') = %(eval)s" in fragment
+    for label in LABELS:
+        assert f"COALESCE({label}, '(none)') = %({label})s" in fragment, label
+
+
+def test_every_rating_panel_reads_the_labels_of_its_conversation():
+    # A label sits on the transcript, so a rating panel that read the bare feedback table
+    # would have no label column for the shared filter to narrow.
+    app = clone_dashboard("app")
+    queries = [app["download"]["sql"], *(panel["sql"] for panel in app["panels"])]
+    assert not [sql for sql in queries if re.search(r"FROM feedback\b(?!_)", sql)]
 
 
 def test_sessions_usage_reads_a_stored_value_only_when_its_json_type_fits():
@@ -174,7 +189,7 @@ def test_the_app_download_and_dropdown_queries_take_only_their_own_parameters():
     app = clone_dashboard("app")
     download = app["download"]["sql"].replace("{filters}", app["filters"]["sql"])
     assert set(re.findall(r"%\((\w+)\)s", download)) == SQL_PARAMS | {"limit"}
-    assert set(app["filters"]["values"]) == {"skill", "agent", "eval"}
+    assert set(app["filters"]["values"]) == FILTER_KEYS
     for sql in app["filters"]["values"].values():
         assert "%(" not in sql and "{filters}" not in sql
         assert sql.startswith("SELECT DISTINCT")
@@ -188,10 +203,16 @@ def test_every_dynatrace_panel_takes_the_shared_filter_and_only_ratings_24h_pins
         for column in PANEL_COLUMNS[panel["id"]]:
             assert re.search(rf"\b{column}\b", panel["dql"]), (panel["id"], column)
     fragment = dynatrace["filters"]["dql"]
-    assert fragment.startswith("| filter ")
-    assert "$skill" in fragment and "$agent" in fragment and "$eval" in fragment
+    # The labels sit on the transcript record, so the fragment looks them up by
+    # request_id before it filters.
+    assert fragment.startswith('| lookup [fetch logs | filter ratexp.record_type == "transcript"')
+    assert "sourceField:ratexp.request_id, lookupField:request_id" in fragment
+    for key in FILTER_KEYS:
+        assert re.search(rf"\${key}\b", fragment), key
+    for label in LABELS:
+        assert f'matchesValue(coalesce(label.{label}, "(none)"), ${label})' in fragment, label
     assert 'splitString(ratexp.agent, " ")[0]' in fragment
-    assert set(dynatrace["filters"]["values"]) == {"skill", "agent", "eval"}
+    assert set(dynatrace["filters"]["values"]) == FILTER_KEYS
     for key, dql in dynatrace["filters"]["values"].items():
         assert dql.startswith(f'data record({key}="*") | append ['), key
 
@@ -225,4 +246,29 @@ def test_a_missing_skill_or_eval_is_shown_and_matched_as_none_everywhere(
     stand_ins = re.findall(stand_in, " ".join(queries))
     # The filter (2), the skill and eval pickers (2) and the by-eval bar (1).
     assert len(stand_ins) == 5
+    assert set(stand_ins) == {"(none)"}
+
+
+@pytest.mark.parametrize(
+    ("destination", "language", "stand_in"),
+    [
+        (
+            "dynatrace",
+            "dql",
+            r'coalesce\((?:label|ratexp)\.(?:business_case|language|task_type), "([^"]*)"\)',
+        ),
+        ("app", "sql", r"COALESCE\((?:business_case|language|task_type), '([^']*)'\)"),
+    ],
+)
+def test_a_missing_label_is_shown_and_matched_as_none_everywhere(destination, language, stand_in):
+    # A rating whose conversation was not stored, or not labeled, has no label to match.
+    dashboard = clone_dashboard(destination)
+    queries = [
+        dashboard["filters"][language],
+        *dashboard["filters"]["values"].values(),
+        *(panel[language] for panel in dashboard["panels"]),
+    ]
+    stand_ins = re.findall(stand_in, " ".join(queries))
+    # The filter (3) and the three label pickers (3).
+    assert len(stand_ins) == 6
     assert set(stand_ins) == {"(none)"}

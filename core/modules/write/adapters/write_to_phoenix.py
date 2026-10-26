@@ -153,6 +153,9 @@ class PhoenixWriteAdapter:
                     # core already caps a stored trajectory (max_transcript_bytes), so
                     # this goes in whole and always parses back as JSON on the read side.
                     "ratexp.atif": json.dumps(record.atif, ensure_ascii=False),
+                    "ratexp.business_case": record.business_case,
+                    "ratexp.language": record.language,
+                    "ratexp.task_type": record.task_type,
                 },
             )
         )

@@ -1,15 +1,18 @@
 {
   "name": "RateXp",
   "filters": {
-    "dql": "| filter matchesValue(coalesce(ratexp.skill_name, \"(none)\"), $skill) and matchesValue(splitString(ratexp.agent, \" \")[0], $agent) and matchesValue(coalesce(ratexp.eval_name, \"(none)\"), $eval)",
+    "dql": "| lookup [fetch logs | filter ratexp.record_type == \"transcript\" | fields request_id=ratexp.request_id, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type], sourceField:ratexp.request_id, lookupField:request_id, prefix:\"label.\" | filter matchesValue(coalesce(ratexp.skill_name, \"(none)\"), $skill) and matchesValue(splitString(ratexp.agent, \" \")[0], $agent) and matchesValue(coalesce(ratexp.eval_name, \"(none)\"), $eval) and matchesValue(coalesce(label.business_case, \"(none)\"), $business_case) and matchesValue(coalesce(label.language, \"(none)\"), $language) and matchesValue(coalesce(label.task_type, \"(none)\"), $task_type)",
     "values": {
       "skill": "data record(skill=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{skill=coalesce(ratexp.skill_name, \"(none)\")} | fields skill | sort skill asc]",
       "agent": "data record(agent=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{agent=splitString(ratexp.agent, \" \")[0]} | fields agent | sort agent asc]",
-      "eval": "data record(eval=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{eval=coalesce(ratexp.eval_name, \"(none)\")} | fields eval | sort eval asc]"
+      "eval": "data record(eval=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{eval=coalesce(ratexp.eval_name, \"(none)\")} | fields eval | sort eval asc]",
+      "business_case": "data record(business_case=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | summarize count(), by:{business_case=coalesce(ratexp.business_case, \"(none)\")} | fields business_case | sort business_case asc]",
+      "language": "data record(language=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | summarize count(), by:{language=coalesce(ratexp.language, \"(none)\")} | fields language | sort language asc]",
+      "task_type": "data record(task_type=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | summarize count(), by:{task_type=coalesce(ratexp.task_type, \"(none)\")} | fields task_type | sort task_type asc]"
     }
   },
   "download": {
-    "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 1000 | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name, agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score, comment=ratexp.comment, request_id=ratexp.request_id"
+    "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 1000 | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name, agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score, comment=ratexp.comment, request_id=ratexp.request_id, business_case=label.business_case, language=label.language, task_type=label.task_type"
   },
   "panels": [
     {
@@ -68,9 +71,9 @@
     },
     {
       "id": "sessions_usage",
-      "title": "Sessions: steps, tool calls, tokens, model",
+      "title": "Sessions: labels, steps, tool calls, tokens, model",
       "kind": "table",
-      "dql": "fetch logs | filter ratexp.record_type == \"transcript\" {filters} | sort timestamp desc | limit 10 | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent, model=ratexp.model, steps=ratexp.steps, tool_calls=ratexp.tool_calls, prompt_tokens=ratexp.prompt_tokens, cached_tokens=ratexp.cached_tokens, completion_tokens=ratexp.completion_tokens, session_id=ratexp.session_id"
+      "dql": "fetch logs | filter ratexp.record_type == \"transcript\" {filters} | sort timestamp desc | limit 10 | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent, model=ratexp.model, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type, steps=ratexp.steps, tool_calls=ratexp.tool_calls, prompt_tokens=ratexp.prompt_tokens, cached_tokens=ratexp.cached_tokens, completion_tokens=ratexp.completion_tokens, session_id=ratexp.session_id"
     },
     {
       "id": "conversations",

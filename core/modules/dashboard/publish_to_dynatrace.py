@@ -2,10 +2,10 @@
 
 Builds a dashboard document from dashboard_for_dynatrace.yaml (see
 clone_dashboard_from_base.py) - a header, one tile per panel, a query variable for each
-of the skill, agent and eval filters, a 30-day default timeframe - and stores it under
-the fixed document id "ratexp", named as the YAML's name: created when absent, its name
-and content replaced when present, so running this again after editing the YAML updates
-the dashboard in place.
+filter (skill, agent, eval and the three labels), a 30-day default timeframe - and
+stores it under the fixed document id "ratexp", named as the YAML's name: created when
+absent, its name and content replaced when present, so running this again after
+editing the YAML updates the dashboard in place.
 
 Env, exported (e.g. ``set -a; . ./.env; set +a``):
 - DT_QUERY_URL - the apps host, as in https://xxxxxxxx.apps.dynatrace.com
@@ -28,7 +28,6 @@ from modules.dashboard.clone_dashboard_from_base import clone_dashboard
 
 DOCUMENT_ID = "ratexp"
 _DOCUMENTS_PATH = "/platform/document/v1/documents"
-_FILTER_KEYS = ("skill", "agent", "eval")
 _VISUALIZATIONS = {
     "number": "singleValue",
     "line": "lineChart",
@@ -77,8 +76,8 @@ def build_dashboard_document(dashboard: dict) -> dict:
             "type": "markdown",
             "title": "",
             "content": (
-                f"## {dashboard['name']}\n\nThe skill, agent and eval pickers and the time "
-                "picker apply to every tile; ratings in the last 24h keep their own window."
+                f"## {dashboard['name']}\n\nThe skill, agent, eval and label pickers and the "
+                "time picker apply to every tile; ratings in the last 24h keep their own window."
             ),
         }
     }
@@ -113,7 +112,7 @@ def build_dashboard_document(dashboard: dict) -> dict:
         x, row_height = x + width, max(row_height, height)
     return {
         "version": 21,
-        "variables": [_variable(key, filters["values"][key]) for key in _FILTER_KEYS],
+        "variables": [_variable(key, dql) for key, dql in filters["values"].items()],
         "tiles": tiles,
         "layouts": layouts,
         "settings": {

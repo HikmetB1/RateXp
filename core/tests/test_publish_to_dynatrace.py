@@ -23,6 +23,7 @@ from modules.dashboard.publish_to_dynatrace import (
 
 HOST = "https://abc123.apps.dynatrace.com"
 DOCUMENTS = f"{HOST}/platform/document/v1/documents"
+FILTER_VARIABLES = ("$skill", "$agent", "$eval", "$business_case", "$language", "$task_type")
 
 
 @pytest.fixture
@@ -109,16 +110,16 @@ def test_only_the_conversations_tile_raises_its_result_limit_to_fit_every_row(do
 def test_every_query_has_the_filter_filled_in_and_only_ratings_24h_pins_a_timeframe(document):
     for tile in _data_tiles(document):
         assert "{filters}" not in tile["query"]
-        for variable in ("$skill", "$agent", "$eval"):
+        for variable in FILTER_VARIABLES:
             assert variable in tile["query"], tile["title"]
         pinned = tile["title"] == "Ratings in the last 24h"
         assert ("from:now()-24h" in tile["query"]) == pinned, tile["title"]
         assert ("from:" in tile["query"]) == pinned, tile["title"]
 
 
-def test_the_three_filter_variables_default_to_all(document):
+def test_the_six_filter_variables_default_to_all(document):
     variables = {variable["key"]: variable for variable in document["variables"]}
-    assert set(variables) == {"skill", "agent", "eval"}
+    assert {f"${key}" for key in variables} == set(FILTER_VARIABLES)
     for key, variable in variables.items():
         assert variable["type"] == "query" and variable["version"] == 2
         assert variable["multiple"] is False and variable["defaultValue"] == "*"

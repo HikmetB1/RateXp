@@ -105,6 +105,9 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
                 "ATIF-v1.7",
                 {"steps": []},
                 "req1",
+                "devops",
+                "go",
+                "fix",
             )
         ]
 
@@ -118,6 +121,7 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
     assert captured == {"request_ids": ["req1"]}  # ids taken from the shown rows
     assert len(body["transcripts"]) == 1
     assert body["transcripts"][0]["request_id"] == "req1"
+    assert body["transcripts"][0]["language"] == "go"  # the table's Labels column reads these
 
 
 def test_query_full_skips_transcripts(app_with_fake_pool, monkeypatch):

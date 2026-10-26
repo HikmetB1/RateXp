@@ -140,6 +140,43 @@ if not isinstance(_REDACTION_LANGUAGES, list) or not _REDACTION_LANGUAGES:
 REDACTION_LANGUAGES: list[str] = [str(x) for x in _REDACTION_LANGUAGES]
 REDACTION_LANGUAGE: str = REDACTION_LANGUAGES[0]
 
+# Trajectory labeling (see modules/labeling/).
+_LABELING: dict = _require("labeling")
+LABELING_ENABLED: bool = bool(_require_in(_LABELING, "labeling", "enabled"))
+# Set per deployment, so read from the env var this names rather than the file.
+LABELING_ENDPOINT: str = os.environ.get(
+    str(_require_in(_LABELING, "labeling", "endpoint_env")), ""
+).strip()
+LABELING_DEPLOYMENT: str = str(_require_in(_LABELING, "labeling", "deployment"))
+LABELING_API_VERSION: str = str(_require_in(_LABELING, "labeling", "api_version"))
+LABELING_TIMEOUT_SECONDS: float = float(_require_in(_LABELING, "labeling", "timeout_seconds"))
+LABELING_MAX_INPUT_CHARS: int = int(_require_in(_LABELING, "labeling", "max_input_chars"))
+# Each group is a transcript column and a ratexp.* attribute, so the names are fixed here;
+# only the words in each list come from the file.
+LABEL_GROUPS = ("business_case", "language", "task_type")
+
+
+def load_labels(labels) -> dict[str, list[str]]:
+    """The words the model may pick, per group: every group in LABEL_GROUPS, and no
+    other, each a non-empty list of distinct words."""
+    if not isinstance(labels, dict) or sorted(labels) != sorted(LABEL_GROUPS):
+        raise RuntimeError(f"config.yaml labeling.labels must hold exactly {list(LABEL_GROUPS)}")
+    for group in LABEL_GROUPS:
+        words = labels[group]
+        if (
+            not isinstance(words, list)
+            or not words
+            or not all(isinstance(word, str) and word for word in words)
+            or len(set(words)) != len(words)
+        ):
+            raise RuntimeError(
+                f"config.yaml labeling.labels.{group} must be a list of distinct words"
+            )
+    return {group: labels[group] for group in LABEL_GROUPS}
+
+
+LABELS: dict[str, list[str]] = load_labels(_require_in(_LABELING, "labeling", "labels"))
+
 # Write adapters (see modules/write/). Each named
 # destination must be present with an `enabled` flag; a submission is written to
 # every one whose flag is true.

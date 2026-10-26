@@ -117,6 +117,18 @@ def test_a_trajectory_is_stored_as_json():
     assert json.loads(adapter._pool.calls["params"][5]) == {"steps": [{"step_id": 1}]}
 
 
+def test_a_trajectorys_labels_fill_their_own_columns():
+    adapter = _postgres()
+    adapter.write_transcript(
+        Transcript(
+            agent="claude-code", atif={}, business_case="devops", language="go", task_type="fix"
+        )
+    )
+    sql = adapter._pool.calls["sql"]
+    assert "business_case, language, task_type)" in sql
+    assert adapter._pool.calls["params"][-3:] == ("devops", "go", "fix")
+
+
 def test_an_adopters_postgres_with_no_connection_string_is_refused(monkeypatch):
     monkeypatch.delenv("UNSET_DSN", raising=False)
     with pytest.raises(RuntimeError):
@@ -199,7 +211,7 @@ def test_a_trajectory_is_the_log_content_whole():
     assert "ratexp.atif" not in record["attributes"]
 
 
-def test_a_trajectory_log_carries_its_summary_and_eval_as_attributes():
+def test_a_trajectory_log_carries_its_summary_eval_and_labels_as_attributes():
     # A log viewer charts attributes, not a body, so the few numbers a dashboard
     # wants ride beside the conversation.
     pytest.importorskip("opentelemetry.sdk._logs")
@@ -210,6 +222,9 @@ def test_a_trajectory_log_carries_its_summary_and_eval_as_attributes():
             skill_name="demo",
             agent="claude-code",
             eval_name="human-satisfaction",
+            business_case="devops",
+            language="go",
+            task_type="fix",
             atif={
                 "agent": {"name": "claude-code", "model_name": "claude-opus-4-8"},
                 "steps": [
@@ -233,6 +248,9 @@ def test_a_trajectory_log_carries_its_summary_and_eval_as_attributes():
     assert attributes["ratexp.cached_tokens"] == 9
     assert attributes["ratexp.completion_tokens"] == 5
     assert attributes["ratexp.model"] == "claude-opus-4-8"
+    assert attributes["ratexp.business_case"] == "devops"
+    assert attributes["ratexp.language"] == "go"
+    assert attributes["ratexp.task_type"] == "fix"
 
 
 def test_a_summary_fact_that_is_unknown_is_left_off_the_log():
@@ -259,6 +277,7 @@ def test_a_summary_fact_that_is_unknown_is_left_off_the_log():
     assert "ratexp.cached_tokens" not in attributes
     assert "ratexp.completion_tokens" not in attributes
     assert "ratexp.eval_name" not in attributes
+    assert "ratexp.language" not in attributes  # not labeled
 
 
 def test_a_tenant_url_or_token_that_is_missing_is_refused():
@@ -359,6 +378,14 @@ def test_a_trajectory_goes_into_a_phoenix_span_whole():
     (span,) = posted
     assert span["span_kind"] == "AGENT"
     assert json.loads(span["attributes"]["ratexp.atif"]) == {"steps": [{"step_id": 1}]}
+
+
+def test_a_phoenix_trajectory_span_carries_its_labels_and_leaves_missing_ones_off():
+    adapter, posted = _phoenix()
+    adapter.write_transcript(Transcript(agent="claude-code", atif={}, language="go"))
+    (span,) = posted
+    assert span["attributes"]["ratexp.language"] == "go"
+    assert "ratexp.business_case" not in span["attributes"]
 
 
 def test_the_same_request_id_always_builds_the_same_span_id():

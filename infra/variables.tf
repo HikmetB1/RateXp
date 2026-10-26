@@ -118,7 +118,7 @@ variable "aoai_model_version" {
 }
 
 variable "aoai_deployment_sku" {
-  description = "Deployment SKU for the model. gpt-4o-mini in many regions (e.g. westeurope) is only offered as GlobalStandard, not regional Standard."
+  description = "Deployment SKU for the seeder's and the labeling model. gpt-4o-mini and gpt-5-nano in many regions (e.g. westeurope) are only offered as GlobalStandard, not regional Standard."
   type        = string
   default     = "GlobalStandard"
 }
@@ -133,6 +133,30 @@ variable "openai_api_version" {
   description = "Azure OpenAI REST API version the seeder's client uses (OPENAI_API_VERSION app setting)."
   type        = string
   default     = "2024-10-21"
+}
+
+variable "enable_labeling" {
+  description = "Have core label each consented trajectory (business case, language, task type) with a cheap model on the Azure OpenAI (AI Foundry) account, which this also provisions. Costs model credits per trajectory. Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "labeling_model" {
+  description = "Azure OpenAI base model core labels with, deployed under the same name. Must match labeling.deployment in core/config.yaml."
+  type        = string
+  default     = "gpt-5-nano"
+}
+
+variable "labeling_model_version" {
+  description = "Version of the labeling model to deploy."
+  type        = string
+  default     = "2025-08-07"
+}
+
+variable "labeling_capacity" {
+  description = "Labeling deployment capacity in thousands of tokens per minute (TPM). One label reads about 5k tokens, so 50 leaves room for bursts; GlobalStandard bills per token used, not per capacity."
+  type        = number
+  default     = 50
 }
 
 variable "enable_redaction" {

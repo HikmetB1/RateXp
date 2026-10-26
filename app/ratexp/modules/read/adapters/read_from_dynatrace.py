@@ -32,7 +32,8 @@ _FEEDBACK_FIELDS = (
 )
 _TRANSCRIPT_FIELDS = (
     "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent, "
-    "ratexp.schema_version, content, ratexp.request_id"
+    "ratexp.schema_version, content, ratexp.request_id, "
+    "ratexp.business_case, ratexp.language, ratexp.task_type"
 )
 
 
@@ -161,6 +162,9 @@ class DynatraceReadAdapter:
             r.get("ratexp.schema_version"),
             atif,
             r.get("ratexp.request_id"),
+            r.get("ratexp.business_case"),
+            r.get("ratexp.language"),
+            r.get("ratexp.task_type"),
         )
 
     def select_top_skills(self, limit: int) -> list[dict]:

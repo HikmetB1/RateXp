@@ -2,56 +2,73 @@
 # (modules/write/schema/). The app image copies this file and dashboard_base.yaml out of
 # core (see CONTRIBUTING.md).
 #
-# The app runs each sql with four named parameters - skill, agent, eval and since (an ISO
-# timestamp) - and NULL means all. {filters} in a panel's sql is where filters.sql goes,
-# so the FROM of every panel exposes created_at, skill_name, agent and eval_name; a
-# transcript panel takes eval_name from a join with feedback, as transcript has none.
-# filters.values fill the dropdowns; download.sql is the "Download trajectories" button,
-# with limit as a fifth parameter. A null skill or eval is shown and matched as "(none)",
-# as on Dynatrace, so whole-session ratings and ratings without an eval can be picked.
+# The app runs each sql with seven named parameters - skill, agent, eval, the three labels
+# business_case, language and task_type, and since (an ISO timestamp) - and NULL means
+# all. {filters} in a panel's sql is where filters.sql goes, so the FROM of every panel
+# exposes created_at, skill_name, agent, eval_name and the three labels: a rating panel
+# reads feedback_with_labels, which adds its conversation's labels, and a transcript panel
+# takes eval_name from a join with feedback, as transcript has none. filters.values fill
+# the dropdowns; download.sql is the "Download trajectories" button, with limit as an
+# eighth parameter. A null skill, eval or label is shown and matched as "(none)", as on
+# Dynatrace, so whole-session ratings, ratings without an eval and ratings without a
+# labeled conversation can be picked.
 name: RateXp
 filters:
   sql: >-
     (%(skill)s::text IS NULL OR COALESCE(skill_name, '(none)') = %(skill)s)
     AND (%(agent)s::text IS NULL OR split_part(agent, ' ', 1) = %(agent)s)
     AND (%(eval)s::text IS NULL OR COALESCE(eval_name, '(none)') = %(eval)s)
+    AND (%(business_case)s::text IS NULL
+    OR COALESCE(business_case, '(none)') = %(business_case)s)
+    AND (%(language)s::text IS NULL OR COALESCE(language, '(none)') = %(language)s)
+    AND (%(task_type)s::text IS NULL OR COALESCE(task_type, '(none)') = %(task_type)s)
     AND (%(since)s::timestamptz IS NULL OR created_at >= %(since)s)
   values:
     skill: SELECT DISTINCT COALESCE(skill_name, '(none)') AS skill FROM feedback ORDER BY skill
     agent: SELECT DISTINCT split_part(agent, ' ', 1) AS agent FROM feedback ORDER BY agent
     eval: SELECT DISTINCT COALESCE(eval_name, '(none)') AS eval FROM feedback ORDER BY eval
+    business_case: >-
+      SELECT DISTINCT COALESCE(business_case, '(none)') AS business_case FROM transcript
+      ORDER BY business_case
+    language: >-
+      SELECT DISTINCT COALESCE(language, '(none)') AS language FROM transcript
+      ORDER BY language
+    task_type: >-
+      SELECT DISTINCT COALESCE(task_type, '(none)') AS task_type FROM transcript
+      ORDER BY task_type
 download:
   sql: >-
-    SELECT created_at, session_id, skill_name, agent, eval_name, score, comment, request_id
-    FROM feedback WHERE {filters}
+    SELECT created_at, session_id, skill_name, agent, eval_name, score, comment, request_id,
+    business_case, language, task_type
+    FROM feedback_with_labels WHERE {filters}
     ORDER BY created_at DESC LIMIT %(limit)s
 panels:
   total_ratings:
     title: Total ratings
     kind: number
-    sql: SELECT count(*) AS value FROM feedback WHERE {filters}
+    sql: SELECT count(*) AS value FROM feedback_with_labels WHERE {filters}
   percent_good:
     title: Percent good
     kind: number
     sql: >-
       SELECT round(100.0 * count(*) FILTER (WHERE score = 1) / NULLIF(count(*), 0), 1) AS value
-      FROM feedback WHERE {filters} AND score IS NOT NULL
+      FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
   ratings_24h:
     title: Ratings in the last 24h
     kind: number
     sql: >-
-      SELECT count(*) AS value FROM feedback
+      SELECT count(*) AS value FROM feedback_with_labels
       WHERE {filters} AND created_at >= now() - interval '24 hours'
   skills_rated:
     title: Skills rated
     kind: number
-    sql: SELECT count(DISTINCT skill_name) AS value FROM feedback WHERE {filters}
+    sql: SELECT count(DISTINCT skill_name) AS value FROM feedback_with_labels WHERE {filters}
   good_bad_over_time:
     sql: >-
       SELECT date_trunc('day', created_at) AS day,
       count(*) FILTER (WHERE score = 1) AS good,
       count(*) FILTER (WHERE score = 2) AS bad
-      FROM feedback WHERE {filters}
+      FROM feedback_with_labels WHERE {filters}
       GROUP BY day ORDER BY day
   percent_good_by_skill:
     title: Percent good by skill (worst first)
@@ -61,7 +78,7 @@ panels:
       count(*) FILTER (WHERE score = 1) AS good,
       count(*) FILTER (WHERE score = 2) AS bad,
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
-      FROM feedback WHERE {filters} AND score IS NOT NULL AND skill_name IS NOT NULL
+      FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL AND skill_name IS NOT NULL
       GROUP BY skill_name ORDER BY percent_good ASC, total DESC LIMIT 10
   percent_good_by_agent:
     title: Percent good by agent (worst first)
@@ -71,7 +88,7 @@ panels:
       count(*) FILTER (WHERE score = 1) AS good,
       count(*) FILTER (WHERE score = 2) AS bad,
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
-      FROM feedback WHERE {filters} AND score IS NOT NULL
+      FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
       GROUP BY name ORDER BY percent_good ASC, total DESC LIMIT 10
   percent_good_by_eval:
     title: Percent good by eval (worst first)
@@ -81,7 +98,7 @@ panels:
       count(*) FILTER (WHERE score = 1) AS good,
       count(*) FILTER (WHERE score = 2) AS bad,
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
-      FROM feedback WHERE {filters} AND score IS NOT NULL
+      FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
       GROUP BY name ORDER BY percent_good ASC, total DESC LIMIT 10
   latest_comments:
     title: Latest comments
@@ -89,7 +106,7 @@ panels:
     sql: >-
       SELECT created_at, COALESCE(skill_name, session_id) AS name, agent, eval_name,
       CASE score WHEN 1 THEN 'good' WHEN 2 THEN 'bad' ELSE 'unrated' END AS rating, comment
-      FROM feedback WHERE {filters} AND comment IS NOT NULL AND comment <> ''
+      FROM feedback_with_labels WHERE {filters} AND comment IS NOT NULL AND comment <> ''
       ORDER BY created_at DESC LIMIT 10
   # Core's summary of a trajectory (modules/write/summarize_trajectory.py), read from the
   # stored ATIF with the summary's type checks but not its range limits: a client posts
@@ -101,7 +118,7 @@ panels:
   # otherwise a missing prompt or completion total reads 0.
   sessions_usage:
     sql: >-
-      SELECT created_at, skill_name, agent, model,
+      SELECT created_at, skill_name, agent, model, business_case, language, task_type,
       COALESCE(NULLIF(jsonb_array_length(step_list), 0), total_steps) AS steps,
       CASE WHEN jsonb_array_length(step_list) > 0 THEN
       (SELECT COALESCE(sum(jsonb_array_length(step->'tool_calls')), 0)
@@ -113,6 +130,7 @@ panels:
       AS completion_tokens,
       session_id
       FROM (SELECT t.created_at, t.skill_name, t.agent, f.eval_name, t.session_id,
+      t.business_case, t.language, t.task_type,
       COALESCE(NULLIF(t.atif->'agent'->>'model_name', ''),
       NULLIF(split_part(t.agent, ' ', 2), '')) AS model,
       CASE WHEN jsonb_typeof(t.atif->'steps') = 'array' THEN t.atif->'steps' END AS step_list,

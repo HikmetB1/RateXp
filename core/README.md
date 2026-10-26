@@ -1,9 +1,10 @@
 # core
 
 core hands out the hook script, takes back whatever the hook posts, masks anything personal,
-and writes the result to every destination switched on - the hook only ever posts to the same
-two endpoints and never knows where the data ends up. That is true whether it is rating one
-skill or the whole session; only how much of the conversation it covers differs.
+labels each conversation, and writes the result to every destination switched on - the hook
+only ever posts to the same two endpoints and never knows where the data ends up. That is true
+whether it is rating one skill or the whole session; only how much of the conversation it
+covers differs.
 
 ```mermaid
 sequenceDiagram
@@ -21,7 +22,7 @@ sequenceDiagram
     H->>C: POST /feedback (eval, rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
-        C->>C: rebuild the conversation, then mask personal data
+        C->>C: rebuild the conversation, mask personal data, then label it
     end
     C->>D: write to every enabled destination
     C-->>H: 201 stored, or 503 if none accepted
@@ -83,6 +84,7 @@ core/
 ├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
 ├── modules/
 │   ├── dashboard/       the dashboards: a shared base, one file per destination, the publish command
+│   ├── labeling/        labels each stored conversation with its business case, language and task type
 │   ├── redaction/       masks PII before storage: the presidio or azure adapter
 │   └── write/           the destinations, the fan-out, and the SQL migrations
 ├── tests/               core's own tests: mocked, no network or database
@@ -110,6 +112,9 @@ uv sync --extra redaction-presidio --extra dynatrace-otlp
 DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api.serve_http:app --reload
 ```
 
+To label conversations too, add `--extra labeling` and set `AZURE_OPENAI_ENDPOINT`; the model
+is reached with your `az login`, which needs "Cognitive Services OpenAI User" on the account.
+
 ## Config: every key in config.yaml
 
 [`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
@@ -132,6 +137,12 @@ DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api
 - `redaction`: whether personal data is masked and which adapter does it - `presidio`
   (in-process, free) or `azure` (AI Language, billed per 1,000 records). Both are in the
   image, so switching is one value plus a restart, never a rebuild
+- `labeling`: gives each stored conversation one word per group in `labels` - its
+  `business_case`, main `language` and `task_type` - picked by the Azure OpenAI
+  `deployment` from a digest of the masked conversation cut to `max_input_chars`. The
+  groups are fixed (each is a column and an attribute); the words in each list are yours.
+  It never blocks a save: labeling off, no endpoint, an oversized stub, or a model that
+  fails or takes longer than `timeout_seconds` leaves the labels empty
 - `write_adapters`: the destinations every submission is written to. They are independent -
   one failing is logged and never blocks the others - but the request fails with `503` if
   none of them accepted. Each shapes a record its own way, as the top of its file in
@@ -150,6 +161,9 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
   out post back to the right place. A hook copied straight from this folder has no URL and
   posts nowhere
 - `RATEXP_REDACTION_PROVIDER`: overrides `redaction.provider` for one deployment
+- `AZURE_OPENAI_ENDPOINT`: the Azure OpenAI account `labeling` calls, named in
+  `config.yaml`; unset skips labeling. Leave it unset under compose: the container has no
+  Azure identity to call it with
 - `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL` /
   `CUSTOM_DT_TOKEN`, `BLUEBOX_OTLP_ENDPOINT` / `BLUEBOX_OTLP_TOKEN`,
   `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: one group per

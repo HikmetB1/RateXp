@@ -15,6 +15,9 @@ const rating = {
   score: "1",
   comment: "fine",
   request_id: "r1",
+  business_case: "backend",
+  language: "go",
+  task_type: null,
 };
 
 describe("downloadRows", () => {
@@ -22,10 +25,11 @@ describe("downloadRows", () => {
     const [row] = downloadRows([rating], []);
     expect(Object.keys(row)).toEqual([
       "created_at", "session_id", "skill_name", "name", "agent", "eval_name",
-      "score", "comment", "request_id", "conversation",
+      "score", "comment", "request_id", "business_case", "language", "task_type", "conversation",
     ]);
     expect(row).toMatchObject({
       created_at: "2026-10-25T15:21:06Z", name: "s1", score: 1, conversation: null,
+      business_case: "backend", language: "go", task_type: null,
     });
   });
 

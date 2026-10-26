@@ -7,5 +7,5 @@ panels:
     title: Good vs bad per day
     kind: line
   sessions_usage:
-    title: "Sessions: steps, tool calls, tokens, model"
+    title: "Sessions: labels, steps, tool calls, tokens, model"
     kind: table

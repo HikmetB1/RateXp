@@ -26,6 +26,7 @@ RUN uv sync --frozen --no-install-project --no-dev \
       --extra entra \
       --extra redaction-presidio \
       --extra redaction-azure \
+      --extra labeling \
       --extra dynatrace-otlp
 
 # The Presidio adapter loads these per-language spaCy models at runtime; pip won't

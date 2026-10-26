@@ -23,7 +23,10 @@ FILTERS_SQL = (
 BASE = {
     "panels": {
         "good_bad_over_time": {"title": "Good vs bad per day", "kind": "line"},
-        "sessions_usage": {"title": "Sessions: steps, tool calls, tokens, model", "kind": "table"},
+        "sessions_usage": {
+            "title": "Sessions: labels, steps, tool calls, tokens, model",
+            "kind": "table",
+        },
     }
 }
 APP = {
@@ -38,8 +41,9 @@ APP = {
     },
     "download": {
         "sql": (
-            "SELECT created_at, session_id, skill_name, agent, eval_name, score, comment, request_id "
-            "FROM feedback WHERE {filters} ORDER BY created_at DESC LIMIT %(limit)s"
+            "SELECT created_at, session_id, skill_name, agent, eval_name, score, comment, request_id, "
+            "business_case, language, task_type "
+            "FROM feedback_with_labels WHERE {filters} ORDER BY created_at DESC LIMIT %(limit)s"
         )
     },
     "panels": {
@@ -64,7 +68,15 @@ APP = {
         },
     },
 }
-ALL = {"skill": None, "agent": None, "eval": None, "since": None}
+ALL = {
+    "skill": None,
+    "agent": None,
+    "eval": None,
+    "business_case": None,
+    "language": None,
+    "task_type": None,
+    "since": None,
+}
 
 
 @pytest.fixture
@@ -92,7 +104,7 @@ def test_dashboard_lists_the_dropdown_values_and_the_panels(app_with_fake_pool, 
         {"id": "good_bad_over_time", "title": "Good vs bad per day", "kind": "line"},
         {
             "id": "sessions_usage",
-            "title": "Sessions: steps, tool calls, tokens, model",
+            "title": "Sessions: labels, steps, tool calls, tokens, model",
             "kind": "table",
         },
     ]
@@ -139,7 +151,7 @@ def test_panel_runs_its_sql_with_the_filters_bound(app_with_fake_pool, dashboard
     assert pool.store["params"] == {**ALL, "skill": "demo"}
 
 
-def test_panel_binds_all_four_names_and_passes_since_through(app_with_fake_pool, dashboard_files):
+def test_panel_binds_every_name_and_passes_since_through(app_with_fake_pool, dashboard_files):
     client, pool = app_with_fake_pool
     pool.set_select_rows([])
     client.post(
@@ -153,11 +165,12 @@ def test_panel_binds_all_four_names_and_passes_since_through(app_with_fake_pool,
 
 
 def test_none_is_bound_as_a_value_to_match_not_as_all(app_with_fake_pool, dashboard_files):
-    # The dropdowns list "(none)" for whole-session ratings and ratings without an eval;
-    # the fragment matches it against the null, so it must reach the SQL as itself.
+    # The dropdowns list "(none)" for whole-session ratings, ratings without an eval and
+    # ratings without a labeled conversation; the fragment matches it against the null, so
+    # it must reach the SQL as itself.
     client, pool = app_with_fake_pool
     pool.set_select_rows([])
-    none = {"skill": "(none)", "eval": "(none)"}
+    none = {"skill": "(none)", "eval": "(none)", "language": "(none)"}
     client.post("/dashboard/panel", json={"panel": "total_ratings", "filters": none})
     assert pool.store["params"] == {**ALL, **none}
     assert client.get("/dashboard/export", params=none).status_code == 200
@@ -196,10 +209,13 @@ _DOWNLOAD_COLUMNS = [
     "score",
     "comment",
     "request_id",
+    "business_case",
+    "language",
+    "task_type",
 ]
 
 
-def _rating(session_id, skill_name, request_id, day=3) -> tuple:
+def _rating(session_id, skill_name, request_id, day=3, labels=(None, None, None)) -> tuple:
     return (
         datetime(2026, 9, day, 10, tzinfo=UTC),
         session_id,
@@ -209,11 +225,22 @@ def _rating(session_id, skill_name, request_id, day=3) -> tuple:
         1,
         None,
         request_id,
+        *labels,
     )
 
 
 def _transcript(session_id, skill_name, request_id, atif, created_at="2026-09-03T10:00:00Z"):
-    return (created_at, session_id, skill_name, "claude-code", "ATIF-v1.7", atif, request_id)
+    labels = (None, None, None)
+    return (
+        created_at,
+        session_id,
+        skill_name,
+        "claude-code",
+        "ATIF-v1.7",
+        atif,
+        request_id,
+        *labels,
+    )
 
 
 def _stored_transcripts(client, monkeypatch, transcripts: list[tuple]) -> list:
@@ -241,7 +268,7 @@ def test_export_pairs_each_rating_with_its_conversation(
     pool.set_columns(_DOWNLOAD_COLUMNS)
     pool.set_select_rows(
         [
-            _rating("s1", "demo", "r1", day=3),
+            _rating("s1", "demo", "r1", day=3, labels=("backend", "go", "fix")),
             _rating("s2", None, "r2", day=2),  # its own transcript was never stored
             _rating("s3", "demo", None, day=1),
         ]
@@ -272,9 +299,13 @@ def test_export_pairs_each_rating_with_its_conversation(
         "score": 1,
         "comment": None,
         "request_id": "r1",
+        "business_case": "backend",
+        "language": "go",
+        "task_type": "fix",
         "conversation": {"steps": ["one"]},
     }
     assert rows[1]["conversation"] is None
+    assert rows[1]["language"] is None
     assert rows[2]["conversation"] is None
 
 

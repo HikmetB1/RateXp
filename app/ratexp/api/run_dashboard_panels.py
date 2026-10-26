@@ -29,7 +29,7 @@ def load_dashboard() -> dict:
 
 
 def filter_values(read, dashboard: dict) -> dict[str, list]:
-    """Distinct skills, agents and evals for the three dropdowns."""
+    """The distinct values for each dropdown: skill, agent, eval and the three labels."""
     return {
         key: [row[0] for row in read.run_dashboard_sql(sql, {}, QUERY_TIMEOUT_MS)[1]]
         for key, sql in dashboard["filters"]["values"].items()
@@ -55,7 +55,7 @@ def _cell(value):
 
 def export_feedback(read, dashboard: dict, filters: PanelFilters) -> list[dict]:
     """The newest LIST_MAX_LIMIT ratings that match the filters, newest first, each with its
-    conversation (or None)."""
+    conversation's labels and the conversation itself (or None)."""
     sql = dashboard["download"]["sql"].replace(FILTERS_MARKER, dashboard["filters"]["sql"])
     params = {**filters.params(), "limit": LIST_MAX_LIMIT}
     columns, rows = read.run_dashboard_sql(sql, params, QUERY_TIMEOUT_MS)
@@ -74,6 +74,9 @@ def export_feedback(read, dashboard: dict, filters: PanelFilters) -> list[dict]:
             **Feedback(
                 **r, name=display_name(r.get("skill_name"), r.get("session_id"))
             ).model_dump(),
+            "business_case": r.get("business_case"),
+            "language": r.get("language"),
+            "task_type": r.get("task_type"),
             "conversation": conversations.get(r.get("request_id")),
         }
         for r in ratings

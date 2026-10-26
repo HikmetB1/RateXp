@@ -13,12 +13,16 @@ const RANGES = [
   { key: 'all', label: 'All', ms: null },
 ]
 const DEFAULT_RANGE = '30d'
-const FILTER_KEYS = ['skill', 'agent', 'eval']
+// The last three are the labels core gives a stored conversation; a rating takes its conversation's.
+const FILTER_KEYS = ['skill', 'agent', 'eval', 'business_case', 'language', 'task_type']
+const NO_FILTERS = Object.fromEntries(FILTER_KEYS.map((key) => [key, null]))
 const DAY_MS = 24 * 3600e3
 
 // Columns where a null means the coding agent never wrote the figure, not that it was zero.
 const NOT_RECORDED = new Set(['steps', 'tool_calls', 'prompt_tokens', 'cached_tokens', 'completion_tokens'])
-const CODE_COLUMNS = new Set(['skill_name', 'name', 'agent', 'eval_name', 'model', 'session_id'])
+const CODE_COLUMNS = new Set([
+  'skill_name', 'name', 'agent', 'eval_name', 'model', 'business_case', 'language', 'task_type', 'session_id',
+])
 const PANEL_CLASS = { number: 'panel-number', line: 'panel-line', bar: 'panel-bar', table: 'panel-table' }
 
 // Computed at fetch time, so a live refresh moves the window along with the clock.
@@ -49,7 +53,7 @@ function fetchPanel(apiBase, panel, filters) {
 export default function Dashboard({ apiBase, liveTick, active }) {
   const [info, setInfo] = useState(null) // GET /dashboard: availability, dropdown values, panel list, download limit
   const [infoError, setInfoError] = useState(null)
-  const [filters, setFilters] = useState({ skill: null, agent: null, eval: null })
+  const [filters, setFilters] = useState(NO_FILTERS)
   const [range, setRange] = useState(DEFAULT_RANGE)
   const [results, setResults] = useState({}) // panel id -> {columns, rows} | {error}
   const [updating, setUpdating] = useState(false)
@@ -162,7 +166,7 @@ function FilterCard({ values, filters, onFilters, range, onRange, updating, onDo
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
         {FILTER_KEYS.map((key) => (
           <label key={key} className="dashboard-field">
-            <span className="dashboard-label">{key}</span>
+            <span className="dashboard-label">{key.replace('_', ' ')}</span>
             <select
               className="dashboard-select"
               value={filters[key] ?? ''}

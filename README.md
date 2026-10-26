@@ -127,9 +127,10 @@ Each is answered **True** or **False**.
 ## How it works
 
 core hands out the hook script, takes back whatever the hook posts, masks anything personal,
-and writes the result to every destination switched on - the hook only ever posts to the same
-two endpoints and never knows where the data ends up. That is true whether it is rating one
-skill or the whole session; only how much of the conversation it covers differs.
+labels each conversation, and writes the result to every destination switched on - the hook
+only ever posts to the same two endpoints and never knows where the data ends up. That is true
+whether it is rating one skill or the whole session; only how much of the conversation it
+covers differs.
 
 ```mermaid
 sequenceDiagram
@@ -147,7 +148,7 @@ sequenceDiagram
     H->>C: POST /feedback (eval, rating, optional comment)
     opt user consented
         H->>C: POST /transcript (the skill's run, or the session so far)
-        C->>C: rebuild the conversation, then mask personal data
+        C->>C: rebuild the conversation, mask personal data, then label it
     end
     C->>D: write to every enabled destination
     C-->>H: 201 stored, or 503 if none accepted
@@ -168,17 +169,21 @@ sequenceDiagram
    format (ATIF). The hook uploads it straight from the user's machine.
 6. **PII redaction** - personal data is masked before storage by a pluggable adapter
    (self-hosted Presidio or Azure AI Language), and dropped rather than stored unmasked.
-7. **Write adapters** - storage is an adapter architecture: core writes each submission to
+7. **Trajectory labels** - each stored conversation gets a business case, main language and
+   task type, picked by a cheap Azure OpenAI model from lists you set in
+   [`core/config.yaml`](./core/config.yaml), so trajectories can be grouped. A model that is
+   down only leaves the labels empty.
+8. **Write adapters** - storage is an adapter architecture: core writes each submission to
    every adapter you switch on, and they run independently, so one failing never blocks the
    others. Six ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
    PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
    Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
-8. **Live dashboard** - shows feedback as it arrives, with panels, a query box and JSON
+9. **Live dashboard** - shows feedback as it arrives, with panels, a query box and JSON
    export ([which adapter it reads](./CONTRIBUTING.md#reading-the-feedback-where-each-adapter-shows-it)).
-9. **Responsive UI** - the table reflows into cards on phones.
-10. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
+10. **Responsive UI** - the table reflows into cards on phones.
+11. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
    Fable.
-11. **Tested coding agents** - Claude Code and Cursor CLI
+12. **Tested coding agents** - Claude Code and Cursor CLI
 
 ## The RateXp app: read and export the feedback
 <p align="center">
@@ -189,12 +194,14 @@ The [RateXp app](https://ratexp-app.azurewebsites.net/) updates as feedback arri
 two views:
 
 - **Dashboard** - panels: totals, good versus bad per day and per skill, agent and eval, the
-  latest comments, and each session's steps, tool calls, tokens and model - filtered by skill,
-  agent, eval and time range, with **Download trajectories** saving the newest matching
-  ratings and their conversations as JSON.
+  latest comments, and each session's labels, steps, tool calls, tokens and model - filtered by
+  skill, agent, eval, the three labels and time range, with **Download trajectories** saving
+  the newest matching ratings and their conversations as JSON. A rating takes the labels of
+  its stored conversation, so a label filter narrows every panel.
 - **Query & table** - the latest ratings and the most-rated skills; a rating with a stored
   conversation opens it in a slide-over timeline. Each rating names the eval it answered in
-  the **Eval** column. To filter things, type an **SQL** query into the query box.
+  the **Eval** column, and its conversation's labels in the **Labels** column. To filter
+  things, type an **SQL** query into the query box.
 
 The Dashboard view also comes as a [Dynatrace app](./app/dynatrace/README.md), drawn with
 Dynatrace's own charts from the logs core writes there; only users of your tenant can open it.

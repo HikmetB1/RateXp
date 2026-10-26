@@ -1,4 +1,4 @@
-"""The shared write path: fill defaults, size-limit, redact, then store.
+"""The shared write path: fill defaults, size-limit, redact, label, then store.
 
 `captured_writes` and `no_destination_accepts` come from conftest.py.
 """
@@ -12,6 +12,7 @@ import pytest
 from api import ingest_records
 from api.build_trajectory import claude_jsonl_to_atif
 from api.record_schemas import Feedback, Transcript
+from modules.labeling.label_trajectory import Labels
 from modules.write.dispatch_to_adapters import WriteError
 
 RAW_JSONL = "\n".join(
@@ -110,3 +111,39 @@ def test_a_redaction_failure_stores_nothing(captured_writes, monkeypatch):
 def test_a_trajectory_no_destination_accepted_raises(no_destination_accepts):
     with pytest.raises(WriteError):
         ingest_records.ingest_transcript(_transcript())
+
+
+def test_a_trajectory_is_labeled_after_it_is_redacted(captured_writes, monkeypatch):
+    # The model must only ever read masked text, so labeling sees redaction's output.
+    monkeypatch.setattr(ingest_records, "redact_atif", lambda atif: {**atif, "masked": True})
+
+    def label(atif):
+        assert atif["masked"] is True
+        return Labels(business_case="data", language="sql", task_type="feat")
+
+    monkeypatch.setattr(ingest_records, "label_atif", label)
+    ingest_records.ingest_transcript(_transcript())
+    stored = captured_writes[-1]
+    assert (stored.business_case, stored.language, stored.task_type) == ("data", "sql", "feat")
+
+
+def test_an_oversized_trajectory_is_not_labeled(captured_writes, monkeypatch):
+    # The stub has no conversation left, so there is nothing to pay a model to read.
+    monkeypatch.setattr(ingest_records, "MAX_TRANSCRIPT_BYTES", 10)
+
+    def never_called(_atif):
+        raise AssertionError("the stub was handed to labeling")
+
+    monkeypatch.setattr(ingest_records, "label_atif", never_called)
+    ingest_records.ingest_transcript(_transcript(language="go"))
+    stored = captured_writes[-1]
+    assert (stored.business_case, stored.language, stored.task_type) == (None, None, None)
+
+
+def test_labels_a_client_posted_itself_are_not_stored(captured_writes):
+    # Labeling is off in tests, so core finds no labels - and the client's stay out.
+    ingest_records.ingest_transcript(
+        _transcript(business_case="ml", language="go", task_type="feat")
+    )
+    stored = captured_writes[-1]
+    assert (stored.business_case, stored.language, stored.task_type) == (None, None, None)

@@ -30,6 +30,10 @@ class Transcript(BaseModel):
     schema_version: str = SCHEMA_VERSION
     atif: dict
     request_id: str | None = None
+    # The labels core gave the conversation (see core/modules/labeling/); None when unlabeled.
+    business_case: str | None = None
+    language: str | None = None
+    task_type: str | None = None
 
 
 class QueryRequest(BaseModel):
@@ -49,6 +53,9 @@ class PanelFilters(BaseModel):
     skill: str | None = None
     agent: str | None = None
     eval: str | None = None
+    business_case: str | None = None  # the three labels core gives a stored conversation
+    language: str | None = None
+    task_type: str | None = None
     since: str | None = None
 
     def params(self) -> dict:

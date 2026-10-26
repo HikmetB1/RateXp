@@ -74,7 +74,7 @@ output "seeder_image" {
 }
 
 output "aoai_endpoint" {
-  description = "Azure OpenAI (AI Foundry) endpoint the seeder calls (empty when enable_seeder is false)."
+  description = "Azure OpenAI (AI Foundry) endpoint the seeder and core's labeling call (empty when enable_seeder and enable_labeling are both false)."
   value       = local.aoai_endpoint
 }
 

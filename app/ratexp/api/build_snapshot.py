@@ -43,6 +43,9 @@ def row_to_transcript(r) -> Transcript:
         schema_version=r[4],
         atif=r[5] if isinstance(r[5], dict) else json.loads(r[5]),
         request_id=r[6],
+        business_case=r[7],
+        language=r[8],
+        task_type=r[9],
     )
 
 

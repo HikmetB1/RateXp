@@ -20,6 +20,11 @@ subscription_id = "00000000-0000-0000-0000-000000000000"
 # aoai_capacity   = 100
 # seed_schedule   = "0 * * * * *"   # NCRONTAB with seconds; cost grows with cadence
 
+# Trajectory labeling: core labels each consented trajectory with a cheap model on the
+# same Azure OpenAI account (provisioned for either). Off by default; costs model credits.
+# enable_labeling = true
+# labeling_model  = "gpt-5-nano"   # must match labeling.deployment in core/config.yaml
+
 # Phoenix destination adapter (on in core/config.yaml). Empty = it stays inert.
 # phoenix_collector_endpoint = "https://app.phoenix.arize.com/s/your-space"
 # phoenix_api_key            = ""   # secret; or pass TF_VAR_phoenix_api_key

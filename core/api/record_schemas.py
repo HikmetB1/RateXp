@@ -30,3 +30,7 @@ class Transcript(BaseModel):
     schema_version: str = SCHEMA_VERSION  # from config.yaml
     atif: dict  # ATIF trajectory; required
     request_id: str | None = None  # idempotency key; dedup when present
+    # Core's labels (see modules/labeling/); a client's own are overwritten on ingest.
+    business_case: str | None = None
+    language: str | None = None
+    task_type: str | None = None

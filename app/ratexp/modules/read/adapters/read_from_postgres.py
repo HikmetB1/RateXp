@@ -68,7 +68,8 @@ class PostgresReadAdapter:
         with self._ensure_pool().connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id
+                SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id,
+                       business_case, language, task_type
                 FROM transcript
                 ORDER BY created_at DESC
                 LIMIT %s
@@ -83,7 +84,8 @@ class PostgresReadAdapter:
         with self._ensure_pool().connection() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id
+                SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id,
+                       business_case, language, task_type
                 FROM transcript
                 WHERE request_id = ANY(%s)
                 ORDER BY created_at DESC

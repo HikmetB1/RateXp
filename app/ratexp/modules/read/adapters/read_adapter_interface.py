@@ -33,11 +33,12 @@ class ReadAdapter(Protocol):
         ...
 
     def select_transcript(self, limit: int) -> list[tuple]:
-        """Newest `limit` transcript rows (created_at, session_id, skill_name, agent, schema_version, atif, request_id)."""
+        """Newest `limit` transcript rows (created_at, session_id, skill_name, agent, schema_version, atif, request_id, business_case, language, task_type)."""
         ...
 
     def select_transcripts_by_request_ids(self, request_ids: list) -> list[tuple]:
-        """Transcript rows whose request_id is one of `request_ids`: each rating's own conversation."""
+        """Transcript rows whose request_id is one of `request_ids`: each rating's own conversation,
+        in select_transcript's shape."""
         ...
 
     def select_top_skills(self, limit: int) -> list[dict]:

@@ -142,6 +142,36 @@ ${subjectExample(example, 'agent')}
 
 \`\`\`${lang.toLowerCase()}
 ${subjectExample(example, 'eval_name')}
+\`\`\`${labelsInfoMd(lang)}`
+}
+
+// Where the three labels core gives a stored conversation sit in each read source's query
+// language, with a query that picks one; a rating takes the labels of its conversation.
+const LABEL_EXAMPLES = {
+  SQL: {
+    where: 'columns on `transcript`, and on every rating in the `feedback_with_labels` view',
+    query: "SELECT * FROM feedback_with_labels WHERE language = 'go'",
+  },
+  DQL: {
+    where: '`ratexp.business_case`, `ratexp.language` and `ratexp.task_type` on transcript logs',
+    query: 'fetch logs | filter ratexp.record_type == "transcript" and ratexp.language == "go"',
+  },
+  'Phoenix filters': {
+    where: '`business_case`, `language` and `task_type` on transcript spans',
+    query: 'record_type:transcript language:go',
+  },
+}
+
+function labelsInfoMd(lang) {
+  const labels = LABEL_EXAMPLES[lang]
+  if (!labels) return ''
+  return `
+
+**Labels** - each stored conversation gets a business case, main language and task type,
+shown in the table's **Labels** column. In ${lang} they are ${labels.where}:
+
+\`\`\`${lang.split(' ')[0].toLowerCase()}
+${labels.query}
 \`\`\``
 }
 
@@ -368,6 +398,7 @@ export default function App() {
                     <Th>Name</Th>
                     <Th>Agent</Th>
                     <Th>Model</Th>
+                    <Th>Labels</Th>
                     <Th>Eval</Th>
                     <Th>Score</Th>
                     <Th>Comment</Th>
@@ -383,6 +414,7 @@ export default function App() {
                       <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
                       <Td label="Agent"><code>{r.agent}</code></Td>
                       <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
+                      <Td label="Labels">{labelsOf(transcriptFor(r)) ? <code>{labelsOf(transcriptFor(r))}</code> : <Dash />}</Td>
                       <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
                       <Td label="Score">{scoreLabel(r.score)}</Td>
                       <Td label="Comment">{r.comment ?? <Dash />}</Td>
@@ -812,14 +844,15 @@ function TrajectoryDrawer({ data, onClose }) {
         <header className="drawer-head">
           <div className="drawer-head-main">
             <div className="drawer-title">Trajectory</div>
-            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, Eval, Score,
-                Steps, Tokens) - the same first two columns the table shows. */}
+            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, Labels, Eval,
+                Score, Steps, Tokens) - the same first two columns the table shows. */}
             <div className="drawer-meta">
               {[
                 { k: 'Type', v: <TypeBadge skillName={row?.skill_name} /> },
                 row?.skill_name && { k: 'Name', v: <code>{row.skill_name}</code> },
                 row?.agent && { k: 'Agent', v: <code>{row.agent}</code> },
                 model && { k: 'Model', v: model },
+                labelsOf(transcript) && { k: 'Labels', v: <code>{labelsOf(transcript)}</code> },
                 row?.eval_name && { k: 'Eval', v: <code>{row.eval_name}</code> },
                 row?.score && { k: 'Score', v: scoreLabel(row.score) },
                 { k: 'Steps', v: fm.total_steps ?? steps.length },
@@ -1023,6 +1056,13 @@ function Md({ className, children, components }) {
 function Th({ children }) { return <th className="th">{children}</th> }
 function Td({ children, label }) { return <td className="td" data-label={label}>{children}</td> }
 function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
+
+// A conversation's three labels as one line ("backend · python · feat"), or null when it
+// was not labeled - or there is no stored conversation at all.
+function labelsOf(transcript) {
+  const labels = [transcript?.business_case, transcript?.language, transcript?.task_type]
+  return labels.some(Boolean) ? labels.map((label) => label ?? '—').join(' · ') : null
+}
 
 function sourceStyle(source) {
   const color = source === 'user' ? 'var(--accent-2)' : source === 'agent' ? 'var(--good)' : 'var(--faint)'

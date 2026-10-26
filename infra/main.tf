@@ -26,9 +26,11 @@ locals {
   # Storage account names: lowercase alphanumeric only, <=24 chars, globally unique.
   seeder_sa_name = "${replace(local.name_base, "-", "")}seed"
 
-  # Azure OpenAI (AI Foundry) account the seeder's agent calls - one per environment.
+  # Azure OpenAI (AI Foundry) account the seeder's agent and core's labeling call - one per
+  # environment, provisioned when either is on.
   aoai_name     = "${local.name_base}-aoai"
-  aoai_endpoint = var.enable_seeder ? azurerm_cognitive_account.aoai[0].endpoint : ""
+  enable_aoai   = var.enable_seeder || var.enable_labeling
+  aoai_endpoint = local.enable_aoai ? azurerm_cognitive_account.aoai[0].endpoint : ""
 
   core_url = "https://${local.core_name}.azurewebsites.net"
   app_url  = "https://${local.app_name}.azurewebsites.net"
@@ -183,6 +185,9 @@ resource "azurerm_linux_web_app" "core" {
     PHOENIX_COLLECTOR_ENDPOINT = var.phoenix_collector_endpoint
     PHOENIX_API_KEY            = var.phoenix_api_key
     PHOENIX_PROJECT_NAME       = var.phoenix_project_name
+    # The account core labels trajectories with; empty leaves labeling off (see
+    # core/modules/labeling/label_trajectory.py). No key: core auths with its identity.
+    AZURE_OPENAI_ENDPOINT = var.enable_labeling ? local.aoai_endpoint : ""
   }
 }
 
@@ -220,15 +225,11 @@ resource "azurerm_linux_web_app" "app" {
   }
 }
 
-# --- seeder: Azure Function that seeds demo feedback into core (optional) ---
-# Provisioned only when var.enable_seeder is true. A timer trigger has a LangChain agent
-# run a bundled skill and POST feedback to core's public API. The agent's model is Azure
-# OpenAI, reached passwordlessly: the function's Managed Identity holds "Cognitive Services
-# OpenAI User" on the account below - no API key anywhere (see seeder/function_app.py).
-
-# Azure OpenAI (AI Foundry) account + a single chat model deployment.
+# --- Azure OpenAI (AI Foundry): the models the seeder and core's labeling call (optional) ---
+# Provisioned when var.enable_seeder or var.enable_labeling is true. Passwordless: each
+# caller's Managed Identity holds "Cognitive Services OpenAI User" on it - no API key anywhere.
 resource "azurerm_cognitive_account" "aoai" {
-  count                 = var.enable_seeder ? 1 : 0
+  count                 = local.enable_aoai ? 1 : 0
   name                  = local.aoai_name
   resource_group_name   = azurerm_resource_group.this.name
   location              = azurerm_resource_group.this.location
@@ -238,6 +239,44 @@ resource "azurerm_cognitive_account" "aoai" {
   local_auth_enabled    = false # Entra ID only - no access keys
 }
 
+# core labels each consented trajectory with this model (see
+# core/modules/labeling/label_trajectory.py), which names it in config.yaml labeling.deployment.
+resource "azurerm_cognitive_deployment" "labeling_model" {
+  count                = var.enable_labeling ? 1 : 0
+  name                 = var.labeling_model
+  cognitive_account_id = azurerm_cognitive_account.aoai[0].id
+
+  model {
+    format  = "OpenAI"
+    name    = var.labeling_model
+    version = var.labeling_model_version
+  }
+
+  sku {
+    name     = var.aoai_deployment_sku
+    capacity = var.labeling_capacity
+  }
+}
+
+resource "azurerm_role_assignment" "core_aoai" {
+  count                = var.enable_labeling ? 1 : 0
+  scope                = azurerm_cognitive_account.aoai[0].id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azurerm_linux_web_app.core.identity[0].principal_id
+}
+
+# The deployer too, so labeling can be tried from their machine before a deploy.
+resource "azurerm_role_assignment" "admin_aoai" {
+  count                = var.enable_labeling ? 1 : 0
+  scope                = azurerm_cognitive_account.aoai[0].id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = local.admin_object_id
+}
+
+# --- seeder: Azure Function that seeds demo feedback into core (optional) ---
+# Provisioned only when var.enable_seeder is true. A timer trigger has a LangChain agent
+# run a bundled skill and POST feedback to core's public API. The agent's model is a
+# deployment on the Azure OpenAI account above (see seeder/function_app.py).
 resource "azurerm_cognitive_deployment" "seeder_model" {
   count                = var.enable_seeder ? 1 : 0
   name                 = var.aoai_deployment

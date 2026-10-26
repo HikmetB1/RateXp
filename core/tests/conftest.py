@@ -1,12 +1,15 @@
 """Shared fixtures. Nothing here reaches a database, a tenant, or the network.
 
-Two fixtures are autouse, so they apply to every test in this folder whether it
-asks for them or not, and both go wrong quietly if you forget they exist:
+Three fixtures are autouse, so they apply to every test in this folder whether it
+asks for them or not, and all go wrong quietly if you forget they exist:
 
 * the database environment variables are cleared, so a developer's own
   DATABASE_URL cannot change what a test sees;
 * redaction is switched off, because config.yaml ships it on. A test that wants
-  redaction has to switch it back on itself (see test_redact_trajectory.py).
+  redaction has to switch it back on itself (see test_redact_trajectory.py);
+* labeling is switched off by blanking its endpoint, so a developer's own
+  AZURE_OPENAI_ENDPOINT cannot reach a model. A test that wants labeling sets one
+  itself (see test_label_trajectory.py).
 """
 
 from __future__ import annotations
@@ -34,6 +37,13 @@ def _disable_redaction(monkeypatch):
     from modules.redaction import redact_trajectory
 
     monkeypatch.setattr(redact_trajectory, "REDACTION_ENABLED", False)
+
+
+@pytest.fixture(autouse=True)
+def _disable_labeling(monkeypatch):
+    from modules.labeling import label_trajectory
+
+    monkeypatch.setattr(label_trajectory, "LABELING_ENDPOINT", "")
 
 
 @pytest.fixture

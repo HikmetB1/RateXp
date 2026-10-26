@@ -1276,6 +1276,9 @@ dynatrace-otlp = [
 entra = [
     { name = "azure-identity" },
 ]
+labeling = [
+    { name = "azure-identity" },
+]
 redaction-azure = [
     { name = "azure-ai-textanalytics" },
     { name = "azure-identity" },
@@ -1295,6 +1298,7 @@ test = [
 requires-dist = [
     { name = "azure-ai-textanalytics", marker = "extra == 'redaction-azure'", specifier = ">=5.3" },
     { name = "azure-identity", marker = "extra == 'entra'", specifier = ">=1.16" },
+    { name = "azure-identity", marker = "extra == 'labeling'", specifier = ">=1.16" },
     { name = "azure-identity", marker = "extra == 'redaction-azure'", specifier = ">=1.16" },
     { name = "fastapi", specifier = ">=0.110" },
     { name = "httpx", marker = "extra == 'test'", specifier = ">=0.27" },
@@ -1311,7 +1315,7 @@ requires-dist = [
     { name = "spacy", marker = "extra == 'redaction-presidio'", specifier = ">=3.7" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27" },
 ]
-provides-extras = ["entra", "redaction-presidio", "redaction-azure", "dynatrace-otlp", "test"]
+provides-extras = ["entra", "redaction-presidio", "redaction-azure", "labeling", "dynatrace-otlp", "test"]
 
 [[package]]
 name = "regex"

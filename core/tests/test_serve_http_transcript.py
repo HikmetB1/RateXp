@@ -142,3 +142,20 @@ def test_a_trajectory_for_a_whole_session_carries_no_skill(client, captured_writ
     fields = {name: value for name, value in _multipart().items() if name != "skill_name"}
     assert client.post("/transcript", files=fields).status_code == 201
     assert captured_writes[-1].skill_name is None
+
+
+def test_a_labeling_failure_still_stores_the_trajectory_with_201(
+    client, captured_writes, monkeypatch
+):
+    """Fail-open, unlike redaction: a label only groups trajectories, so a model that is
+    down costs the labels, never the conversation."""
+    from modules.labeling import label_trajectory
+
+    def boom(_digest):
+        raise TimeoutError("model too slow")
+
+    monkeypatch.setattr(label_trajectory, "LABELING_ENDPOINT", "https://aoai.example/")
+    monkeypatch.setattr(label_trajectory, "_ask_model", boom)
+    assert client.post("/transcript", files=_multipart()).status_code == 201
+    stored = captured_writes[-1]
+    assert (stored.business_case, stored.language, stored.task_type) == (None, None, None)

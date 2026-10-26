@@ -25,7 +25,7 @@ const defaultQueryTimeframe = (): QueryTimeframe => ({
   end: new Date().toISOString(),
 });
 
-/** The web app's Dashboard view: the skill / agent / eval filters and a timeframe over
+/** The web app's Dashboard view: the skill / agent / eval / label filters and a timeframe over
  * every panel in dashboard.json, and the trajectory download. */
 export const Dashboard = () => {
   const [filters, setFilters] = useState<Filters>(ALL_FILTERS);
@@ -115,7 +115,7 @@ const FilterSelect = ({ filterKey, value, onChange }: FilterSelectProps) => {
     .filter((v): v is string => typeof v === "string" && v !== ALL);
   return (
     <FormField>
-      <Label>{filterKey}</Label>
+      <Label>{filterKey.replace("_", " ")}</Label>
       <Select
         name={`filter-${filterKey}`}
         value={value ?? ALL}

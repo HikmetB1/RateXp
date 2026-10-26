@@ -60,8 +60,9 @@ class PostgresWriteAdapter:
             cur.execute(
                 """
                 INSERT INTO transcript
-                  (created_at, session_id, skill_name, agent, schema_version, atif, request_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                  (created_at, session_id, skill_name, agent, schema_version, atif, request_id,
+                   business_case, language, task_type)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
                 """,
                 (
@@ -72,6 +73,9 @@ class PostgresWriteAdapter:
                     record.schema_version,
                     json.dumps(record.atif),
                     record.request_id,
+                    record.business_case,
+                    record.language,
+                    record.task_type,
                 ),
             )
 

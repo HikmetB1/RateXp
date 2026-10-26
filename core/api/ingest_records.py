@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from api.build_trajectory import stub_if_oversized
 from api.record_schemas import Feedback, Transcript
 from load_config import MAX_TRANSCRIPT_BYTES
+from modules.labeling.label_trajectory import Labels, label_atif
 from modules.redaction.redact_trajectory import redact_atif
 from modules.write.dispatch_to_adapters import write_feedback, write_transcript
 
@@ -40,15 +41,21 @@ def ingest_feedback(record: Feedback) -> None:
 
 
 def ingest_transcript(record: Transcript) -> None:
-    """Persist a trajectory: drop oversized ones to a meta-only stub, then mask PII.
+    """Persist a trajectory: drop oversized ones to a meta-only stub, mask PII, then label.
 
     Oversized first: only a meta-only stub remains, so a few huge conversations
     can't bloat the DB or slow the dashboard. The stub carries no conversation
-    text, so it skips the (costly, fail-closed) redaction call below. Raises
-    WriteError if no destination accepted the trajectory (see modules/write/dispatch_to_adapters.py).
+    text, so it skips the (costly, fail-closed) redaction call and the labeling
+    below. Labeling comes after redaction, so the model only ever reads masked
+    text. Raises WriteError if no destination accepted the trajectory (see
+    modules/write/dispatch_to_adapters.py).
     """
     _fill_defaults(record)
     record.atif = stub_if_oversized(record.atif, MAX_TRANSCRIPT_BYTES)
+    labels = Labels()
     if "oversized" not in record.atif:
         record.atif = redact_atif(record.atif)
+        labels = label_atif(record.atif)
+    # Always assigned, so labels a client posted itself are never stored.
+    record.business_case, record.language, record.task_type = labels
     write_transcript(record)

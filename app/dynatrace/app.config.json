@@ -3,7 +3,7 @@
   "environmentUrl": "https://ywg0584d.dev.apps.dynatracelabs.com/",
   "app": {
     "name": "RateXp",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "RateXp's Dashboard view: skill and session ratings, filters and downloads.",
     "id": "my.ratexp",
     "icon": "./ui/assets/ratexp-icon.png",

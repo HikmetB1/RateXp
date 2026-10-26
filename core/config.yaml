@@ -15,6 +15,19 @@ redaction:
   languages: [en, zh-hans, hi, es, fr, ar, bn, pt, ru, ur]
   azure_endpoint: "https://ratexp-lang.cognitiveservices.azure.com/"
 
+labeling:
+  enabled: true
+  endpoint_env: AZURE_OPENAI_ENDPOINT   # unset = labeling skipped
+  deployment: gpt-5-nano               # infra/ deploys it as labeling_model
+  api_version: "2024-10-21"
+  timeout_seconds: 8
+  max_input_chars: 20000               # about 5,000 tokens
+  # The model picks exactly one word from each list.
+  labels:
+    business_case: [devops, mlops, ml, imaging, data, frontend, backend, mobile, security, scripting, writing, other]
+    language: [go, python, typescript, javascript, java, csharp, cpp, rust, bash, sql, terraform, none, other]
+    task_type: [feat, fix, docs, style, refactor, test, chore, other]
+
 # Secrets live in the env vars named below, never in this file.
 write_adapters:
   app_be_psql:

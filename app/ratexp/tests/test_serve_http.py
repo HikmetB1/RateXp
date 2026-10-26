@@ -118,6 +118,9 @@ def test_get_transcript_returns_rows(app_with_fake_pool):
                 "ATIF-v1.7",
                 {"schema_version": "ATIF-v1.7", "steps": []},
                 "req-1",
+                "backend",
+                "python",
+                "feat",
             )
         ]
     )
@@ -127,6 +130,8 @@ def test_get_transcript_returns_rows(app_with_fake_pool):
     assert len(rows) == 1
     assert rows[0]["skill_name"] == "goodbye"
     assert rows[0]["atif"] == {"schema_version": "ATIF-v1.7", "steps": []}
+    labels = (rows[0]["business_case"], rows[0]["language"], rows[0]["task_type"])
+    assert labels == ("backend", "python", "feat")
 
 
 def test_get_transcript_full_returns_max(app_with_fake_pool):

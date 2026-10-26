@@ -19,7 +19,7 @@ its own README covering its layout, how to run it and what it reads:
 
 | Service | What it is |
 |---------|------------|
-| [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor CLI) and `install.sh`, which adds either to its agent's settings, takes back the ratings and transcripts it posts, masks anything personal, and writes the result to every destination you switched on. |
+| [core](./core/README.md) | Hands out the hook scripts (`ratexp-claude.sh` for Claude Code, `ratexp-cursor.sh` for Cursor CLI) and `install.sh`, which adds either to its agent's settings, takes back the ratings and transcripts it posts, masks anything personal, labels each conversation, and writes the result to every destination you switched on. |
 | [app](./app/ratexp/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives: a Dashboard view of panels with filters, and a Query & table view with the query box. |
 | [app/dynatrace](./app/dynatrace/README.md) | Optional. The same Dashboard view as a Dynatrace app, reading the logs core wrote to Dynatrace. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
@@ -154,9 +154,10 @@ with the URLs your services will be reachable on.
 just pushed. `az webapp restart` does **not** - it keeps running the old cached one.
 
 **Optional extras**, switched on in `terraform.tfvars`: `enable_redaction` masks personal data
-in transcripts, and `enable_seeder` deploys the demo seeder. With the seeder on, build and
-push `seeder_image` the same way as step 2. The `phoenix_*` values hand core the Arize Phoenix
-destination's endpoint, key and project.
+in transcripts, `enable_labeling` deploys the model core labels conversations with, and
+`enable_seeder` deploys the demo seeder. With the seeder on, build and push `seeder_image` the
+same way as step 2. The `phoenix_*` values hand core the Arize Phoenix destination's endpoint,
+key and project.
 
 ## Repository layout: what each folder holds
 
@@ -170,6 +171,7 @@ destination's endpoint, key and project.
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   └── modules/
 │       ├── dashboard/          The dashboard definitions: one base, one file per destination, and the publish command
+│       ├── labeling/           Labels each conversation (business case, language, task type) with a cheap model
 │       ├── redaction/          PII masking: presidio (in-process) or azure (AI Language)
 │       └── write/              Write destinations + the fan-out + the SQL migrations
 ├── app/                        The two apps that show the feedback
