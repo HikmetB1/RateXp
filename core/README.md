@@ -88,7 +88,7 @@ core/
 │   ├── redaction/       masks PII before storage: the presidio or azure adapter
 │   └── write/           the destinations, the fan-out, and the SQL migrations
 ├── tests/               core's own tests: mocked, no network or database
-├── evals/               the surveys users answer, one file per eval (see Config)
+├── evals/               the surveys users answer, one file per eval over a shared base (see Config)
 ├── config.yaml          the settings below; load_config.py reads it
 └── Dockerfile           builds every optional adapter in, so config alone picks what runs
 ```
@@ -131,9 +131,12 @@ is reached with your `az login`, which needs "Cognitive Services OpenAI User" on
 - `default_survey_eval`: the eval asked every Nth turn and on a `/ratexp` that names none, one
   of [`evals/`](./evals/). Each file there is one eval, named for the word users type after
   `/ratexp`: a `question` - any `{subject}` in it becomes the session or the skill - and a
-  `label` (no commas) and `description` for its `good` and its `bad` answer. A rating keeps
-  only the eval's name, so a survey that asks something new needs a new name. Baked into the
-  hooks core serves, so users re-download the hook to get a new or reworded eval
+  `label` (no commas) and `description` for its `good` and its `bad` answer. Each file is laid
+  over [`evals/base.yaml`](./evals/base.yaml), which holds what every eval shares - the True and
+  False labels - so an eval writes only what differs, and its own value wins. Copy the base to
+  start a new eval; `base` itself is never one. A rating keeps only the eval's name, so a survey
+  that asks something new needs a new name. Baked into the hooks core serves, so users
+  re-download the hook to get a new or reworded eval
 - `redaction`: whether personal data is masked and which adapter does it - `presidio`
   (in-process, free) or `azure` (AI Language, billed per 1,000 records). Both are in the
   image, so switching is one value plus a restart, never a rebuild

@@ -1,9 +1,9 @@
 """The evals in evals/ and the label lists in config.yaml: what an admin may write
 there, what stops core at startup, and the root README's table that lists the evals.
 
-Each eval is one file, named for the word users type after /ratexp. A broken one
-has to fail when core starts, because a hook baked with it would ask a survey
-whose answers cannot be read back.
+Each eval is one file, named for the word users type after /ratexp and laid over the
+folder's base.yaml. A broken one has to fail when core starts, because a hook baked
+with it would ask a survey whose answers cannot be read back.
 """
 
 from __future__ import annotations
@@ -112,6 +112,67 @@ def test_an_eval_name_users_could_not_type_as_one_word_is_refused(tmp_path):
 def test_a_folder_without_an_eval_is_refused(tmp_path):
     with pytest.raises(RuntimeError, match="holds no eval"):
         load_evals(tmp_path)
+
+
+TRUE_FALSE_BASE = """\
+good:
+  label: "True"
+bad:
+  label: "False"
+"""
+# An eval giving only what differs from TRUE_FALSE_BASE.
+WORDING_ONLY = """\
+question: Was {subject} worth it?
+good:
+  description: It saved me time.
+bad:
+  description: It cost me time.
+"""
+
+
+def test_an_eval_takes_what_it_leaves_out_from_the_base(tmp_path):
+    folder = _evals_folder(tmp_path, base=TRUE_FALSE_BASE, **{"worth-it": WORDING_ONLY})
+    assert load_evals(folder) == {
+        "worth-it": Eval(
+            "Was {subject} worth it?", "True", "It saved me time.", "False", "It cost me time."
+        )
+    }
+
+
+def test_a_value_the_eval_gives_wins_over_the_bases(tmp_path):
+    own_label = WORDING_ONLY.replace("good:\n", 'good:\n  label: "Yes"\n')
+    folder = _evals_folder(tmp_path, base=TRUE_FALSE_BASE, **{"worth-it": own_label})
+    survey = load_evals(folder)["worth-it"]
+    assert (survey.good_label, survey.bad_label) == ("Yes", "False")
+
+
+def test_a_field_neither_the_eval_nor_the_base_gives_stops_core_naming_it(tmp_path):
+    no_bad_answer = WORDING_ONLY.split("bad:")[0]
+    folder = _evals_folder(tmp_path, base=TRUE_FALSE_BASE, **{"worth-it": no_bad_answer})
+    with pytest.raises(RuntimeError, match=r"evals/worth-it\.yaml: bad\.description"):
+        load_evals(folder)
+
+
+def test_the_base_is_never_an_eval_itself(tmp_path):
+    folder = _evals_folder(tmp_path, base=TRUE_FALSE_BASE, **{"worth-it": WORDING_ONLY})
+    assert list(load_evals(folder)) == ["worth-it"]
+    assert "base" not in EVALS
+
+
+def test_a_base_that_is_not_a_mapping_stops_core_at_startup(tmp_path):
+    folder = _evals_folder(tmp_path, base="- True\n", **{"worth-it": WORTH_IT})
+    with pytest.raises(RuntimeError, match="base.yaml: must hold the fields every eval shares"):
+        load_evals(folder)
+
+
+def test_a_copy_of_the_shipped_base_with_its_fields_filled_in_is_an_eval(tmp_path):
+    # base.yaml doubles as the starting point: uncommenting its fields is a whole eval.
+    shipped = (ROOT / "core" / "evals" / "base.yaml").read_text(encoding="utf-8")
+    filled = re.sub(r"^( *)# (question|description): ", r"\1\2: ", shipped, flags=re.M)
+    folder = _evals_folder(tmp_path, base=shipped, **{"did-it-help": filled})
+    survey = load_evals(folder)["did-it-help"]
+    assert (survey.good_label, survey.bad_label) == ("True", "False")
+    assert survey.question.startswith("Did {subject}")
 
 
 GOOD_LABELS = {

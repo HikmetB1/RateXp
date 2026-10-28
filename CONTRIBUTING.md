@@ -78,8 +78,8 @@ Each service carries its own settings in two files beside its code:
 - `config.yaml` holds the non-secret tunables. **Every key is required** - a missing one fails
   loudly at startup, so the file is the single source of truth.
 - `.env` holds the secrets and per-environment wiring; all three are gitignored.
-- core also reads its surveys, one file per eval, from [`core/evals/`](./core/evals/) -
-  checked at startup just as strictly.
+- core also reads its surveys, one file per eval laid over a shared `base.yaml`, from
+  [`core/evals/`](./core/evals/) - checked at startup just as strictly.
 - What each key and variable means is listed in that service's README:
   [core](./core/README.md), [app](./app/ratexp/README.md), [seeder](./seeder/README.md).
 
@@ -167,7 +167,7 @@ key and project, and the `bluebox_*` values the Bluebox workspace's endpoint and
 │   ├── ratexp-claude.sh        The Claude Code hook: rates the session and any skill run in it
 │   ├── ratexp-cursor.sh        The same for Cursor CLI
 │   ├── install.sh              Saves either hook and adds its hooks to the agent's settings
-│   ├── evals/                  The surveys users answer, one file per eval
+│   ├── evals/                  The surveys users answer, one file per eval over a shared base
 │   ├── api/                    The HTTP surface: routes, schemas, rate limiting, ATIF building
 │   └── modules/
 │       ├── dashboard/          The dashboard definitions: one base, one file per destination, and the publish command

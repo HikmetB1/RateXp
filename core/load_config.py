@@ -55,6 +55,8 @@ class Eval(NamedTuple):
 
 # What the user types after /ratexp to pick an eval, so one word.
 _EVAL_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
+# What every eval shares, in evals/<this>.yaml; never an eval itself, so the name is taken.
+_BASE_EVAL = "base"
 
 
 def _eval_text(source: str, field: str, value, limit: int) -> str:
@@ -69,16 +71,37 @@ def _eval_text(source: str, field: str, value, limit: int) -> str:
     return value
 
 
+def _laid_over(base, own):
+    """`own` laid over `base`: key by key where both are mappings, else `own` as it is."""
+    if isinstance(base, dict) and isinstance(own, dict):
+        return {**base, **{key: _laid_over(base.get(key), value) for key, value in own.items()}}
+    return own
+
+
 def load_evals(folder: Path) -> dict[str, Eval]:
-    """Every eval in `folder`, by name: its file's name, which users type after /ratexp."""
+    """Every eval in `folder`, by name: its file's name, which users type after /ratexp.
+
+    Each file is laid over the folder's base.yaml, when it has one, so an eval writes only
+    what differs from the base; a value it does write wins over the base's.
+    """
+    base_path = folder / f"{_BASE_EVAL}.yaml"
+    # No base, or one holding only comments (read as None), shares nothing.
+    base = (
+        yaml.safe_load(base_path.read_text(encoding="utf-8")) if base_path.is_file() else None
+    ) or {}
+    if not isinstance(base, dict):
+        raise RuntimeError(f"evals/{base_path.name}: must hold the fields every eval shares")
     evals: dict[str, Eval] = {}
     for path in sorted(folder.glob("*.yaml")):
+        if path == base_path:
+            continue
         source = f"evals/{path.name}"
         if not _EVAL_NAME.fullmatch(path.stem):
             raise RuntimeError(f"{source}: an eval's name is lowercase letters, digits and -")
         survey = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(survey, dict):
             raise RuntimeError(f"{source}: must hold a question, good and bad")
+        survey = _laid_over(base, survey)
         question = _eval_text(source, "question", survey.get("question"), 300)
         answers: list[str] = []
         for answer in ("good", "bad"):
