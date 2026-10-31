@@ -36,14 +36,14 @@ const CURSOR_HOOKS = { version: 1, hooks: { sessionStart: [CURSOR_HOOK], stop: [
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
 // because each keeps its hooks somewhere different. It installs from this deployment's
-// own core, which /meta names. Editing the settings by hand and how to run RateXp each sit
-// in their own folded box below the one line.
+// own core, which /meta names. The installer's other options, editing the settings by hand
+// and how to run RateXp each sit in their own folded box below the one line.
 const INSTALL_GUIDES = {
   claude: {
     dir: '~/.claude',
     script: 'ratexp-claude.sh',
     settings: '~/.claude/settings.json',
-    projectSettings: '.claude/settings.json',
+    settingsName: "Claude Code's settings file",
     hooks: CLAUDE_SETTINGS,
     run: `1. Start a Claude Code session and work as usual.
 2. Type \`/ratexp\` to rate the whole session. It also asks on its own every 5th turn
@@ -54,7 +54,7 @@ const INSTALL_GUIDES = {
     dir: '~/.cursor',
     script: 'ratexp-cursor.sh',
     settings: '~/.cursor/hooks.json',
-    projectSettings: '.cursor/hooks.json',
+    settingsName: "Cursor's hooks file",
     hooks: CURSOR_HOOKS,
     run: `1. Start a Cursor chat and work as usual.
 2. Type \`/ratexp\` to rate the whole chat. It also asks on its own every 5th turn
@@ -80,17 +80,17 @@ script and adds RateXp's hooks to \`${guide.settings}\`, keeping everything else
 curl -fsSL ${coreUrl}/install.sh | bash -s -- install ${agent}
 \`\`\`
 
-> **More options for the same line**
-> - \`uninstall\` in place of \`install\` - removes the RateXp script and RateXp's hooks
->   from the settings file.
-> - \`status\` in place of \`install\` - checks that the RateXp script and each RateXp hook
->   are in place.
-> - \`--settings <file>\` at the end - uses another settings file, such as one project's
->   \`${guide.projectSettings}\`.
-
 Restart your coding agent to load the RateXp hooks.
 
 Congratulations - your agentic experience is live at RateXp! 🎉`
+}
+
+function helpGuideMd(coreUrl = '<your-core-url>') {
+  return `The installer's help shows how to do each:
+
+\`\`\`bash
+curl -fsSL ${coreUrl}/install.sh | bash -s -- --help
+\`\`\``
 }
 
 function manualGuideMd(agent, coreUrl = '<your-core-url>') {
@@ -770,7 +770,7 @@ function TrajectoryDrawer({ data, onClose }) {
 // hooks somewhere different, and showing both at once buried the one the reader wanted.
 const GUIDE_AGENTS = [
   { key: 'claude', label: 'Claude Code' },
-  { key: 'cursor', label: 'Cursor' },
+  { key: 'cursor', label: 'Cursor CLI' },
 ]
 
 // The hooks snippet is long, so the hand-editing guide folds its JSON block until clicked;
@@ -846,7 +846,11 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
           </div>
           <Md className="md modal-md">{installGuideMd(agent, coreUrl)}</Md>
           <details className="md-fold md-run">
-            <summary>Prefer to edit the settings file yourself?</summary>
+            <summary>Uninstall, check the status, or install for one project?</summary>
+            <Md className="md modal-md">{helpGuideMd(coreUrl)}</Md>
+          </details>
+          <details className="md-fold md-run">
+            <summary>Prefer to edit {INSTALL_GUIDES[agent].settingsName} yourself?</summary>
             <Md className="md modal-md" components={FOLD_JSON}>{manualGuideMd(agent, coreUrl)}</Md>
           </details>
           <details className="md-fold md-run">

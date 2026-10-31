@@ -165,8 +165,36 @@ usage() {
         '  action           install, uninstall or status' \
         '  agent            claude (Claude Code) or cursor (Cursor)' \
         '  --settings FILE  the settings file to use instead of ~/.claude/settings.json' \
-        '                   or ~/.cursor/hooks.json; the hook script is saved beside it' >&2
+        '                   or ~/.cursor/hooks.json; the hook script is saved beside it' \
+        'Run with --help for details.' >&2
     exit 2
+}
+# The dashboard's install popup and the READMEs show only the install line and send
+# the reader here for everything else.
+print_help() {
+    printf '%s\n' "Usage: curl -fsSL $url/install.sh | bash -s -- <action> <agent> [--settings FILE]" \
+        '' \
+        'Actions:' \
+        "  install    saves the RateXp script and adds RateXp's hooks to the settings file," \
+        '             keeping everything else in that file' \
+        "  uninstall  removes the RateXp script, its /ratexp commands and RateXp's hooks" \
+        '             from the settings file' \
+        '  status     checks that the RateXp script and each RateXp hook are in place' \
+        '' \
+        'Agents:' \
+        '  claude     Claude Code, settings file ~/.claude/settings.json' \
+        '  cursor     Cursor CLI, settings file ~/.cursor/hooks.json' \
+        '' \
+        'Options:' \
+        "  --settings FILE   uses another settings file, such as one project's .claude/settings.json" \
+        '                    or .cursor/hooks.json; the RateXp script is saved beside it' \
+        '  --help, -h, help  shows this help' \
+        '' \
+        'Example:' \
+        "  curl -fsSL $url/install.sh | bash -s -- install claude" \
+        '' \
+        'Restart your coding agent after an install to load the RateXp hooks.'
+    exit 0
 }
 # The settings file cannot be changed safely, so nothing is. An install still shows
 # the section to add by hand: the same one the dashboard's install popup shows.
@@ -406,7 +434,7 @@ show_status() {
 
 url=${RATEXP_URL:-$DEFAULT_URL}; url=${url%/}
 action=${1-}; agent=${2-}
-case $action in install|uninstall|status) ;; *) usage ;; esac
+case $action in install|uninstall|status) ;; --help|-h|help) print_help ;; *) usage ;; esac
 case $agent in
     claude) home=$HOME/.claude; script_name=ratexp-claude.sh; settings=$home/settings.json
             events=("${CLAUDE_EVENTS[@]}") ;;

@@ -85,13 +85,11 @@ curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install
 Everything else in the settings file stays, and a copy of the original settings file is
 saved as `<file>.ratexp-backup`.
 
-> **More options for the same line**
-> - `uninstall` in place of `install` - removes the RateXp script and RateXp's hooks from
->   the settings file.
-> - `status` in place of `install` - checks that the RateXp script and each RateXp hook are
->   in place.
-> - `--settings <file>` at the end - uses another settings file, such as one project's
->   `.claude/settings.json`.
+Uninstall, check the status, or install for one project? The installer's help shows how to do each:
+
+```bash
+curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- --help
+```
 
 Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
 **Install RateXp** popup shows them. That is the whole setup; ratings land on the same

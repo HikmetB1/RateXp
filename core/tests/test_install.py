@@ -528,7 +528,22 @@ def test_wrong_words_print_the_usage_and_exit_2(machine, args):
 
     assert result.returncode == 2
     assert "Usage:" in result.stderr
+    assert "Run with --help for details." in result.stderr
     assert not machine.curl_calls()
+
+
+@pytest.mark.parametrize("word", ["--help", "-h", "help"])
+def test_help_names_every_action_agent_and_option_and_changes_nothing(machine, word):
+    result = machine.run(word)
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    # The dashboard's install popup and the READMEs leave all of these to the help.
+    for start in ("install", "uninstall", "status", "claude", "cursor", "--settings FILE"):
+        assert re.search(rf"^  {re.escape(start)}\s", result.stdout, re.M), start
+    assert f"curl -fsSL {LOCAL_URL}/install.sh | bash -s -- install claude" in result.stdout
+    assert not machine.curl_calls()
+    assert not any(machine.home.iterdir())
 
 
 # --------------------------------------------------------------------------
