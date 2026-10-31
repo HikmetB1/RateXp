@@ -183,11 +183,11 @@ export default function Dashboard({ apiBase, liveTick, active, onOpenTrajectory 
 function FilterCard({ values, filters, onPick, range, onRange, updating, onDownload, downloadLimit, downloadError }) {
   return (
     <section className="glow-edge" style={glassCard}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={cardHeading}>Filters</h2>
         {updating && <span className="dashboard-label">updating...</span>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
+      <div className="dashboard-filters">
         {FILTER_KEYS.filter((key) => !(key === 'skill' && filters.type === 'session')).map((key) => (
           <label key={key} className="dashboard-field">
             <span className="dashboard-label">{key.replace('_', ' ')}</span>
@@ -201,6 +201,8 @@ function FilterCard({ values, filters, onPick, range, onRange, updating, onDownl
             </select>
           </label>
         ))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginTop: 16 }}>
         {/* They look like the view tabs but pick a value instead of showing a panel, so
             screen readers hear toggle buttons, not tabs. */}
         <div role="group" aria-label="Time range" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -210,7 +212,7 @@ function FilterCard({ values, filters, onPick, range, onRange, updating, onDownl
               aria-pressed={r.key === range}
               className="btn-edge"
               onClick={() => onRange(r.key)}
-              style={{ padding: '7px 14px', lineHeight: 1.2, opacity: r.key === range ? 1 : 0.55 }}
+              style={{ padding: '8px 16px', lineHeight: 1.2, opacity: r.key === range ? 1 : 0.55 }}
             >
               {r.label}
             </button>
@@ -219,13 +221,12 @@ function FilterCard({ values, filters, onPick, range, onRange, updating, onDownl
         <button
           className="btn-edge"
           onClick={onDownload}
-          style={{ marginLeft: 'auto' }}
           title={`The newest ${downloadLimit} ratings that match the filters, each with its conversation, as JSON`}
         >
           Download trajectories
         </button>
       </div>
-      {downloadError && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '10px 0 0' }}>{downloadError}</p>}
+      {downloadError && <p style={{ color: 'var(--danger)', fontSize: 13, margin: '12px 0 0' }}>{downloadError}</p>}
     </section>
   )
 }
@@ -237,10 +238,10 @@ function Panel({ panel, result, type, onOpenTrajectory }) {
   const small = panel.kind === 'number'
   const heading = { ...cardHeading, lineHeight: 1.6 }
   return (
-    <section className={`glow-edge ${PANEL_CLASS[panel.kind] ?? PANEL_CLASS.table}`} style={small ? { ...glassCard, padding: '14px 16px' } : glassCard}>
-      <h2 style={small ? { ...heading, fontSize: 9, padding: '5px 8px' } : heading}>{panel.title}</h2>
+    <section className={`glow-edge ${PANEL_CLASS[panel.kind] ?? PANEL_CLASS.table}`} style={small ? { ...glassCard, padding: 16 } : glassCard}>
+      <h2 style={small ? { ...heading, fontSize: 9, padding: '4px 8px' } : heading}>{panel.title}</h2>
       {type === 'session' && SKILL_PANELS.has(panel.id) && (
-        <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: small ? 12 : 13, margin: '10px 0 0' }}>
+        <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: small ? 12 : 13, margin: '12px 0 0' }}>
           Does not apply: the type is session, not skill.
         </p>
       )}
@@ -294,13 +295,14 @@ function ratingsPerDay(rows) {
   return days
 }
 
-// Good (bottom) and bad (top) ratings stacked per day. Drawn in real pixels from the
-// card's measured width, so the labels stay readable instead of scaling with the SVG.
+// Good (bottom) and bad (top) ratings stacked per day, with a faint gridline at half the
+// top value. Drawn in real pixels from the card's measured width, so the labels stay
+// readable instead of scaling with the SVG.
 function StackedBars({ rows }) {
   const ref = useRef(null)
   const width = useWidth(ref)
   const height = 220
-  const pad = { top: 10, right: 10, bottom: 26, left: 34 }
+  const pad = { top: 12, right: 12, bottom: 28, left: 36 }
   const data = ratingsPerDay(rows)
   const yMax = Math.max(1, ...data.map((d) => d.good + d.bad))
   const plotW = Math.max(0, width - pad.left - pad.right)
@@ -313,9 +315,9 @@ function StackedBars({ rows }) {
     <div ref={ref}>
       {data.length === 0 ? <Muted>No ratings in this range</Muted> : (
         <>
-          <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
             {[['good', 'var(--good)'], ['bad', 'var(--bad)']].map(([label, color]) => (
-              <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 10, height: 10, background: color, border: '2px solid var(--ink)' }} />
                 {label}
               </span>
@@ -323,6 +325,7 @@ function StackedBars({ rows }) {
           </div>
           {width > 0 && (
             <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Good and bad ratings per day" style={{ display: 'block' }}>
+              <line x1={pad.left} y1={pad.top + plotH / 2} x2={width - pad.right} y2={pad.top + plotH / 2} stroke="var(--muted)" strokeOpacity="0.35" strokeDasharray="4 4" />
               <line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + plotH} stroke="var(--ink)" strokeWidth="2" />
               <line x1={pad.left} y1={pad.top + plotH} x2={width - pad.right} y2={pad.top + plotH} stroke="var(--ink)" strokeWidth="2" />
               <text x={pad.left - 6} y={pad.top + 4} textAnchor="end" className="chart-label">{yMax}</text>
@@ -352,7 +355,7 @@ function StackedBars({ rows }) {
 function PercentBars({ rows }) {
   if (rows.length === 0) return <Muted>No rated feedback in this range</Muted>
   return (
-    <div className="bar-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="bar-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {rows.map((r, i) => {
         const pct = Math.max(0, Math.min(100, Number(r.percent_good) || 0))
         return (

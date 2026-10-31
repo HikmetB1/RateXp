@@ -312,14 +312,14 @@ export default function App() {
 
   return (
     <div className="app" style={{ color: 'var(--text)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Logo mask filled with the wordmark gradient so the two read as one unit. */}
           <span className="brand-logo" role="img" aria-label="RateXp logo" />
           <h1 style={{ margin: 0 }}>RateXp</h1>
           <span style={{ marginLeft: 4 }}><LiveDot live={live} /></span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {/* Opens the install how-to popup. The label is two spans so a narrow
               screen breaks it between them, not mid-phrase (.btn-install). */}
           <button
@@ -415,7 +415,7 @@ export default function App() {
 // uses to pick a coding agent.
 function ViewModeTabs({ view, onChange }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
       <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 10, color: 'var(--onbg)', marginRight: 4 }}>View mode:</span>
       <div role="tablist" aria-label="View mode" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {VIEWS.map((v) => (
@@ -427,7 +427,7 @@ function ViewModeTabs({ view, onChange }) {
             aria-controls={`view-panel-${v.key}`}
             className="btn-edge"
             onClick={() => onChange(v.key)}
-            style={{ padding: '7px 14px', lineHeight: 1.2, opacity: view === v.key ? 1 : 0.55 }}
+            style={{ padding: '8px 16px', lineHeight: 1.2, opacity: view === v.key ? 1 : 0.55 }}
           >
             {v.label}
           </button>
@@ -451,7 +451,7 @@ function ViewPanel({ viewKey, view, children }) {
 // JSON behaves per query - lives in the shared info popup. Hidden while filtering.
 function PreviewNote({ onInfo }) {
   return (
-    <p style={{ margin: '10px 0 0', color: 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
+    <p style={{ margin: '12px 0 0', color: 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
       This is a real-time preview - only the most recent entries are shown to keep
       things smooth. To see everything for your skill, query it in the filter above, then
       click Download JSON.{' '}
@@ -479,14 +479,13 @@ function LiveDot({ live }) {
   return (
     <span
       title={live ? 'Live - updating in real time' : 'Offline - not receiving live updates'}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)' }}
     >
       <span style={{
         width: 8,
         height: 8,
         borderRadius: 999,
         background: live ? 'var(--good)' : 'var(--faint)',
-        boxShadow: live ? '0 0 6px var(--good)' : 'none',
       }} />
       {live ? 'Live' : 'Offline'}
     </span>
@@ -498,7 +497,7 @@ function ViewLimitNotice({ shown }) {
   return (
     <p style={{
       margin: '0 0 12px',
-      padding: '10px 14px',
+      padding: '12px 16px',
       border: '1px solid var(--card-border)',
       borderRadius: 10,
       background: 'var(--glass-bg)',
@@ -598,7 +597,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
 
   return (
     <section className="glow-edge" style={glassCard}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <h2 style={cardHeading}>Filter feedback with {queryLanguage}</h2>
         {/* Opens the same preview & download info popup the red notes link to. */}
         <button
@@ -611,7 +610,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
           i
         </button>
       </div>
-      <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>
+      <p style={{ color: 'var(--muted)', fontSize: 13, margin: '8px 0 12px' }}>
         Read-only {queryLanguage} query (capped & time-limited) that replaces the table below -
         query one skill, agent or eval, e.g. <code>{example}</code> (<code>skill_name</code> can be
         replaced by <code>agent</code> or <code>eval_name</code>), then Download JSON to export all of it.{' '}
@@ -623,7 +622,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
         placeholder={example}
         rows={3}
         spellCheck={false}
-        style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 10, boxSizing: 'border-box' }}
+        style={{ width: '100%', fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: 12, boxSizing: 'border-box' }}
       />
       <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="btn-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering...' : 'Apply filter'}</button>
@@ -839,7 +838,7 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
         <div className="modal glow-edge" role="dialog" aria-label="Install RateXp in your coding agent" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
           <h3 style={{ margin: '0 0 12px' }}>Install RateXp in your coding agent</h3>
-          <div role="tablist" aria-label="Coding agent" style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div role="tablist" aria-label="Coding agent" style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
             {GUIDE_AGENTS.map((a) => (
               <button
                 key={a.key}
@@ -848,7 +847,7 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
                 className="btn-edge"
                 onClick={() => setAgent(a.key)}
                 style={{
-                  padding: '7px 14px',
+                  padding: '8px 16px',
                   lineHeight: 1.2,
                   opacity: a.key === agent ? 1 : 0.55,
                 }}
@@ -915,7 +914,7 @@ function Md({ className, children, components }) {
 
 function sourceStyle(source) {
   const color = source === 'user' ? 'var(--accent-2)' : source === 'agent' ? 'var(--good)' : 'var(--faint)'
-  return { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color, fontWeight: 600 }
+  return { fontSize: 11, color, fontWeight: 600 }
 }
 
 function StatusLine({ loading, error, filtered }) {

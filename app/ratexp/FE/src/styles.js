@@ -5,9 +5,9 @@
 export const groupBox = {
   display: 'flex',
   flexDirection: 'column',
-  gap: 14,
+  gap: 16,
   border: '4px solid var(--ink)',
-  padding: 14,
+  padding: 16,
   marginBottom: 24,
   background: 'var(--box)',
   boxShadow: '5px 5px 0 var(--ink)',
@@ -17,7 +17,7 @@ export const groupBox = {
 export const glassCard = {
   margin: 0,
   border: '4px solid var(--ink)',
-  padding: '18px 20px',
+  padding: 20,
   background: 'var(--panel)',
   boxShadow: '5px 5px 0 var(--ink)',
 }
@@ -30,7 +30,7 @@ export const cardHeading = {
   fontSize: 13,
   color: 'var(--btnfg)',
   background: 'var(--btn)',
-  padding: '7px 11px',
+  padding: '8px 12px',
   border: '3px solid var(--ink)',
   boxShadow: '3px 3px 0 var(--box)',
 }

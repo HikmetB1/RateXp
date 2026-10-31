@@ -1,6 +1,8 @@
 // The Feedback table both views draw - Query & table's rows (GET /feedback, POST /query) and
 // the Dashboard's Feedback panel - with the cells and badges the trajectory drawer reuses.
 
+import { Fragment } from 'react'
+
 // One row per rating. `transcriptFor` finds a row's stored conversation (or nothing);
 // `onOpen(transcript, row)` opens it in the trajectory drawer.
 export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
@@ -30,17 +32,18 @@ export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
             const labels = labelsOf(transcript)
             return (
               <tr key={i}>
-                <Td label="When">{r.created_at}</Td>
+                <Td label="When" className="td-nowrap">{r.created_at}</Td>
                 <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
-                <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
-                <Td label="Agent"><code>{r.agent}</code></Td>
-                <Td label="Model">{model ? <code>{model}</code> : <Dash />}</Td>
+                {/* A session rating's name is its session id, so it breaks like one. */}
+                <Td label="Name" className={r.skill_name ? undefined : 'td-id'}>{r.name ? (r.skill_name ? <code><Words text={r.name} /></code> : <code style={{ fontSize: 11 }}>{r.name}</code>) : <Dash />}</Td>
+                <Td label="Agent"><code><Words text={r.agent} /></code></Td>
+                <Td label="Model">{model ? <code><Words text={model} /></code> : <Dash />}</Td>
                 <Td label="Labels">{labels ? <code>{labels}</code> : <Dash />}</Td>
-                <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
+                <Td label="Eval">{r.eval_name ? <code><Words text={r.eval_name} /></code> : <Dash />}</Td>
                 <Td label="Score">{scoreLabel(r.score)}</Td>
                 <Td label="Comment">{r.comment ?? <Dash />}</Td>
                 <Td label="Trajectory"><Trajectory transcript={transcript} onOpen={(t) => onOpen(t, r)} /></Td>
-                <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
+                <Td label="Session" className="td-id"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
               </tr>
             )
           })}
@@ -127,9 +130,19 @@ function Trajectory({ transcript, onOpen }) {
 }
 
 // Cell styling lives in index.css (.th/.td) so the mobile breakpoint can restyle
-// the table into cards. `label` becomes data-label, the card row's heading on phones.
+// the table into cards. `label` becomes data-label, the card row's heading on phones;
+// `className` adds how the cell wraps (.td-nowrap, .td-id).
 function Th({ children }) { return <th className="th">{children}</th> }
-function Td({ children, label }) { return <td className="td" data-label={label}>{children}</td> }
+function Td({ children, label, className }) { return <td className={className ? `td ${className}` : 'td'} data-label={label}>{children}</td> }
+
+// A name that wraps only between its words, never after a hyphen: "claude-code" stays
+// whole, while an agent label like "langchain gpt-4o-mini" may take two lines, which
+// keeps the whole table inside its card.
+function Words({ text }) {
+  return String(text).split(' ').map((word, i) => (
+    <Fragment key={i}>{i > 0 && ' '}<span className="word">{word}</span></Fragment>
+  ))
+}
 function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
 
 // A conversation's three labels as one line ("backend · python · feat"), or null when it
@@ -149,8 +162,6 @@ export function TypeBadge({ skillName }) {
       color: session ? 'var(--accent)' : 'var(--accent-2)',
       fontWeight: 700,
       fontSize: 12,
-      textTransform: 'uppercase',
-      letterSpacing: '.04em',
     }}>{session ? 'session' : 'skill'}</span>
   )
 }
@@ -163,8 +174,6 @@ function ScoreBadge({ kind }) {
       color,
       fontWeight: 700,
       fontSize: 12,
-      textTransform: 'uppercase',
-      letterSpacing: '.04em',
     }}>{kind}</span>
   )
 }
