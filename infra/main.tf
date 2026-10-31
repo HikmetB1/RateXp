@@ -81,7 +81,7 @@ resource "azurerm_postgresql_flexible_server" "this" {
 }
 
 # The deployer becomes the server's Entra admin so it can create the per-app
-# database roles (see infra/README.md, post-apply step).
+# database roles (see docs/custom-deploy.md, Deploy to Azure, step 3).
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "admin" {
   server_name         = azurerm_postgresql_flexible_server.this.name
   resource_group_name = azurerm_resource_group.this.name

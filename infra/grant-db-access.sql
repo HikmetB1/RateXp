@@ -8,7 +8,7 @@
 --   APP_NAME        = terraform output -raw app_name
 --   APP_OBJECT_ID   = terraform output -raw app_identity_object_id
 --
--- It has TWO parts, run against TWO different databases (see infra/README.md):
+-- It has TWO parts, run against TWO different databases (see docs/custom-deploy.md, step 3):
 --   Part A -> the `postgres` database (where the pgaadauth_* functions live).
 --            Roles are cluster-wide, so creating them here applies everywhere.
 --   Part B -> the `ratexp` database (where the tables live), for the grants.

@@ -10,10 +10,11 @@
 
 ## Where to find the feedback: per destination
 
-`core/config.yaml` sets where core writes: one or more adapters. `app/ratexp/config.yaml` sets
-where the RateXp app reads from: one read source only, for now. For these files, see
-[Config and env](./config-and-env.md). Each destination shows only the data that its own
-adapter wrote:
+- `core/config.yaml` sets where core writes: one or more adapters.
+- `app/ratexp/config.yaml` sets where the RateXp app reads from: one read source only, for now.
+- For these files, see [Config and env](./config-and-env.md).
+
+Each destination shows only the data that its own adapter wrote:
 
 - **The RateXp app:** in [its two views](#the-ratexp-app-two-views). The
   [README of the RateXp app](../app/ratexp/README.md) tells which read source each view works
@@ -23,7 +24,8 @@ adapter wrote:
   Dynatrace app.
 - **Arize Phoenix:** in its spans (traces), or in its built-in dashboard. On the current
   Phoenix plan, that dashboard is fixed. You cannot make a custom one.
-- **Bluebox:** ask it questions in plain English. The RateXp app cannot read from Bluebox.
+- **Bluebox:** ask it questions in plain English, for example with `bluebox ask` in the Bluebox
+  CLI. The RateXp app cannot read from Bluebox.
 
 ## The RateXp app: two views
 
@@ -31,9 +33,8 @@ The [RateXp app](https://ratexp-app.azurewebsites.net/) shows the feedback when 
 It has two views: **Dashboard** and **Query & table**. Each rating answers one eval. For the
 list of evals, see [Available evals](../README.md#available-evals-what-each-one-asks).
 
-Both downloads, **Download trajectories** and **Download JSON**, save JSON with at most 1000
-ratings (`list_max_limit` in `app/ratexp/config.yaml`). Each rating has its stored conversation,
-or `null` if core stored no conversation for it.
+Both downloads, **Download trajectories** and **Download JSON**, save the ratings as JSON. Each
+rating has a `conversation` field: its stored conversation, or `null`.
 
 ### Dashboard view: panels and filters
 
@@ -46,7 +47,8 @@ The **Dashboard** view has these panels:
   first, and scroll inside their box;
 - **Feedback**: the newest 10 ratings, in the same table as Query & table.
 
-The view has these filters: type, skill, agent, eval, the three labels and time range.
+The view has these filters: type, skill, agent, eval, the three labels (business case,
+language and task type) and time range.
 
 - **Type:** skill or session. A session rating has no skill. When you select session, the
   Dashboard view hides the skill filter. It also marks **Skills rated** and **Percent good by
@@ -54,25 +56,34 @@ The view has these filters: type, skill, agent, eval, the three labels and time 
 - **Other filters:** when you select a type, the other filters show only the values of that
   type.
 - **Labels:** a rating has the labels of its stored conversation. Thus, a label filter applies
-  to every panel.
+  to every panel. Core picks the labels with a model, from the lists in `core/config.yaml` (see
+  `labeling` in the [core README](../core/README.md#config-every-key-in-configyaml)).
+- **Time range:** 24h, 7d, 30d or All, with 30d as the default. It applies to every panel and
+  to **Download trajectories**.
 
-**Download trajectories** saves the ratings that match the filters, newest first. If more
-ratings match than the limit, it saves the ones that core stored last.
+**Download trajectories**:
+
+- saves the ratings that match the filters;
+- sorts them by the time that core stored them, newest first;
+- saves at most `list_max_limit` ratings (1000, in `app/ratexp/config.yaml`). If more ratings
+  match, it saves the newest ones.
 
 The Dashboard view is also available as a Dynatrace app. See
 [Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
 
 ### Query & table view: ratings and the query box
 
-- **Feedback** table: shows the latest ratings. Click a rating with a stored conversation to
-  open that conversation in a slide-over timeline.
+- **Feedback** table: shows the newest `list_view_limit` ratings (10, in
+  `app/ratexp/config.yaml`).
 - **Eval** column: shows the eval that the rating answered.
 - **Labels** column: shows the labels of the rating's conversation.
-- **Query box:** type a query to filter the ratings.
+- **Trajectory** column: a rating with a stored conversation has two chips. The blue chip opens
+  the conversation in a slide-over timeline. The orange chip saves that one conversation as JSON.
+- **Query box:** see [Query box](#query-box-one-language-per-read-source).
 
 ### Query box: one language per read source
 
-The query box in **Query & table** uses the language of the
+Type a query into the query box to filter the ratings. The query uses the language of the
 [read source](#where-to-find-the-feedback-per-destination):
 
 | Read source | Query box language  |
@@ -84,8 +95,8 @@ The query box in **Query & table** uses the language of the
 
 ### Download JSON: what the file contains
 
-The query box shows only the most recent matches. To get more, use **Download JSON**. The
-contents of the download depend on the last query that you ran:
+The query box shows only the newest `list_view_limit` matches. To get more, use **Download
+JSON**. The contents of the download depend on the last query that you ran:
 
 | Last query run | What the download contains |
 |---|---|
@@ -94,6 +105,8 @@ contents of the download depend on the last query that you ran:
 | `SELECT * FROM feedback WHERE agent = 'claude-code'` | **Every** rating from that agent - skill runs and whole sessions - up to 1000 ratings. |
 | `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **Every** rating that answered that eval, up to 1000 ratings. |
 | Anything spanning several skills, several agents and several evals | The 10 most recent ratings. |
+
+The 1000 in this table is `query_max_rows` in `app/ratexp/config.yaml`.
 
 ## Dashboards: one panel list, drawn in the app and Dynatrace
 
@@ -106,8 +119,9 @@ All dashboard files are in [`core/modules/dashboard/`](../core/modules/dashboard
 - **App in Dynatrace:** [`app/dynatrace/`](../app/dynatrace/README.md) shows the
   `dashboard_for_dynatrace.yaml` panels with the Dynatrace charts, from the logs that core
   writes to Dynatrace. Only the users of your tenant can open it. It also has the same filters
-  as the RateXp app and **Download trajectories** (its `download` query). It keeps a copy of
-  the panels. Its tests make sure that this copy is equal to the YAML.
+  as the RateXp app and **Download trajectories** (its `download` query, capped by
+  `limit 1000`). It keeps a copy of the panels. Its tests make sure that this copy is equal to
+  the YAML.
 - **One shared base:** `dashboard_base.yaml` lists the panels that every dashboard must have.
   Each panel has an id, a title and a kind (number, line, bar or table). The file of each
   platform must contain all of these panels. If one is missing,
@@ -115,9 +129,11 @@ All dashboard files are in [`core/modules/dashboard/`](../core/modules/dashboard
 - **Same panels and filters:** all dashboards share panels, order and filters (now the RateXp
   app's Dashboard view, the Dynatrace dashboard and the Dynatrace app).
 
-> **Where they differ:** when Type is session, the Dynatrace app works like the RateXp app (see
-> [Dashboard view](#dashboard-view-panels-and-filters)). The Dynatrace dashboard cannot hide the
-> Skill filter or mark a panel "Does not apply". There, Skill shows only "(none)" and Skills
-> rated shows "n/a: session". The **Feedback** table of the Dynatrace dashboard also has no
-> Trajectory column. In the RateXp app and the Dynatrace app, that column opens the
-> conversation of a rating.
+> **Where they differ:**
+>
+> - When Type is session, the Dynatrace app works like the RateXp app (see
+>   [Dashboard view](#dashboard-view-panels-and-filters)).
+> - The Dynatrace dashboard cannot hide the Skill filter or mark a panel "Does not apply".
+>   There, Skill shows only "(none)" and Skills rated shows "n/a: session".
+> - The **Feedback** table of the Dynatrace dashboard has no Trajectory column. In the RateXp
+>   app and the Dynatrace app, that column opens the conversation of a rating.
