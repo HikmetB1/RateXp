@@ -129,6 +129,7 @@ All dashboard files are in [`core/modules/dashboard/`](../core/modules/dashboard
 - **Same panels and filters:** all dashboards share panels, order and filters (now the RateXp
   app's Dashboard view, the Dynatrace dashboard and the Dynatrace app).
 
+> [!NOTE]
 > **Where they differ:**
 >
 > - When Type is session, the Dynatrace app works like the RateXp app (see

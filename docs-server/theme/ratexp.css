@@ -1,21 +1,317 @@
-/* The RateXp app's colours (app/ratexp/FE/src/index.css), mapped onto Material's:
-   Sunburst for the light scheme, Midnight for the dark one. Both keep the brand navy
-   header the app draws its page on. */
+/* The RateXp app's colours (app/ratexp/FE/src/index.css), painted the way the app paints
+   them: Sunburst for the light scheme, Midnight for the dark one. In both, the page is the
+   brand navy and everything sits on it in cards; a group's header bar is the app's red in
+   Sunburst and its yellow in Midnight, and a code block's title bar is the app's outer-box
+   colour. --page-* is the navy
+   page and the text drawn straight onto it; --header-* is the top bar; --box-*, --group-*
+   and --*-colour draw the cards, header bars and Tip/Note boxes below. */
 
 [data-md-color-scheme="default"] {
   --md-primary-fg-color: #001848;
   --md-primary-fg-color--light: #2a3a5e;
   --md-primary-fg-color--dark: #000f30;
+  --md-footer-bg-color: #001848;
   --md-accent-fg-color: #e23a2e;
   --md-typeset-a-color: #0ea88c;
+  --md-default-fg-color: #14233a;
+  --md-default-fg-color--light: #5a6678;
+  --md-default-bg-color: #ffffff;
+  --md-code-bg-color: #fff5d4;
+  --page-bg: #001848;
+  --page-text: #ffffff;
+  --page-text-muted: #c3cde0;
+  --box-bg: #ffffff;
+  --box-line: #14233a;
+  --box-bar: #ffce33;
+  --group-bar: #e23a2e;
+  --group-bar-text: #ffffff;
+  --tip-colour: #0f9b67;
+  --note-colour: #2452c9;
+  --header-bg: #ffce33;
+  --header-text: #14233a;
+  --header-text-light: rgba(20, 35, 58, 0.7);
+  --header-logo-filter: brightness(0) opacity(0.85);
 }
 
 [data-md-color-scheme="slate"] {
   --md-primary-fg-color: #001848;
   --md-primary-fg-color--light: #2a3a5e;
   --md-primary-fg-color--dark: #000f30;
+  --md-footer-bg-color: #001848;
   --md-accent-fg-color: #ff8a1e;
   --md-typeset-a-color: #4fe3c1;
+  --md-default-fg-color: #e7eef7;
+  --md-default-fg-color--light: #a6b3c7;
   --md-default-bg-color: #131f36;
   --md-code-bg-color: #1b2942;
+  --page-bg: #001848;
+  --page-text: #e7eef7;
+  --page-text-muted: #a6b3c7;
+  --box-bg: #131f36;
+  --box-line: #2a3a5e;
+  --box-bar: #2a3a5e;
+  --group-bar: #ffce33;
+  --group-bar-text: #14233a;
+  --tip-colour: #46e0a8;
+  --note-colour: #58a6ff;
+  --header-bg: #e23a2e;
+  --header-text: #ffffff;
+  --header-text-light: rgba(255, 255, 255, 0.75);
+  --header-logo-filter: none;
+}
+
+/* The top bar is one solid app colour: Sunburst's yellow with ink text and an ink logo,
+   Midnight's red with white text and the white logo. */
+.md-header {
+  --md-primary-bg-color: var(--header-text);
+  --md-primary-bg-color--light: var(--header-text-light);
+  background: var(--header-bg);
+}
+
+.md-header .md-logo img {
+  filter: var(--header-logo-filter);
+}
+
+.md-header__title {
+  font-weight: 700;
+}
+
+/* The title sits right beside the logo, as the app's name does. The logo shows only on a
+   wide screen; a narrow one has the menu button there instead. */
+@media screen and (min-width: 76.25em) {
+  [dir="ltr"] .md-header__title {
+    margin-left: 0.1rem;
+  }
+}
+
+/* The search field looks like the app's own inputs in both schemes: pale yellow in an ink
+   outline, with ink text and icon whatever colour the bar is. Material shades the form
+   around the input, not the input itself. */
+@media screen and (min-width: 60em) {
+  .md-header .md-search__form {
+    background-color: #fff5d4;
+    box-shadow: inset 0 0 0 1px rgba(20, 35, 58, 0.45);
+  }
+
+  .md-header .md-search__form .md-search__icon,
+  .md-header .md-search__input,
+  .md-header .md-search__input::placeholder {
+    color: #14233a;
+  }
+
+  .md-header .md-search__form:hover {
+    background-color: #ffffff;
+  }
+}
+
+/* The navy page behind the cards. Material's own background colour stays the card colour,
+   so its tables, menus and the phone drawer keep readable text. */
+.md-main {
+  background-color: var(--page-bg);
+}
+
+/* The footer keeps only the previous/next links, on the brand navy: its bottom strip held
+   only the generator credit, which mkdocs.yml switches off, so the strip would stay empty. */
+.md-footer-meta {
+  display: none;
+}
+
+/* Separate cards, like papers: each item of the sidebar and each ## section of the page
+   (outline_page_sections.py wraps those in .page-section). The sidebars change only where
+   they sit beside the page: on a narrow screen they are Material's slide-in drawer. */
+
+@media screen and (min-width: 76.25em) {
+  /* One card per sidebar item, each under a header bar (--group-bar): a group
+     (Home, Guides, Services, Legal) lists its links below the bar; a page alone
+     (Contributing) is the bar itself, a link. */
+  .md-nav--primary > .md-nav__list > .md-nav__item {
+    background: var(--box-bg);
+    border: 1px solid var(--box-line);
+    border-radius: 8px;
+    margin: 0 0 0.6rem;
+    overflow: hidden;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item--section {
+    padding: 0 0 0.3rem;
+  }
+
+  /* Material keeps a gap right of every link; a card's bar runs edge to edge. */
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link,
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link:is(:hover, :focus),
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link--active {
+    background: var(--group-bar);
+    color: var(--group-bar-text);
+    font-weight: 700;
+    margin: 0;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .md-nav--primary .md-nav__item--section > .md-nav__link {
+    border-bottom: 1px solid var(--box-line);
+    margin: 0 0 0.3rem;
+  }
+
+  [dir="ltr"] .md-nav--primary .md-nav__item--section > .md-nav {
+    margin-left: 0;
+  }
+
+  /* "RateXp docs" sits on the navy page, not on a card. */
+  .md-nav--primary > .md-nav__title {
+    background: var(--page-bg);
+    box-shadow: none;
+    color: var(--page-text-muted);
+    border-bottom: 1px solid color-mix(in srgb, var(--page-text) 25%, transparent);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+  }
+}
+
+/* The table of contents is one plain list on the navy page: a small uppercase title over a
+   rule, then each ## in bold with its ### under it. */
+@media screen and (min-width: 60em) {
+  .md-nav--secondary > .md-nav__title {
+    background: var(--page-bg);
+    box-shadow: none;
+    color: var(--page-text-muted);
+    border-bottom: 1px solid color-mix(in srgb, var(--page-text) 25%, transparent);
+    font-size: 0.6rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+  }
+
+  .md-sidebar--secondary .md-nav__link:not(.md-nav__link--active) {
+    color: var(--page-text-muted);
+  }
+
+  .md-sidebar--secondary .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link {
+    font-weight: 700;
+  }
+
+  .md-sidebar--secondary .md-nav--secondary > .md-nav__list > .md-nav__item > .md-nav__link:not(.md-nav__link--active) {
+    color: var(--page-text);
+  }
+
+  .md-sidebar--secondary .md-nav__link:not(.md-nav__link--active):hover {
+    color: var(--md-accent-fg-color);
+  }
+}
+
+.md-typeset .page-section {
+  background: var(--box-bg);
+  border: 1px solid var(--box-line);
+  border-radius: 8px;
+  padding: 0 1.2rem 0.6rem;
+  margin: 0 0 1rem;
+}
+
+.md-typeset .page-section > h1:first-child,
+.md-typeset .page-section > h2:first-child {
+  margin-top: 0.8rem;
+}
+
+/* Code blocks: one framed box with a title bar - an icon and the language, from
+   pymdownx.highlight's auto_title - and the copy button sitting in that bar. Inside a code
+   block the copy button takes the title's colour, so it shows on the yellow Sunburst bar. */
+
+.md-typeset .highlight {
+  position: relative;
+  margin: 1em 0;
+  border: 1px solid var(--box-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.md-typeset .highlight span.filename {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0;
+  padding: 0.6em 3.5em 0.6em 1em;
+  border-radius: 0;
+  border-bottom: 1px solid var(--box-line);
+  background: var(--box-bar);
+  color: var(--md-default-fg-color);
+  font-weight: 700;
+}
+
+.md-typeset .highlight span.filename::before {
+  content: "";
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  background-color: currentcolor;
+  /* Material's file-document-outline icon; a terminal for shell commands below. */
+  -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2h7v5h5v11H6zm2 8v2h8v-2zm0 4v2h5v-2z"/></svg>') center / contain no-repeat;
+  mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2h7v5h5v11H6zm2 8v2h8v-2zm0 4v2h5v-2z"/></svg>') center / contain no-repeat;
+}
+
+.md-typeset .language-bash span.filename::before {
+  -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 19V7H4v12zm0-16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm-7 14v-2h5v2zm-3.42-4L5.57 9H8.4l3.3 3.3c.39.39.39 1.03 0 1.42L8.42 17H5.59z"/></svg>');
+  mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 19V7H4v12zm0-16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm-7 14v-2h5v2zm-3.42-4L5.57 9H8.4l3.3 3.3c.39.39.39 1.03 0 1.42L8.42 17H5.59z"/></svg>');
+}
+
+.md-typeset .highlight .md-code__button {
+  color: var(--md-default-fg-color);
+}
+
+/* The copy button is placed against the whole box, not the code, so it lands in the bar. */
+.md-typeset .highlight pre {
+  position: static;
+  margin: 0;
+}
+
+.md-typeset .highlight pre > code {
+  border-radius: 0;
+}
+
+/* Tip and Note boxes, written in the pages as GitHub's > [!TIP] and > [!NOTE]: a coloured
+   left edge, a tinted background, and a coloured title with its icon. */
+
+.md-typeset .admonition {
+  font-size: inherit;
+  border: 1px solid var(--box-line);
+  border-left-width: 3px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.md-typeset .admonition > .admonition-title {
+  background: none;
+  font-weight: 700;
+}
+
+.md-typeset .admonition > .admonition-title + * {
+  margin-top: 0.2em;
+}
+
+.md-typeset .admonition.tip {
+  border-color: var(--box-line);
+  border-left-color: var(--tip-colour);
+  background: color-mix(in srgb, var(--tip-colour) 7%, transparent);
+}
+
+.md-typeset .tip > .admonition-title {
+  color: var(--tip-colour);
+}
+
+.md-typeset .tip > .admonition-title::before {
+  background-color: var(--tip-colour);
+}
+
+.md-typeset .admonition.note {
+  border-color: var(--box-line);
+  border-left-color: var(--note-colour);
+  background: color-mix(in srgb, var(--note-colour) 7%, transparent);
+}
+
+.md-typeset .note > .admonition-title {
+  color: var(--note-colour);
+}
+
+.md-typeset .note > .admonition-title::before {
+  background-color: var(--note-colour);
 }

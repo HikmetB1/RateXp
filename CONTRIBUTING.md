@@ -60,6 +60,7 @@ docker compose up --build -d
 `docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
 everything and wipes the data.
 
+> [!TIP]
 > You can also run just one service on its own - outside compose, the UI with live reload, or
 > the demo seeder. Each service's README shows how:
 > [core](./core/README.md#running-locally-start-it-on-your-machine),

@@ -52,6 +52,16 @@ plus a note only where one matters.
   *Note:* optional. Only installed with core's `dynatrace-otlp` extra, which the Dynatrace and Bluebox destinations need.
 - langdetect — https://github.com/Mimino666/langdetect (Python port of Nakatani Shuyo's language-detection library)
 - setuptools — https://github.com/pypa/setuptools
+- MkDocs — https://github.com/mkdocs/mkdocs
+  *Note:* BSD-2-Clause, Copyright © 2014-present Tom Christie. Builds the docs site.
+- Material for MkDocs — https://github.com/squidfunk/mkdocs-material
+  *Note:* MIT, Copyright (c) 2016-2025 Martin Donath. Its stylesheets and scripts ship inside the docs site, whose footer does not repeat this credit.
+- pymdown-extensions — https://github.com/facelessuser/pymdown-extensions
+- markdown-callouts — https://github.com/oprypin/markdown-callouts
+- mdx_truly_sane_lists — https://github.com/radude/mdx_truly_sane_lists
+- mdx-breakless-lists — https://github.com/adamb70/mdx-breakless-lists
+- Mermaid — https://github.com/mermaid-js/mermaid
+  *Note:* not bundled; readers' browsers load it from unpkg to draw the docs site's diagrams.
 - Ruff — https://docs.astral.sh/ruff/
 - uv — https://docs.astral.sh/uv/
 - Docker (Engine) — https://github.com/moby/moby

@@ -52,9 +52,10 @@ Uninstall, check the status, or install for one project? The installer's help sh
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- --help
 ```
 
-Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
-**Install RateXp** popup shows them. That is the whole setup; ratings land on the same
-dashboard.
+> [!TIP]
+> Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
+> **Install RateXp** popup shows them. That is the whole setup; ratings land on the same
+> dashboard.
 
 ### When it asks: on /ratexp, and every 5th turn
 
@@ -69,8 +70,9 @@ dashboard.
   [Available evals](../README.md#available-evals-what-each-one-asks).
 - **Tested in** - Claude Code and Cursor CLI.
 
-Want to run your own core instead of the hosted one? See
-[Custom deploy](../docs/custom-deploy.md).
+> [!TIP]
+> Want to run your own core instead of the hosted one? See
+> [Custom deploy](../docs/custom-deploy.md).
 
 ## Layout: what lives in this folder
 

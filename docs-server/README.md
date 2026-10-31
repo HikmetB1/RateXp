@@ -10,9 +10,11 @@ a repo file that is not a page goes to that file on GitHub.
 
 ```text
 docs-server/
-├── mkdocs.yml           the settings below
-├── add_repo_pages.py    the MkDocs hook: adds the pages and images from the repo root
-└── theme/               the site's stylesheet: the RateXp app's colours
+├── mkdocs.yml                    the settings below
+├── add_repo_pages.py             the MkDocs hook that adds the pages and images from the repo root
+├── outline_page_sections.py      the MkDocs hook that boxes each ## section of a page
+├── list_home_sections_in_nav.py  the MkDocs hook that lists Home's ## sections in the sidebar
+└── theme/                        the site's stylesheet: the RateXp app's colours and the boxes
 ```
 
 ## Running locally: start it on your machine
@@ -22,6 +24,8 @@ This serves the site on <http://127.0.0.1:8002/guide/> and reloads it when you s
 ```bash
 uv sync && uv run mkdocs serve
 ```
+
+It reloads a page, `mkdocs.yml` or `theme/`, but never a hook: restart it after editing one.
 
 core serves its own copy at `/guide/`:
 
@@ -39,17 +43,24 @@ core serves its own copy at `/guide/`:
 - `docs_dir`: `theme/`, the site's stylesheet only; the pages come from `hooks` (the top of
   `add_repo_pages.py` says why)
 - `dev_addr`: where `mkdocs serve` listens
-- `hooks`: `add_repo_pages.py`. It puts an image on the site only when the image is in the
-  repo's `assets/` folder. The exception: the RateXp app's logo and favicon, which it adds from
-  `app/ratexp/FE/public/`
+- `hooks`: the three in the layout above. `add_repo_pages.py` puts an image on the site only
+  when the image is in the repo's `assets/` folder. The exception: the RateXp app's logo and
+  favicon, which it adds from `app/ratexp/FE/public/`
 - `nav`: the pages, in the order of the one sidebar. A markdown file is on the site only once
   the nav names it
 - `theme`: Material, with the RateXp app's logo, favicon and fonts. Its light/dark toggle is
-  the app's two themes, Sunburst first, as the app opens on it, then Midnight
+  the app's two themes, Sunburst first, as the app opens on it, then Midnight. `features`
+  turns on the copy button on code, the sidebar's group headings, previous/next links and
+  the back-to-top button; `icon` gives Tip a lightbulb
+- `extra`: `generator: false` drops Material's "Made with Material for MkDocs" footer. Its
+  credit and license are in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), which the
+  site shows under Legal
 - `extra_css`: `ratexp.css` in `theme/`, the app's colours for both themes
 - `markdown_extensions`: GitHub's rules, which the pages are written for: heading anchors
-  (`toc` with `pymdownx.slugs`), and lists that nest by 2 spaces or follow a line of text
-  without a blank line (the two `mdx_` extensions). Also mermaid diagrams and code colours
+  (`toc` with `pymdownx.slugs`), lists that nest by 2 spaces or follow a line of text without
+  a blank line (the two `mdx_` extensions), and `> [!TIP]` / `> [!NOTE]` boxes
+  (`github-callouts`). Also mermaid diagrams, and code colours with a title bar naming the
+  language (`pymdownx.highlight`)
 - `validation`: makes a link to a missing page or `#anchor` a warning, so a strict build fails
   on it
 

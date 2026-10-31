@@ -6,6 +6,8 @@ docs_dir: theme
 dev_addr: 127.0.0.1:8002
 hooks:
   - add_repo_pages.py
+  - outline_page_sections.py
+  - list_home_sections_in_nav.py
 
 nav:
   - Home: README.md
@@ -50,6 +52,19 @@ theme:
         name: Switch to Sunburst
   features:
     - search.highlight
+    - search.suggest
+    - content.code.copy
+    - navigation.sections
+    - navigation.footer
+    - navigation.top
+    - toc.follow
+  icon:
+    admonition:
+      tip: material/lightbulb-outline
+      note: material/information-outline
+
+extra:
+  generator: false
 
 extra_css:
   - ratexp.css
@@ -62,7 +77,13 @@ markdown_extensions:
   - mdx_truly_sane_lists:
       nested_indent: 2
   - mdx_breakless_lists
-  - pymdownx.highlight
+  - github-callouts
+  - pymdownx.highlight:
+      auto_title: true
+      pygments_lang_class: true
+      auto_title_map:
+        Bash: Terminal
+        Text Only: Text
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
