@@ -8,7 +8,7 @@
 - [Deploy to Azure](#deploy-to-azure-from-zero-to-live)
 - [Repository layout](#repository-layout-what-each-folder-holds)
 - [Tests](#tests-per-service-and-whole-app)
-- [README rules](#readme-rules-what-belongs-in-a-folder-readme)
+- [Documentation rules](#documentation-rules-how-docs-should-read)
 - [Code rules](#code-rules-how-code-should-read)
 - [Contributor License Agreement](#contributor-license-agreement-what-you-agree-to)
 
@@ -266,11 +266,12 @@ ratings in production, with their short, masked test conversations, each marked 
 RATEXP_PROD_AGENTS=1 uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_agents_production.py -v
 ```
 
-## README rules: what belongs in a folder README
+## Documentation rules: how docs should read
 
-These are about the README inside a folder. Your reader knows the project but has never
-opened this folder. The root [README.md](./README.md) and this file are the two exceptions -
-they are read front to back by someone who knows nothing yet, so they may run long.
+These are about every doc in the repo, the README inside a folder above all: its reader
+knows the project but has never opened that folder. The root [README.md](./README.md) and
+this file are the two exceptions to rules 1 and 3 - they are read front to back by someone
+who knows nothing yet, so they may run long.
 
 1. **Write only what the folder cannot show by itself.**
    `ls` lists the files, docstrings explain the functions, `--help` prints the flags.
@@ -305,6 +306,11 @@ they are read front to back by someone who knows nothing yet, so they may run lo
 7. **Put the answer in the heading.**
    `## Tests: how to run them` tells the reader whether to stop or read on; `## Tests`
    makes them guess. Title, colon, three or four words - never a sentence.
+
+8. **Name what you mean.**
+   Each sentence must stand on its own: "the RateXp app and the Dynatrace app", not "the
+   two apps"; "Total ratings and Percent good", not "totals". State the general rule, put
+   today's cases in brackets, and set the exceptions apart.
 
 ## Code rules: how code should read
 
