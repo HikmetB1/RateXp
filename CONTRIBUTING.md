@@ -22,6 +22,7 @@ its own README covering its layout, how to run it and what it reads:
 | [app](./app/ratexp/README.md) | The dashboard. Reads the stored feedback back from one source and shows it as it arrives: a Dashboard view of panels with filters, and a Query & table view with the query box. |
 | [app/dynatrace](./app/dynatrace/README.md) | Optional. The same Dashboard view as a Dynatrace app, reading the logs core wrote to Dynatrace. |
 | [seeder](./seeder/README.md) | Optional. On a timer, an agent uses one of the bundled skills and rates it, so a demo dashboard is never empty. |
+| [docs-server](./docs-server/README.md) | The docs site. Builds the repo's markdown into the pages core serves at `/guide/`; it ships inside core's image. |
 
 ## Reading the feedback: where each adapter shows it
 
@@ -53,7 +54,7 @@ docker compose up --build -d
 
 | Service | URL                     | What it is                                               |
 |---------|-------------------------|----------------------------------------------------------|
-| core    | <http://localhost:8000> | serves the hook scripts (`/ratexp-claude.sh`, `/ratexp-cursor.sh`) and `/install.sh`, ingests `/feedback` + `/transcript` |
+| core    | <http://localhost:8000> | serves the hook scripts (`/ratexp-claude.sh`, `/ratexp-cursor.sh`), `/install.sh` and the docs site at `/guide/`, ingests `/feedback` + `/transcript` |
 | app     | <http://localhost:8001> | the dashboard                                            |
 
 `docker compose logs -f core` follows one service's logs; `docker compose down -v` stops
@@ -98,6 +99,7 @@ See [docs/custom-deploy.md](./docs/custom-deploy.md).
 │   │   └── submit/             Messages → ATIF, and the two posts to core
 │   └── skills/                 The skills the agent picks from (third-party, see ATTRIBUTION.md)
 ├── docs/                       Guides that span the services: reading the feedback, config and env, custom deploy
+├── docs-server/                Builds the repo's markdown into the docs site core serves at /guide/
 ├── infra/                      Terraform stack for Azure (two web apps + PostgreSQL)
 ├── tests/                      Whole-app integration tests (run against a live/local stack)
 ├── .github/                    CI checks on every push and pull request, plus issue templates
@@ -110,12 +112,17 @@ See [docs/custom-deploy.md](./docs/custom-deploy.md).
 
 `core/`, `app/ratexp/` and `seeder/` are each self-contained - they deliberately duplicate small
 helpers (database connection, config loading, `clone_dashboard_from_base.py`) so any one of
-them can be built and deployed on its own. The one exception: the app image copies
-`dashboard_base.yaml` and `dashboard_for_app.yaml` out of `core/modules/dashboard/` at build
-time (the extra build context named `dashboard` in `docker-compose.yml` and the build commands
-in [Deploy to Azure](./docs/custom-deploy.md#deploy-to-azure-from-zero-to-live)), so every
-destination's dashboard lives in that one folder - see
-[Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
+them can be built and deployed on its own. Two images reach outside their folder at build time,
+each through an extra build context that `docker-compose.yml` and the build commands in
+[Deploy to Azure](./docs/custom-deploy.md#deploy-to-azure-from-zero-to-live) pass:
+
+- **The app image, context `dashboard`:** copies `dashboard_base.yaml` and
+  `dashboard_for_app.yaml` out of `core/modules/dashboard/`, so every destination's dashboard
+  lives in that one folder - see
+  [Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
+- **The core image, context `repo`:** builds the docs site from the whole repo, because its
+  pages are the READMEs of every folder. The repo root's `.dockerignore` keeps local files,
+  caches and secrets out of it.
 
 ## Tests: per-service and whole-app
 
@@ -125,7 +132,8 @@ Two layers: run the per-service ones while you work, the whole-app ones before y
 way from its own folder; the command is in its README:
 [core](./core/README.md#tests-how-to-run-them), [app](./app/ratexp/README.md#tests-how-to-run-them),
 [app/dynatrace](./app/dynatrace/README.md#tests-how-to-run-them),
-[seeder](./seeder/README.md#tests-how-to-run-them).
+[seeder](./seeder/README.md#tests-how-to-run-them),
+[docs-server](./docs-server/README.md#tests-how-to-run-them).
 
 **Whole-app** - the real services talking over HTTP: core stores a rating, the dashboard reads
 it back. Bring the stack up first, then run `tests/`:
@@ -137,7 +145,7 @@ uv run --no-project --with-requirements tests/requirements.txt pytest tests/
 
 | File | Checks |
 |------|--------|
-| `test_smoke.py` | Both services answer `/healthz`; core serves both hook scripts with its own URL baked in, and takes a `/feedback` post. |
+| `test_smoke.py` | Both services answer `/healthz`; core serves both hook scripts with its own URL baked in, takes a `/feedback` post, and serves the docs site at `/guide/` beside Swagger at `/docs`. |
 | `test_end_to_end.py` | A rating - and a consented trajectory - posted to core comes back out on the dashboard. The last test runs the real `ratexp-claude.sh` rating a skill, so the bytes a real install sends are the ones checked. |
 | `test_azure_live.py` | Read-only checks against a deployed stack. Skipped unless you opt in, see below. |
 | `test_agents_production.py` | The real `claude` and `cursor-agent` CLIs in a scratch project, on production: the one-line install, the hooks running, `/ratexp` asking, a rating and its trajectory reaching the dashboard, and uninstall. Skipped unless you opt in, see below. |

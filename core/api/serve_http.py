@@ -1,4 +1,5 @@
-"""Serve the hook scripts and their installer; take feedback and consented transcripts."""
+"""Serve the hook scripts, their installer and the docs site; take feedback and consented
+transcripts."""
 
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from api.limit_request_rate import RateLimiter
 from api.record_schemas import Feedback, Transcript
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 from load_config import (
     DEFAULT_SURVEY_EVAL,
     DEFAULT_SURVEY_EVERY,
@@ -202,3 +204,11 @@ async def post_transcript(request: Request) -> dict[str, str]:
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"transcript ingest failed: {e!r}") from e
     return {"status": "stored"}
+
+
+# The docs site docs-server/ builds. core's Dockerfile builds it into the image at the
+# same path relative to core/ as on a dev machine. Mounted last so it never shadows a
+# route above, and only where it was built, so core still starts without it.
+GUIDE_DIR = CORE_DIR.parent / "docs-server" / "site"
+if GUIDE_DIR.is_dir():
+    app.mount("/guide", StaticFiles(directory=GUIDE_DIR, html=True), name="guide")

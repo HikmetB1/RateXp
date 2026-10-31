@@ -1,0 +1,35 @@
+# The repo root is the extra build context named "repo", which core's Dockerfile builds
+# the docs site from. That build checks that every repo path a page links to exists, so
+# every top-level entry git tracks comes in whole; anything else at the root stays out.
+*
+!.github
+!CITATION.cff
+!CLA.md
+!CONTRIBUTING.md
+!LICENSE
+!README.md
+!TERMS.md
+!THIRD_PARTY_NOTICES.md
+!app
+!assets
+!core
+!docker-compose.yml
+!docs
+!docs-server
+!infra
+!pyproject.toml
+!seeder
+!tests
+
+# Local caches, build output and secrets, at any depth.
+**/.env
+**/*.tfvars
+**/*.tfstate*
+**/.terraform
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+docs-server/site

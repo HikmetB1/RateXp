@@ -1,0 +1,15 @@
+[project]
+name = "ratexp-docs-server"
+version = "1.0.0"
+description = "Builds the repo's markdown into the RateXp docs site that core serves at /guide/."
+requires-python = ">=3.12"
+dependencies = [
+    "mdx-breakless-lists>=1.0",
+    "mdx-truly-sane-lists>=1.3",
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+]
+
+[tool.uv]
+# Nothing to install as a package: the project is mkdocs.yml and one MkDocs hook.
+package = false

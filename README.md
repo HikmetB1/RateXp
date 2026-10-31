@@ -7,6 +7,7 @@
   <a href="https://github.com/HikmetB1/RateXp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HikmetB1/RateXp/ci.yml?branch=main&style=flat-square&label=CI&labelColor=30363d&logo=github&logoColor=white" alt="CI status"></a>
   <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/demo-dashboard-8957e5?style=flat-square&labelColor=30363d" alt="Live demo dashboard"></a>
   <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/status-live-3fb950?style=flat-square&labelColor=30363d" alt="Service status: live"></a>
+  <a href="https://ratexp-core.azurewebsites.net/guide/"><img src="https://img.shields.io/badge/docs-guide-ff8a1e?style=flat-square&labelColor=30363d" alt="Docs: the RateXp docs site"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-source%20available-1f6feb?style=flat-square&labelColor=30363d" alt="License: RateXp Source Available License 1.0"></a>
 </p>
 
@@ -222,5 +223,5 @@ This is a short summary; the [LICENSE](./LICENSE) is the binding text. The softw
 
 ---
 
-Want to run it yourself or contribute? See [docs/](./docs/README.md) and
-[CONTRIBUTING.md](./CONTRIBUTING.md).
+Want to run it yourself or contribute? See the [docs](https://ratexp-core.azurewebsites.net/guide/)
+and [CONTRIBUTING.md](./CONTRIBUTING.md).

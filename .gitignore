@@ -10,6 +10,9 @@ __pycache__/
 node_modules/
 dist/
 
+# The docs site docs-server builds
+/docs-server/site/
+
 # Env / secrets
 .env
 *.tfvars

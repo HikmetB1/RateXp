@@ -88,7 +88,7 @@ core/
 ├── tests/               core's own tests: mocked, no network or database
 ├── evals/               the surveys users answer, one file per eval over a shared base (see Config)
 ├── config.yaml          the settings below; load_config.py reads it
-└── Dockerfile           builds every optional adapter in, so config alone picks what runs
+└── Dockerfile           builds in the docs site and every optional adapter (config alone picks which adapters run)
 ```
 
 ## Running locally: start it on your machine
@@ -101,6 +101,8 @@ docker compose up --build -d
 ```
 
 Compose mounts this folder, so edits reload in place and each hook is re-read per request.
+core also serves the docs site at `/guide/`; which copy it serves is in
+[docs-server](../docs-server/README.md#running-locally-start-it-on-your-machine).
 To run core on its own instead, you install the extras your `config.yaml` switches on
 yourself - the Dockerfile installs all of them, `uv sync` installs none, and Presidio
 additionally needs the per-language spaCy models the Dockerfile downloads:

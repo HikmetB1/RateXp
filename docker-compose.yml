@@ -6,6 +6,7 @@
 #   http://localhost:8000/ratexp-claude.sh        # the hook Claude Code users install
 #   http://localhost:8000/ratexp-cursor.sh        # the one Cursor users install
 #   http://localhost:8000/install.sh              # saves either one and adds it to the agent's settings
+#   http://localhost:8000/guide/                  # the docs site, built from the repo's markdown
 #   http://localhost:8000/feedback                # where installed hooks post ratings
 #   http://localhost:8000/transcript              # where they post consented transcripts
 #
@@ -34,6 +35,10 @@ services:
   core:
     build:
       context: ./core
+      # The docs site at /guide/ is built from the whole repo; the Dockerfile reads it
+      # from this extra context (see CONTRIBUTING.md).
+      additional_contexts:
+        repo: .
     restart: unless-stopped
     # Core's own destination secrets live with core (cp core/.env.example core/.env).
     # Keep those keys out of `environment:` below - it wins over env_file, so

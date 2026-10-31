@@ -330,6 +330,19 @@ export default function App() {
             <span>Install RateXp in your</span>{' '}
             <span>coding agent</span>
           </button>
+          {/* The docs site, served by the same core the install popup names. A link, so it
+              opens in a new tab; shown once /meta has said which core that is. */}
+          {meta.core_url && (
+            <a
+              className="btn-edge btn-docs"
+              href={`${meta.core_url}/guide/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Read the RateXp docs"
+            >
+              Docs
+            </a>
+          )}
           {/* Sliding sun/moon switch; theme state drives [data-theme] on <html>, which the CSS keys off. */}
           <button
             className="theme-toggle"

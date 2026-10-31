@@ -12,6 +12,7 @@ Each service keeps its settings and its secrets in files next to its code:
 | app      | [`app/ratexp/config.yaml`](../app/ratexp/config.yaml)       | `app/ratexp/.env` ([example](../app/ratexp/.env.example))       |
 | seeder   | [`seeder/config.yaml`](../seeder/config.yaml) | `seeder/.env` ([example](../seeder/.env.example)) |
 | app/dynatrace | [`app/dynatrace/app.config.json`](../app/dynatrace/app.config.json) | none: it reads as the signed-in Dynatrace user |
+| docs-server | [`docs-server/mkdocs.yml`](../docs-server/mkdocs.yml) | none: it builds the docs site from the repo alone |
 
 ## Settings: every key is required
 

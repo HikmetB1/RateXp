@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - run: uvx ruff check core/ app/ratexp/ seeder/ tests/
-      - run: uvx ruff format --check core/ app/ratexp/ seeder/ tests/
+      - run: uvx ruff check core/ app/ratexp/ seeder/ tests/ docs-server/
+      - run: uvx ruff format --check core/ app/ratexp/ seeder/ tests/ docs-server/
 
   test:
     runs-on: ubuntu-latest
@@ -34,6 +34,16 @@ jobs:
         run: |
           uv sync --frozen --extra test
           uv run pytest -q
+
+  docs-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - working-directory: docs-server
+        run: |
+          uv sync --frozen
+          uv run mkdocs build --strict
 
   integration:
     runs-on: ubuntu-latest
@@ -89,5 +99,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t ratexp-core ./core
+      - run: docker build -t ratexp-core --build-context repo=. ./core
       - run: docker build -t ratexp-app -f app/ratexp/Dockerfile --build-context dashboard=./core/modules/dashboard ./app/ratexp

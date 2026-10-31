@@ -122,8 +122,9 @@ textarea {
 textarea::placeholder { color: var(--faint); }
 textarea:focus { box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.12); }
 
-/* Buttons — chunky pixel buttons with a hard shadow that presses in on click. */
-button {
+/* Buttons — chunky pixel buttons with a hard shadow that presses in on click. The
+   header's Docs link (.btn-docs) is a link drawn as one, so it shares every rule. */
+button, .btn-docs {
   font-family: 'Press Start 2P', monospace;
   font-size: 10px;
   line-height: 1.4;
@@ -136,11 +137,11 @@ button {
   box-shadow: 5px 5px 0 var(--ink);
   transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
-button:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink); }
-button:active:not(:disabled) { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
+button:hover:not(:disabled), .btn-docs:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--ink); }
+button:active:not(:disabled), .btn-docs:active { transform: translate(5px, 5px); box-shadow: 0 0 0 var(--ink); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* "Install RateXp in your coding agent" and the filter buttons all use .btn-edge. */
+/* "Install RateXp in your coding agent", the Docs link and the filter buttons all use .btn-edge. */
 .btn-edge { color: var(--btnfg); background: var(--btn); }
 
 /* The header's how-to button. Each half is nowrap, so the only place the label can
@@ -149,6 +150,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
    block the button cannot shrink past and the page would scroll sideways. */
 .btn-install { padding: 9px 16px; line-height: 1.2; text-align: center; }
 .btn-install span { white-space: nowrap; }
+
+/* The Docs link's own box: as tall as the one-line .btn-install beside it. */
+.btn-docs { display: inline-block; padding: 9px 16px; line-height: 1.2; text-decoration: none; }
 
 /* The animated glow ring is replaced by plain chunky borders here. */
 .glow-edge { position: relative; }

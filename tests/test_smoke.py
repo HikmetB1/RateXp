@@ -40,3 +40,34 @@ def test_core_accepts_a_feedback_post(core_url, post_feedback):
     )
     assert r.status_code == 201
     assert r.json() == {"status": "stored"}
+
+
+def test_core_serves_the_docs_site(core_url, http):
+    # Built into core's image from the repo's markdown; the root README is its Home page.
+    r = http.get(f"{core_url}/guide/")
+    assert r.status_code == 200
+    assert "<title>RateXp docs</title>" in r.text
+
+
+@pytest.mark.parametrize("page", ["docs/custom-deploy/", "core/", "CONTRIBUTING/"])
+def test_each_docs_page_sits_at_its_repo_path(core_url, http, page):
+    assert http.get(f"{core_url}/guide/{page}").status_code == 200
+
+
+def test_the_docs_site_without_its_slash_redirects_to_it(core_url, http):
+    # The pages link relatively, so /guide would break every link on the Home page.
+    r = http.get(f"{core_url}/guide")
+    assert r.is_redirect
+    assert r.headers["location"].endswith("/guide/")
+
+
+def test_an_unknown_docs_page_gets_the_sites_own_404(core_url, http):
+    r = http.get(f"{core_url}/guide/nope/")
+    assert r.status_code == 404
+    assert "RateXp docs" in r.text
+
+
+def test_swagger_stays_at_docs(core_url, http):
+    r = http.get(f"{core_url}/docs")
+    assert r.status_code == 200
+    assert "swagger" in r.text.lower()

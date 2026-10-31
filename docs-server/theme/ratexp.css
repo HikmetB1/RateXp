@@ -1,0 +1,21 @@
+/* The RateXp app's colours (app/ratexp/FE/src/index.css), mapped onto Material's:
+   Sunburst for the light scheme, Midnight for the dark one. Both keep the brand navy
+   header the app draws its page on. */
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #001848;
+  --md-primary-fg-color--light: #2a3a5e;
+  --md-primary-fg-color--dark: #000f30;
+  --md-accent-fg-color: #e23a2e;
+  --md-typeset-a-color: #0ea88c;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #001848;
+  --md-primary-fg-color--light: #2a3a5e;
+  --md-primary-fg-color--dark: #000f30;
+  --md-accent-fg-color: #ff8a1e;
+  --md-typeset-a-color: #4fe3c1;
+  --md-default-bg-color: #131f36;
+  --md-code-bg-color: #1b2942;
+}

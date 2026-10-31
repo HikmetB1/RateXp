@@ -1,0 +1,74 @@
+# docs-server settings; see ./README.md (## Config: every key in mkdocs.yml).
+
+site_name: RateXp docs
+site_url: https://ratexp-core.azurewebsites.net/guide/   # must end in /guide/
+docs_dir: theme
+dev_addr: 127.0.0.1:8002
+hooks:
+  - add_repo_pages.py
+
+nav:
+  - Home: README.md
+  - Guides:
+      - Overview: docs/README.md
+      - Read the feedback: docs/read-the-feedback.md
+      - Config and env: docs/config-and-env.md
+      - Custom deploy: docs/custom-deploy.md
+  - Services:
+      - core: core/README.md
+      - app: app/README.md
+      - app/ratexp: app/ratexp/README.md
+      - app/dynatrace: app/dynatrace/README.md
+      - seeder: seeder/README.md
+  - Contributing: CONTRIBUTING.md
+  - Legal:
+      - License: https://github.com/HikmetB1/RateXp/blob/main/LICENSE
+      - Terms of Service: TERMS.md
+      - Contributor License Agreement: CLA.md
+      - Third-party notices: THIRD_PARTY_NOTICES.md
+      - Skill attribution: seeder/skills/ATTRIBUTION.md
+
+theme:
+  name: material
+  logo: app/ratexp/FE/public/logo-white.png
+  favicon: app/ratexp/FE/public/favicon.ico
+  font:
+    text: Nunito
+    code: JetBrains Mono
+  palette:
+    - scheme: default   # Sunburst
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to Midnight
+    - scheme: slate     # Midnight
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to Sunburst
+  features:
+    - search.highlight
+
+extra_css:
+  - ratexp.css
+
+markdown_extensions:
+  - toc:
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - mdx_truly_sane_lists:
+      nested_indent: 2
+  - mdx_breakless_lists
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+validation:
+  unrecognized_links: warn
+  anchors: warn

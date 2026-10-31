@@ -1,6 +1,9 @@
 # core - public ingestion service.
 #
-#   docker build -t ratexp-core .
+#   docker build -t ratexp-core --build-context repo=.. .
+#
+# The docs site at /guide/ is built from the whole repo, which comes in as the extra
+# build context named "repo" (see CONTRIBUTING.md).
 #
 # Every optional adapter is built in, so whatever config.yaml switches on is
 # already present. Nothing here is per-environment: config.yaml and the env vars
@@ -8,6 +11,20 @@
 
 FROM ghcr.io/astral-sh/uv:0.5 AS uv
 
+# --- Stage 1: build the docs site from the repo's markdown ---
+FROM python:3.12-slim AS guide
+
+COPY --from=uv /uv /usr/local/bin/uv
+
+WORKDIR /repo/docs-server
+COPY --from=repo docs-server/pyproject.toml docs-server/uv.lock ./
+RUN uv sync --frozen
+# The whole repo, not only the pages: the build checks that every repo path a page links
+# to exists. The repo root's .dockerignore keeps local files, caches and secrets out.
+COPY --from=repo . /repo/
+RUN uv run --frozen mkdocs build --strict
+
+# --- Stage 2: core itself ---
 FROM python:3.12-slim
 
 COPY --from=uv /uv /usr/local/bin/uv
@@ -45,6 +62,10 @@ COPY evals/ ./evals/
 COPY ratexp-claude.sh ratexp-cursor.sh install.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/
+# The built docs site, served by api/serve_http.py at /guide/. It sits beside /app, as
+# docs-server/ sits beside core/ in the repo, so docker compose's live mount of core/
+# over /app leaves it in place.
+COPY --from=guide /repo/docs-server/site /docs-server/site
 
 # Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv
