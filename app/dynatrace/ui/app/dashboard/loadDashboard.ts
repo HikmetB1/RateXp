@@ -2,9 +2,10 @@
 // dashboard_base.yaml, bundled as dashboard.json by scripts/sync-dashboard.mjs.
 import dashboardJson from "./dashboard.json";
 
-// The last three are the labels core gives a stored conversation; a rating takes its
-// conversation's through the filter fragment's lookup.
-export const FILTER_KEYS = ["skill", "agent", "eval", "business_case", "language", "task_type"] as const;
+// Type first: skill or session, where a session rating is one that has no skill; every
+// other dropdown's values query takes it. The last three are the labels core gives a stored
+// conversation; a rating takes its conversation's through the filter fragment's lookup.
+export const FILTER_KEYS = ["type", "skill", "agent", "eval", "business_case", "language", "task_type"] as const;
 export type FilterKey = (typeof FILTER_KEYS)[number];
 
 export type PanelKind = "number" | "line" | "bar" | "table";
@@ -14,7 +15,8 @@ export interface Panel {
   title: string;
   kind: PanelKind;
   dql: string;
-  max_result_megabytes?: number;
+  // Columns the published dashboard hides; this app reads them but draws its own columns.
+  hidden_columns?: string[];
 }
 
 export interface Dashboard {

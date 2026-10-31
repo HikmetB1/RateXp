@@ -7,11 +7,9 @@ import email
 import email.policy
 import io
 import json
-import re
 import urllib.error
 
 import pytest
-from load_config import MAX_TRANSCRIPT_BYTES
 from modules.dashboard import publish_to_dynatrace
 from modules.dashboard.clone_dashboard_from_base import clone_dashboard
 from modules.dashboard.publish_to_dynatrace import (
@@ -23,7 +21,15 @@ from modules.dashboard.publish_to_dynatrace import (
 
 HOST = "https://abc123.apps.dynatrace.com"
 DOCUMENTS = f"{HOST}/platform/document/v1/documents"
-FILTER_VARIABLES = ("$skill", "$agent", "$eval", "$business_case", "$language", "$task_type")
+FILTER_VARIABLES = (
+    "$type",
+    "$skill",
+    "$agent",
+    "$eval",
+    "$business_case",
+    "$language",
+    "$task_type",
+)
 
 
 @pytest.fixture
@@ -69,7 +75,7 @@ def test_each_kind_gets_its_visualization_and_size(document):
         assert (layout["w"], layout["h"]) == sizes[panel["kind"]]
 
 
-def test_charts_name_the_columns_they_plot_and_other_tiles_leave_it_to_dynatrace(document):
+def test_charts_name_the_columns_they_plot_and_the_feedback_table_hides_its_request_id(document):
     panels = clone_dashboard("dynatrace")["panels"]
     for index, panel in enumerate(panels, start=1):
         settings = document["tiles"][str(index)]["visualizationSettings"]
@@ -88,23 +94,11 @@ def test_charts_name_the_columns_they_plot_and_other_tiles_leave_it_to_dynatrace
                     "fieldMapping": {"timestamp": "day", "leftAxisValues": ["good", "bad"]}
                 }
             }
+        elif panel["id"] == "feedback":
+            # The Dynatrace app opens a rating's conversation by it; the dashboard cannot.
+            assert settings == {"table": {"hiddenColumns": [["request_id"]]}}
         else:
             assert settings == {}, panel["id"]
-
-
-def test_only_the_conversations_tile_raises_its_result_limit_to_fit_every_row(document):
-    panels = clone_dashboard("dynatrace")["panels"]
-    raised = {}
-    for index, panel in enumerate(panels, start=1):
-        tile = document["tiles"][str(index)]
-        if "querySettings" in tile:
-            raised[panel["id"]] = (panel, tile["querySettings"])
-    assert set(raised) == {"conversations"}
-    panel, settings = raised["conversations"]
-    assert settings["maxResultRecords"] == 1000 and settings["enableSampling"] is False
-    # Every row may carry a trajectory as big as core stores one.
-    rows = int(re.search(r"\| limit (\d+)", panel["dql"])[1])
-    assert settings["maxResultMegaBytes"] * 1024 * 1024 >= rows * MAX_TRANSCRIPT_BYTES
 
 
 def test_every_query_has_the_filter_filled_in_and_only_ratings_24h_pins_a_timeframe(document):
@@ -117,13 +111,15 @@ def test_every_query_has_the_filter_filled_in_and_only_ratings_24h_pins_a_timefr
         assert ("from:" in tile["query"]) == pinned, tile["title"]
 
 
-def test_the_six_filter_variables_default_to_all(document):
+def test_the_seven_filter_variables_default_to_all_and_type_narrows_the_rest(document):
     variables = {variable["key"]: variable for variable in document["variables"]}
-    assert {f"${key}" for key in variables} == set(FILTER_VARIABLES)
+    # Type first: a variable can only read one defined above it.
+    assert tuple(f"${key}" for key in variables) == FILTER_VARIABLES
     for key, variable in variables.items():
         assert variable["type"] == "query" and variable["version"] == 2
         assert variable["multiple"] is False and variable["defaultValue"] == "*"
-        assert variable["input"].startswith(f'data record({key}="*") | append [')
+        assert variable["input"].startswith(f'data record({key}="*")')
+        assert ("$type" in variable["input"]) == (key != "type"), key
     assert document["settings"]["defaultTimeframe"]["value"] == {
         "from": "now()-30d",
         "to": "now()",

@@ -13,7 +13,7 @@ def test_snapshot_returns_correlated_shape(app_with_fake_pool):
     pool.set_select_rows([])  # all snapshot queries empty
     r = client.get("/snapshot")
     assert r.status_code == 200
-    assert r.json() == {"type": "snapshot", "feedback": [], "transcripts": [], "stats": []}
+    assert r.json() == {"type": "snapshot", "feedback": [], "transcripts": []}
 
 
 def test_transcripts_for_queries_by_feedback_request_ids(app_with_fake_pool):

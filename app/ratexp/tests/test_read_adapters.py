@@ -49,11 +49,6 @@ def test_select_feedback_maps_records():
     )
 
 
-def test_select_top_skills_maps():
-    a = _adapter([{"skill_name": "demo", "total": 5, "good": 4, "bad": 1}])
-    assert a.select_top_skills(10) == [{"skill_name": "demo", "total": 5, "good": 4, "bad": 1}]
-
-
 def test_transcript_atif_is_parsed_from_the_log_content():
     a = DynatraceReadAdapter("app_be_dynatrace", "https://tenant.example", "tok")
     captured = {}
@@ -274,27 +269,6 @@ def test_phoenix_transcript_with_no_trajectory_becomes_a_stub():
     a = _phoenix([_span(skill_name="demo", schema_version="ATIF-v1.7")])
     (row,) = a.select_transcript(10)
     assert row[5] == {"schema_version": "ATIF-v1.7", "steps": []}
-
-
-def test_phoenix_top_skills_are_tallied_here():
-    # Phoenix cannot group or count, so the panel is built from the spans themselves.
-    a = _phoenix(
-        [
-            _span(skill_name="demo", score=1),
-            _span(skill_name="demo", score=2),
-            _span(skill_name="other", score=1),
-        ]
-    )
-    assert a.select_top_skills(10) == [
-        {"skill_name": "demo", "total": 2, "good": 1, "bad": 1},
-        {"skill_name": "other", "total": 1, "good": 1, "bad": 0},
-    ]
-
-
-def test_phoenix_top_skills_leaves_out_whole_session_ratings():
-    # A session rating names no skill, so it would otherwise tally under a blank one.
-    a = _phoenix([_span(skill_name="demo", score=1), _span(score=1)])
-    assert a.select_top_skills(10) == [{"skill_name": "demo", "total": 1, "good": 1, "bad": 0}]
 
 
 def test_phoenix_transcripts_by_request_ids_skips_the_same_sessions_other_runs():

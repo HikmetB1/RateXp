@@ -2,7 +2,7 @@
 
 Builds a dashboard document from dashboard_for_dynatrace.yaml (see
 clone_dashboard_from_base.py) - a header, one tile per panel, a query variable for each
-filter (skill, agent, eval and the three labels), a 30-day default timeframe - and
+filter (type, skill, agent, eval and the three labels), a 30-day default timeframe - and
 stores it under the fixed document id "ratexp", named as the YAML's name: created when
 absent, its name and content replaced when present, so running this again after
 editing the YAML updates the dashboard in place.
@@ -35,7 +35,8 @@ _VISUALIZATIONS = {
     "table": "table",
 }
 # (w, h) on Dynatrace's 24-column grid: four numbers or three bars to a row, a chart
-# or a table across the whole row.
+# or a table across the whole row. A bar tile is sized for about 5 rows; with more,
+# Dynatrace decides whether the chart scrolls or squeezes.
 _TILE_SIZES = {"number": (6, 3), "line": (24, 8), "bar": (8, 8), "table": (24, 10)}
 # The columns a chart plots - left unset, Dynatrace picks among all the numbers. Every
 # line panel returns day, good and bad, every bar panel name and percent_good (pinned in
@@ -68,16 +69,16 @@ def build_dashboard_document(dashboard: dict) -> dict:
     """The dashboard as the Dynatrace document API stores it: tiles and layouts share
     keys "0", "1", ...; "0" is the header, then one data tile per panel, placed left to
     right and wrapped to the next row when a tile would cross the grid's right edge. A
-    panel's max_result_megabytes, when the YAML gives one, raises its tile's 1 MB default
-    result limit."""
+    table panel's hidden_columns, when the YAML gives them, stay out of its table."""
     filters = dashboard["filters"]
     tiles = {
         "0": {
             "type": "markdown",
             "title": "",
             "content": (
-                f"## {dashboard['name']}\n\nThe skill, agent, eval and label pickers and the "
-                "time picker apply to every tile; ratings in the last 24h keep their own window."
+                f"## {dashboard['name']}\n\nThe type, skill, agent, eval and label pickers and "
+                "the time picker apply to every tile; ratings in the last 24h keep their own "
+                "window."
             ),
         }
     }
@@ -87,27 +88,19 @@ def build_dashboard_document(dashboard: dict) -> dict:
         width, height = _TILE_SIZES[panel["kind"]]
         if x + width > _GRID_COLUMNS:
             x, y, row_height = 0, y + row_height, 0
-        tile = {
+        settings = {}
+        if panel["kind"] in _CHART_SETTINGS:
+            settings["chartSettings"] = _CHART_SETTINGS[panel["kind"]]
+        if "hidden_columns" in panel:
+            # A column id is the path to its field, so a top-level field is a list of one.
+            settings["table"] = {"hiddenColumns": [[c] for c in panel["hidden_columns"]]}
+        tiles[str(index)] = {
             "type": "data",
             "title": panel["title"],
             "query": panel["dql"].replace("{filters}", filters["dql"]),
             "visualization": _VISUALIZATIONS[panel["kind"]],
-            "visualizationSettings": (
-                {"chartSettings": _CHART_SETTINGS[panel["kind"]]}
-                if panel["kind"] in _CHART_SETTINGS
-                else {}
-            ),
+            "visualizationSettings": settings,
         }
-        if "max_result_megabytes" in panel:
-            # Dynatrace's defaults for the rest, in the shape its own tiles store.
-            tile["querySettings"] = {
-                "maxResultRecords": 1000,
-                "defaultScanLimitGbytes": 500,
-                "maxResultMegaBytes": panel["max_result_megabytes"],
-                "defaultSamplingRatio": 10,
-                "enableSampling": False,
-            }
-        tiles[str(index)] = tile
         layouts[str(index)] = {"x": x, "y": y, "w": width, "h": height}
         x, row_height = x + width, max(row_height, height)
     return {

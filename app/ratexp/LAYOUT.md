@@ -28,7 +28,7 @@ app/ratexp/                          THE DASHBOARD  (image: app)
 │
 ├── FE/                           ── the React dashboard
 │   ├── index.html, vite.config.js, package.json, package-lock.json
-│   ├── src/{App.jsx, Dashboard.jsx, styles.js, main.jsx, index.css}
+│   ├── src/{App.jsx, Dashboard.jsx, FeedbackTable.jsx, styles.js, main.jsx, index.css}
 │   └── public/                      favicons, logo, og-image
 │
 ├── tests/                        ── the app's own tests, mocked, no database

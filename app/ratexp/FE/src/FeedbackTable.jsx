@@ -1,0 +1,176 @@
+// The Feedback table both views draw - Query & table's rows (GET /feedback, POST /query) and
+// the Dashboard's Feedback panel - with the cells and badges the trajectory drawer reuses.
+
+// One row per rating. `transcriptFor` finds a row's stored conversation (or nothing);
+// `onOpen(transcript, row)` opens it in the trajectory drawer.
+export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
+  return (
+    // Scrolls sideways inside the card on tight widths instead of overflowing.
+    <div className="table-scroll" style={style}>
+      <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
+        <thead>
+          <tr>
+            <Th>When</Th>
+            <Th>Type</Th>
+            <Th>Name</Th>
+            <Th>Agent</Th>
+            <Th>Model</Th>
+            <Th>Labels</Th>
+            <Th>Eval</Th>
+            <Th>Score</Th>
+            <Th>Comment</Th>
+            <Th>Trajectory</Th>
+            <Th>Session</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => {
+            const transcript = transcriptFor(r)
+            const model = modelOf(r, transcript)
+            const labels = labelsOf(transcript)
+            return (
+              <tr key={i}>
+                <Td label="When">{r.created_at}</Td>
+                <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
+                <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
+                <Td label="Agent"><code>{r.agent}</code></Td>
+                <Td label="Model">{model ? <code>{model}</code> : <Dash />}</Td>
+                <Td label="Labels">{labels ? <code>{labels}</code> : <Dash />}</Td>
+                <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
+                <Td label="Score">{scoreLabel(r.score)}</Td>
+                <Td label="Comment">{r.comment ?? <Dash />}</Td>
+                <Td label="Trajectory"><Trajectory transcript={transcript} onOpen={(t) => onOpen(t, r)} /></Td>
+                <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// Claude Code records the model per turn inside the trajectory, so it is known
+// for rows whose conversation was consented. Runtimes that put it in the agent
+// label instead (Cursor posts "cursor gpt-5", the seeder "langchain gpt-4o-mini")
+// are read from there, shared or not.
+function modelOf(r, transcript) {
+  const fromTrajectory = transcript?.atif?.agent?.model_name
+  if (fromTrajectory) return fromTrajectory
+  return String(r.agent || '').split(' ')[1] || null
+}
+
+// Each row links to its trajectory, opened in a slide-over drawer (App.jsx's
+// TrajectoryDrawer), plus a download button that saves just this row's ATIF as a JSON file.
+function Trajectory({ transcript, onOpen }) {
+  const steps = transcript?.atif?.steps ?? []
+  const oversized = transcript?.atif?.oversized
+  // No steps and no oversized note means there's simply no trajectory to show.
+  if (steps.length === 0 && !oversized) return <Dash />
+
+  // Save this single trajectory's ATIF to a JSON file (no server round-trip - we
+  // already have it). Named by session id so multiple downloads don't collide.
+  const downloadTrajectory = () => {
+    const json = JSON.stringify(transcript.atif, null, 2)
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `trajectory-${transcript.atif?.session_id ?? 'export'}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  // Blue chip opens the drawer; orange chip downloads the trajectory JSON.
+  const actions = (
+    <span className="tx-actions">
+      <button
+        className="tx-chip"
+        onClick={() => onOpen(transcript)}
+        title={oversized ? 'Trajectory too large to store - open for details' : `Open trajectory - ${steps.length} steps`}
+      >
+        {/* Chat glyph + sliding arrow; the step count lives in the drawer header. */}
+        <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.3"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="tx-chip-arrow" aria-hidden="true">→</span>
+      </button>
+      <button
+        className="tx-chip tx-chip-dl"
+        onClick={downloadTrajectory}
+        title="Download this trajectory as JSON"
+        aria-label="Download trajectory JSON"
+      >
+        {/* Download glyph: a down arrow dropping into a tray. */}
+        <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M8 2v7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+          <path d="M5.2 6.4 8 9.2l2.8-2.8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3 10.6v1.4A1.4 1.4 0 0 0 4.4 13.4h7.2A1.4 1.4 0 0 0 13 12v-1.4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    </span>
+  )
+
+  if (!oversized) return actions
+  // Oversized: stack a short red alert under the buttons so it's obvious at a glance.
+  return (
+    <span className="tx-cell">
+      {actions}
+      <span className="tx-large-alert">! large trajectory</span>
+    </span>
+  )
+}
+
+// Cell styling lives in index.css (.th/.td) so the mobile breakpoint can restyle
+// the table into cards. `label` becomes data-label, the card row's heading on phones.
+function Th({ children }) { return <th className="th">{children}</th> }
+function Td({ children, label }) { return <td className="td" data-label={label}>{children}</td> }
+function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
+
+// A conversation's three labels as one line ("backend · python · feat"), or null when it
+// was not labeled - or there is no stored conversation at all.
+export function labelsOf(transcript) {
+  const labels = [transcript?.business_case, transcript?.language, transcript?.task_type]
+  return labels.some(Boolean) ? labels.map((label) => label ?? '—').join(' · ') : null
+}
+
+// What the rating is about. A skill rating is named after the skill; a whole-session
+// rating is about no one skill and arrives without a name, which is what tells the
+// two apart. Same plain-text look as ScoreBadge.
+export function TypeBadge({ skillName }) {
+  const session = !skillName
+  return (
+    <span style={{
+      color: session ? 'var(--accent)' : 'var(--accent-2)',
+      fontWeight: 700,
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: '.04em',
+    }}>{session ? 'session' : 'skill'}</span>
+  )
+}
+
+// Colored label so good/bad reads at a glance - plain text, no bounding box.
+function ScoreBadge({ kind }) {
+  const color = kind === 'good' ? 'var(--good)' : 'var(--bad)'
+  return (
+    <span style={{
+      color,
+      fontWeight: 700,
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: '.04em',
+    }}>{kind}</span>
+  )
+}
+
+export function scoreLabel(score) {
+  if (score === 1) return <ScoreBadge kind="good" />
+  if (score === 2) return <ScoreBadge kind="bad" />
+  return <Dash />
+}

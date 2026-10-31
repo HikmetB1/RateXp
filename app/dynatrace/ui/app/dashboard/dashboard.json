@@ -1,18 +1,19 @@
 {
   "name": "RateXp",
   "filters": {
-    "dql": "| lookup [fetch logs | filter ratexp.record_type == \"transcript\" | fields request_id=ratexp.request_id, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type], sourceField:ratexp.request_id, lookupField:request_id, prefix:\"label.\" | filter matchesValue(coalesce(ratexp.skill_name, \"(none)\"), $skill) and matchesValue(splitString(ratexp.agent, \" \")[0], $agent) and matchesValue(coalesce(ratexp.eval_name, \"(none)\"), $eval) and matchesValue(coalesce(label.business_case, \"(none)\"), $business_case) and matchesValue(coalesce(label.language, \"(none)\"), $language) and matchesValue(coalesce(label.task_type, \"(none)\"), $task_type)",
+    "dql": "| lookup [fetch logs | filter ratexp.record_type == \"transcript\" | fields request_id=ratexp.request_id, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type, model=ratexp.model], sourceField:ratexp.request_id, lookupField:request_id, prefix:\"transcript.\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) and matchesValue(coalesce(ratexp.skill_name, \"(none)\"), $skill) and matchesValue(splitString(ratexp.agent, \" \")[0], $agent) and matchesValue(coalesce(ratexp.eval_name, \"(none)\"), $eval) and matchesValue(coalesce(transcript.business_case, \"(none)\"), $business_case) and matchesValue(coalesce(transcript.language, \"(none)\"), $language) and matchesValue(coalesce(transcript.task_type, \"(none)\"), $task_type)",
     "values": {
-      "skill": "data record(skill=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{skill=coalesce(ratexp.skill_name, \"(none)\")} | fields skill | sort skill asc]",
-      "agent": "data record(agent=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{agent=splitString(ratexp.agent, \" \")[0]} | fields agent | sort agent asc]",
-      "eval": "data record(eval=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | summarize count(), by:{eval=coalesce(ratexp.eval_name, \"(none)\")} | fields eval | sort eval asc]",
-      "business_case": "data record(business_case=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | summarize count(), by:{business_case=coalesce(ratexp.business_case, \"(none)\")} | fields business_case | sort business_case asc]",
-      "language": "data record(language=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | summarize count(), by:{language=coalesce(ratexp.language, \"(none)\")} | fields language | sort language asc]",
-      "task_type": "data record(task_type=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | summarize count(), by:{task_type=coalesce(ratexp.task_type, \"(none)\")} | fields task_type | sort task_type asc]"
+      "type": "data record(type=\"*\"), record(type=\"skill\"), record(type=\"session\")",
+      "skill": "data record(skill=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{skill=coalesce(ratexp.skill_name, \"(none)\")} | fields skill | sort skill asc]",
+      "agent": "data record(agent=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{agent=splitString(ratexp.agent, \" \")[0]} | fields agent | sort agent asc]",
+      "eval": "data record(eval=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{eval=coalesce(ratexp.eval_name, \"(none)\")} | fields eval | sort eval asc]",
+      "business_case": "data record(business_case=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{business_case=coalesce(ratexp.business_case, \"(none)\")} | fields business_case | sort business_case asc]",
+      "language": "data record(language=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{language=coalesce(ratexp.language, \"(none)\")} | fields language | sort language asc]",
+      "task_type": "data record(task_type=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{task_type=coalesce(ratexp.task_type, \"(none)\")} | fields task_type | sort task_type asc]"
     }
   },
   "download": {
-    "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 1000 | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name, agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score, comment=ratexp.comment, request_id=ratexp.request_id, business_case=label.business_case, language=label.language, task_type=label.task_type"
+    "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 1000 | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name, agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score, comment=ratexp.comment, request_id=ratexp.request_id, business_case=transcript.business_case, language=transcript.language, task_type=transcript.task_type"
   },
   "panels": [
     {
@@ -37,7 +38,7 @@
       "id": "skills_rated",
       "title": "Skills rated",
       "kind": "number",
-      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.skill_name) {filters} | summarize value=countDistinct(ratexp.skill_name)"
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.skill_name) {filters} | summarize value=countDistinct(ratexp.skill_name) | fieldsAdd value=if($type == \"session\", \"n/a: session\", else:toString(value))"
     },
     {
       "id": "good_bad_over_time",
@@ -49,38 +50,28 @@
       "id": "percent_good_by_skill",
       "title": "Percent good by skill (worst first)",
       "kind": "bar",
-      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) and isNotNull(ratexp.skill_name) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=ratexp.skill_name} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc | limit 10"
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) and isNotNull(ratexp.skill_name) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=ratexp.skill_name} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc"
     },
     {
       "id": "percent_good_by_agent",
       "title": "Percent good by agent (worst first)",
       "kind": "bar",
-      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=splitString(ratexp.agent, \" \")[0]} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc | limit 10"
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=splitString(ratexp.agent, \" \")[0]} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc"
     },
     {
       "id": "percent_good_by_eval",
       "title": "Percent good by eval (worst first)",
       "kind": "bar",
-      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=coalesce(ratexp.eval_name, \"(none)\")} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc | limit 10"
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=coalesce(ratexp.eval_name, \"(none)\")} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc"
     },
     {
-      "id": "latest_comments",
-      "title": "Latest comments",
+      "id": "feedback",
+      "title": "Feedback",
       "kind": "table",
-      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.comment) and ratexp.comment != \"\" {filters} | sort timestamp desc | limit 10 | fields created_at=timestamp, name=coalesce(ratexp.skill_name, ratexp.session_id), agent=ratexp.agent, eval_name=ratexp.eval_name, rating=ratexp.rating, comment=ratexp.comment"
-    },
-    {
-      "id": "sessions_usage",
-      "title": "Sessions: labels, steps, tool calls, tokens, model",
-      "kind": "table",
-      "dql": "fetch logs | filter ratexp.record_type == \"transcript\" {filters} | sort timestamp desc | limit 10 | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent, model=ratexp.model, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type, steps=ratexp.steps, tool_calls=ratexp.tool_calls, prompt_tokens=ratexp.prompt_tokens, cached_tokens=ratexp.cached_tokens, completion_tokens=ratexp.completion_tokens, session_id=ratexp.session_id"
-    },
-    {
-      "id": "conversations",
-      "title": "Conversations (full trajectories)",
-      "kind": "table",
-      "max_result_megabytes": 20,
-      "dql": "fetch logs | filter ratexp.record_type == \"transcript\" {filters} | sort timestamp desc | limit 50 | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent, session_id=ratexp.session_id, request_id=ratexp.request_id, content"
+      "hidden_columns": [
+        "request_id"
+      ],
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 10 | fields When=timestamp, Type=if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), Name=coalesce(ratexp.skill_name, ratexp.session_id), Agent=ratexp.agent, Model=coalesce(transcript.model, splitString(ratexp.agent, \" \")[1]), Labels=if(isNotNull(transcript.business_case) or isNotNull(transcript.language) or isNotNull(transcript.task_type), concat(coalesce(transcript.business_case, \"—\"), \" · \", coalesce(transcript.language, \"—\"), \" · \", coalesce(transcript.task_type, \"—\"))), Eval=ratexp.eval_name, Score=if(ratexp.score == 1, \"good\", else:if(ratexp.score == 2, \"bad\")), Comment=ratexp.comment, Session=ratexp.session_id, request_id=transcript.request_id"
     }
   ]
 }

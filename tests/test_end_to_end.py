@@ -99,34 +99,6 @@ def test_feedback_round_trip(app_url, http, post_feedback):
     assert row["comment"] == "end-to-end ok"
 
 
-def test_top_skills_counts_our_feedback(app_url, http, post_feedback):
-    skill = f"e2e-{uuid.uuid4().hex[:8]}"
-
-    # One good (1) and one bad (2) rating for the same skill.
-    for score in (1, 2):
-        r = post_feedback(
-            session_id=str(uuid.uuid4()),
-            request_id=str(uuid.uuid4()),
-            skill_name=skill,
-            agent="claude-code",
-            score=score,
-        )
-        assert r.status_code == 201
-
-    entry = _poll(
-        lambda: next(
-            (
-                s
-                for s in _get(http, f"{app_url}/stats/top-skills", limit=100)["skills"]
-                if s.get("skill_name") == skill
-            ),
-            None,
-        )
-    )
-    assert entry is not None, f"{skill} missing from top-skills"
-    assert entry["total"] >= 2  # both ratings counted
-
-
 def test_trajectory_round_trip(app_url, http, post_feedback, post_transcript):
     """A feedback row and its stored transcript must stay linked on the dashboard.
 

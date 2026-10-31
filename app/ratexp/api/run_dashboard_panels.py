@@ -28,10 +28,12 @@ def load_dashboard() -> dict:
     return clone_dashboard("app")
 
 
-def filter_values(read, dashboard: dict) -> dict[str, list]:
-    """The distinct values for each dropdown: skill, agent, eval and the three labels."""
+def filter_values(read, dashboard: dict, type_: str | None) -> dict[str, list]:
+    """The values for each dropdown: type, then the distinct skill, agent, eval and three
+    labels that exist for the picked type (None or "" - all of them)."""
+    params = {"type": type_ or None}
     return {
-        key: [row[0] for row in read.run_dashboard_sql(sql, {}, QUERY_TIMEOUT_MS)[1]]
+        key: [row[0] for row in read.run_dashboard_sql(sql, params, QUERY_TIMEOUT_MS)[1]]
         for key, sql in dashboard["filters"]["values"].items()
     }
 

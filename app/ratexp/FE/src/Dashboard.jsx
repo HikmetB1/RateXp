@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { FeedbackTable } from './FeedbackTable.jsx'
 import { cardHeading, glassCard, groupBox } from './styles.js'
 
 // The Dashboard view: filters + one panel per entry the API lists under GET /dashboard.
-// Each panel's rows come from POST /dashboard/panel and are drawn by their `kind`.
+// Each panel's rows come from POST /dashboard/panel and are drawn by their `kind`; the one
+// table is the Feedback table of the Query & table view.
 
 // Time-range buttons; "All" sends no lower bound. 30d is the default because the Dynatrace
 // dashboard opens on the same window, so both show the same numbers.
@@ -13,17 +15,16 @@ const RANGES = [
   { key: 'all', label: 'All', ms: null },
 ]
 const DEFAULT_RANGE = '30d'
-// The last three are the labels core gives a stored conversation; a rating takes its conversation's.
-const FILTER_KEYS = ['skill', 'agent', 'eval', 'business_case', 'language', 'task_type']
+// Type first: skill or session, where a session rating is one that has no skill. Picking
+// one narrows every other dropdown to the values that exist for it. The last three are the
+// labels core gives a stored conversation; a rating takes its conversation's.
+const FILTER_KEYS = ['type', 'skill', 'agent', 'eval', 'business_case', 'language', 'task_type']
 const NO_FILTERS = Object.fromEntries(FILTER_KEYS.map((key) => [key, null]))
 const DAY_MS = 24 * 3600e3
 
-// Columns where a null means the coding agent never wrote the figure, not that it was zero.
-const NOT_RECORDED = new Set(['steps', 'tool_calls', 'prompt_tokens', 'cached_tokens', 'completion_tokens'])
-const CODE_COLUMNS = new Set([
-  'skill_name', 'name', 'agent', 'eval_name', 'model', 'business_case', 'language', 'task_type', 'session_id',
-])
 const PANEL_CLASS = { number: 'panel-number', line: 'panel-line', bar: 'panel-bar', table: 'panel-table' }
+// The panels about skills, which a session rating has none of.
+const SKILL_PANELS = new Set(['skills_rated', 'percent_good_by_skill'])
 
 // Computed at fetch time, so a live refresh moves the window along with the clock.
 function sinceFor(rangeKey) {
@@ -48,9 +49,17 @@ function fetchPanel(apiBase, panel, filters) {
   })
 }
 
+// Picks the type's dropdowns no longer list go back to all. The same object when none do,
+// so the panels are not asked again for nothing.
+function keepListedPicks(filters, values) {
+  const dropped = FILTER_KEYS.filter((key) => key !== 'type' && filters[key] != null && !(values[key] ?? []).includes(filters[key]))
+  return dropped.length ? { ...filters, ...Object.fromEntries(dropped.map((key) => [key, null])) } : filters
+}
+
 // `active` is false while the view is hidden behind the other one: it then asks the API
-// nothing, and refreshes once when shown again.
-export default function Dashboard({ apiBase, liveTick, active }) {
+// nothing, and refreshes once when shown again. `onOpenTrajectory(transcript, row)` opens a
+// Feedback row's trajectory in the app's drawer.
+export default function Dashboard({ apiBase, liveTick, active, onOpenTrajectory }) {
   const [info, setInfo] = useState(null) // GET /dashboard: availability, dropdown values, panel list, download limit
   const [infoError, setInfoError] = useState(null)
   const [filters, setFilters] = useState(NO_FILTERS)
@@ -59,22 +68,30 @@ export default function Dashboard({ apiBase, liveTick, active }) {
   const [updating, setUpdating] = useState(false)
   const [exportError, setExportError] = useState(null)
   // Answers from a batch started before the latest filter change are dropped, so a slow
-  // old query cannot overwrite a fresh panel.
+  // old query cannot overwrite a fresh panel - and the same for the dropdown values.
   const batch = useRef(0)
+  const valuesBatch = useRef(0)
 
-  // GET /dashboard again on each live snapshot and each time the view is shown again: that
-  // retries a failed load, and a skill, agent or eval rated for the first time joins the
-  // dropdowns. The picked filters are their own state, so they survive the refresh; a failed
-  // refresh leaves the last answer on screen.
+  // GET /dashboard again on each type pick, each live snapshot and each time the view is
+  // shown again: that narrows the dropdowns to the picked type, retries a failed load, and a
+  // skill, agent or eval rated for the first time joins the dropdowns. The picked filters
+  // are their own state, so they survive the refresh, but for a pick the type has no
+  // ratings for; a failed refresh leaves the last answer on screen.
   useEffect(() => {
     if (!active) return
-    fetchJson(`${apiBase}/dashboard`)
+    const id = ++valuesBatch.current
+    const query = filters.type ? `?${new URLSearchParams({ type: filters.type })}` : ''
+    fetchJson(`${apiBase}/dashboard${query}`)
       .then((d) => {
+        if (id !== valuesBatch.current) return
         setInfo(d)
         setInfoError(null)
+        if (d.available) setFilters((f) => keepListedPicks(f, d.filters ?? {}))
       })
-      .catch((e) => setInfoError(String(e.message || e)))
-  }, [apiBase, liveTick, active])
+      .catch((e) => {
+        if (id === valuesBatch.current) setInfoError(String(e.message || e))
+      })
+  }, [apiBase, liveTick, active, filters.type])
 
   // Fetch every panel when shown, on each filter change and on each live snapshot (liveTick).
   // Keyed on the panel ids rather than on `info`, which the refresh above replaces on every
@@ -119,6 +136,10 @@ export default function Dashboard({ apiBase, liveTick, active }) {
     }
   }
 
+  // A session rating has no skill, so picking session also drops a picked skill.
+  const pick = (key, value) =>
+    setFilters((f) => ({ ...f, [key]: value, ...(key === 'type' && value === 'session' ? { skill: null } : {}) }))
+
   if (!info) {
     return (
       <p style={{ color: 'var(--muted)', marginTop: 4 }}>
@@ -141,7 +162,7 @@ export default function Dashboard({ apiBase, liveTick, active }) {
       <FilterCard
         values={info.filters ?? {}}
         filters={filters}
-        onFilters={setFilters}
+        onPick={pick}
         range={range}
         onRange={setRange}
         updating={updating && Object.keys(results).length > 0}
@@ -150,13 +171,16 @@ export default function Dashboard({ apiBase, liveTick, active }) {
         downloadError={exportError}
       />
       <div className="dashboard-grid">
-        {info.panels.map((p) => <Panel key={p.id} panel={p} result={results[p.id]} />)}
+        {info.panels.map((p) => (
+          <Panel key={p.id} panel={p} result={results[p.id]} type={filters.type} onOpenTrajectory={onOpenTrajectory} />
+        ))}
       </div>
     </div>
   )
 }
 
-function FilterCard({ values, filters, onFilters, range, onRange, updating, onDownload, downloadLimit, downloadError }) {
+// Session hides the Skill dropdown: the type has no skills to pick.
+function FilterCard({ values, filters, onPick, range, onRange, updating, onDownload, downloadLimit, downloadError }) {
   return (
     <section className="glow-edge" style={glassCard}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -164,13 +188,13 @@ function FilterCard({ values, filters, onFilters, range, onRange, updating, onDo
         {updating && <span className="dashboard-label">updating...</span>}
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap', marginTop: 14 }}>
-        {FILTER_KEYS.map((key) => (
+        {FILTER_KEYS.filter((key) => !(key === 'skill' && filters.type === 'session')).map((key) => (
           <label key={key} className="dashboard-field">
             <span className="dashboard-label">{key.replace('_', ' ')}</span>
             <select
               className="dashboard-select"
               value={filters[key] ?? ''}
-              onChange={(e) => onFilters({ ...filters, [key]: e.target.value || null })}
+              onChange={(e) => onPick(key, e.target.value || null)}
             >
               <option value="">All</option>
               {(values[key] ?? []).filter(Boolean).map((v) => <option key={v} value={v}>{v}</option>)}
@@ -208,20 +232,26 @@ function FilterCard({ values, filters, onFilters, range, onRange, updating, onDo
 
 // One card per panel. Number tiles are a quarter wide, so their heading shrinks to fit.
 // Long titles wrap in narrow cards, and the pixel font's lines touch without the extra height.
-function Panel({ panel, result }) {
+// With type session, the skill panels stay and say on top that they do not apply.
+function Panel({ panel, result, type, onOpenTrajectory }) {
   const small = panel.kind === 'number'
   const heading = { ...cardHeading, lineHeight: 1.6 }
   return (
     <section className={`glow-edge ${PANEL_CLASS[panel.kind] ?? PANEL_CLASS.table}`} style={small ? { ...glassCard, padding: '14px 16px' } : glassCard}>
       <h2 style={small ? { ...heading, fontSize: 9, padding: '5px 8px' } : heading}>{panel.title}</h2>
+      {type === 'session' && SKILL_PANELS.has(panel.id) && (
+        <p style={{ color: 'var(--danger)', fontWeight: 700, fontSize: small ? 12 : 13, margin: '10px 0 0' }}>
+          Does not apply: the type is session, not skill.
+        </p>
+      )}
       <div style={{ marginTop: 12 }}>
-        <PanelBody panel={panel} result={result} />
+        <PanelBody panel={panel} result={result} onOpenTrajectory={onOpenTrajectory} />
       </div>
     </section>
   )
 }
 
-function PanelBody({ panel, result }) {
+function PanelBody({ panel, result, onOpenTrajectory }) {
   if (!result) return <Muted>Loading...</Muted>
   if (result.error) return <span style={{ color: 'var(--danger)', fontSize: 13 }}>{result.error}</span>
   const rows = result.rows.map((r) => Object.fromEntries(result.columns.map((c, i) => [c, r[i]])))
@@ -235,7 +265,7 @@ function PanelBody({ panel, result }) {
     case 'bar':
       return <PercentBars rows={rows} />
     default:
-      return <DataTable columns={result.columns} rows={rows} />
+      return <FeedbackRows rows={rows} onOpen={onOpenTrajectory} />
   }
 }
 
@@ -316,11 +346,13 @@ function StackedBars({ rows }) {
   )
 }
 
-// One row per name: the name and "81% · 13/16" on top, a track filled to percent_good below.
+// One row per name, every name the panel returns, worst first: the name and "81% · 13/16"
+// on top, a track filled to percent_good below. Past about 5 rows the list scrolls inside
+// the card (.bar-scroll).
 function PercentBars({ rows }) {
   if (rows.length === 0) return <Muted>No rated feedback in this range</Muted>
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="bar-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {rows.map((r, i) => {
         const pct = Math.max(0, Math.min(100, Number(r.percent_good) || 0))
         return (
@@ -340,38 +372,17 @@ function PercentBars({ rows }) {
   )
 }
 
-// Every column the panel returns, named after the column with the underscores dropped.
-// data-label is what the phone breakpoint shows as each card row's heading.
-function DataTable({ columns, rows }) {
-  if (rows.length === 0) return <Muted>Nothing in this range</Muted>
-  const label = (c) => c.replace(/_/g, ' ')
-  return (
-    <div className="table-scroll">
-      <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
-        <thead>
-          {/* Two-word labels wrap in the narrow sessions columns; the pixel font's lines touch without the extra height. */}
-          <tr>{columns.map((c) => <th key={c} className="th" style={{ lineHeight: 1.6 }}>{label(c)}</th>)}</tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              {columns.map((c) => <td key={c} className="td" data-label={label(c)}><Cell col={c} value={r[c]} /></td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
+// The newest ratings that match the filters, in the Query & table view's Feedback table.
+function FeedbackRows({ rows, onOpen }) {
+  if (rows.length === 0) return <Muted>No ratings in this range</Muted>
+  return <FeedbackTable rows={rows} transcriptFor={conversationOf} onOpen={onOpen} />
 }
 
-function Cell({ col, value }) {
-  if (value == null) return NOT_RECORDED.has(col) ? <span style={{ color: 'var(--faint)', whiteSpace: 'nowrap' }}>not recorded</span> : <Dash />
-  if (col === 'rating') {
-    const color = value === 'good' ? 'var(--good)' : value === 'bad' ? 'var(--bad)' : 'var(--faint)'
-    return <span style={{ color, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.04em' }}>{value}</span>
-  }
-  if (CODE_COLUMNS.has(col)) return <code style={col.endsWith('_id') ? { fontSize: 11 } : undefined}>{String(value)}</code>
-  return String(value)
+// A row's stored conversation, which the feedback panel returns beside it: the trajectory
+// (atif, null when none was stored) and its labels.
+function conversationOf(r) {
+  if (r.atif == null) return undefined
+  return { request_id: r.request_id, atif: r.atif, business_case: r.business_case, language: r.language, task_type: r.task_type }
 }
 
 // Width of the element, kept current as the card resizes (a hidden view measures 0 and

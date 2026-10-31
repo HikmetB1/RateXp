@@ -6,6 +6,6 @@ panels:
   good_bad_over_time:
     title: Good vs bad per day
     kind: line
-  sessions_usage:
-    title: "Sessions: labels, steps, tool calls, tokens, model"
+  feedback:
+    title: Feedback
     kind: table

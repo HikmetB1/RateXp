@@ -2,16 +2,19 @@
 # (modules/write/adapters/write_to_dynatrace.py). publish_to_dynatrace.py turns it into a
 # dashboard document.
 #
-# {filters} in a panel's dql is where filters.dql goes: the six dashboard variables
-# $skill, $agent, $eval, $business_case, $language and $task_type, each filled by its
-# filters.values query, whose first row "*" means all - first, so the 1000-record cap on a
-# long list cannot cut it off. The labels sit on the transcript record only, so the
-# fragment first looks up each record's transcript by request_id and reads them as
-# label.*; a rating whose conversation was not stored finds none. The dashboard's time
-# picker scopes every tile (no from:), except ratings_24h, which pins its own 24 hours. A
-# null skill, eval or label is shown and matched as "(none)", because matchesValue() drops
-# nulls - "*" would lose whole-session ratings, ratings stored before evals had names and
-# ratings without a labeled conversation.
+# {filters} in a panel's dql is where filters.dql goes: the seven dashboard variables
+# $type, $skill, $agent, $eval, $business_case, $language and $task_type, each filled by
+# its filters.values query, whose first row "*" means all - first, so the 1000-record cap
+# on a long list cannot cut it off. $type is skill or session: a session rating is one
+# that has no skill. It comes first, and every other values query takes it, so picking a
+# type narrows the other dropdowns to the values that exist for it. The labels and the
+# model sit on the transcript record only, so the fragment first looks up each record's
+# transcript by request_id and reads them as transcript.*; a rating whose conversation
+# was not stored finds none. The dashboard's time picker scopes every tile (no from:),
+# except ratings_24h, which pins its own 24 hours. A null skill, eval or label is shown
+# and matched as "(none)", because matchesValue() drops nulls - "*" would lose
+# whole-session ratings, ratings stored before evals had names and ratings without a
+# labeled conversation.
 #
 # download.dql is the "Download trajectories" button of the Dynatrace app (app/dynatrace/),
 # which draws these same panels; the published dashboard has no button and skips it.
@@ -20,38 +23,46 @@ filters:
   dql: >-
     | lookup [fetch logs | filter ratexp.record_type == "transcript"
     | fields request_id=ratexp.request_id, business_case=ratexp.business_case,
-    language=ratexp.language, task_type=ratexp.task_type],
-    sourceField:ratexp.request_id, lookupField:request_id, prefix:"label."
-    | filter matchesValue(coalesce(ratexp.skill_name, "(none)"), $skill)
+    language=ratexp.language, task_type=ratexp.task_type, model=ratexp.model],
+    sourceField:ratexp.request_id, lookupField:request_id, prefix:"transcript."
+    | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
+    and matchesValue(coalesce(ratexp.skill_name, "(none)"), $skill)
     and matchesValue(splitString(ratexp.agent, " ")[0], $agent)
     and matchesValue(coalesce(ratexp.eval_name, "(none)"), $eval)
-    and matchesValue(coalesce(label.business_case, "(none)"), $business_case)
-    and matchesValue(coalesce(label.language, "(none)"), $language)
-    and matchesValue(coalesce(label.task_type, "(none)"), $task_type)
+    and matchesValue(coalesce(transcript.business_case, "(none)"), $business_case)
+    and matchesValue(coalesce(transcript.language, "(none)"), $language)
+    and matchesValue(coalesce(transcript.task_type, "(none)"), $task_type)
   values:
+    type: data record(type="*"), record(type="skill"), record(type="session")
     skill: >-
       data record(skill="*") | append [fetch logs | filter ratexp.record_type == "feedback"
+      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{skill=coalesce(ratexp.skill_name, "(none)")}
       | fields skill | sort skill asc]
     agent: >-
       data record(agent="*") | append [fetch logs | filter ratexp.record_type == "feedback"
+      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{agent=splitString(ratexp.agent, " ")[0]}
       | fields agent | sort agent asc]
     eval: >-
       data record(eval="*") | append [fetch logs | filter ratexp.record_type == "feedback"
+      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{eval=coalesce(ratexp.eval_name, "(none)")}
       | fields eval | sort eval asc]
     business_case: >-
       data record(business_case="*") | append [fetch logs
       | filter ratexp.record_type == "transcript"
+      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{business_case=coalesce(ratexp.business_case, "(none)")}
       | fields business_case | sort business_case asc]
     language: >-
       data record(language="*") | append [fetch logs | filter ratexp.record_type == "transcript"
+      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{language=coalesce(ratexp.language, "(none)")}
       | fields language | sort language asc]
     task_type: >-
       data record(task_type="*") | append [fetch logs | filter ratexp.record_type == "transcript"
+      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{task_type=coalesce(ratexp.task_type, "(none)")}
       | fields task_type | sort task_type asc]
 # The newest 1000 ratings, as the app's list_max_limit; the app adds each one's
@@ -62,8 +73,9 @@ download:
     | sort timestamp desc | limit 1000
     | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name,
     agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score,
-    comment=ratexp.comment, request_id=ratexp.request_id, business_case=label.business_case,
-    language=label.language, task_type=label.task_type
+    comment=ratexp.comment, request_id=ratexp.request_id,
+    business_case=transcript.business_case, language=transcript.language,
+    task_type=transcript.task_type
 panels:
   total_ratings:
     title: Total ratings
@@ -85,18 +97,22 @@ panels:
     dql: >-
       fetch logs, from:now()-24h | filter ratexp.record_type == "feedback" {filters}
       | summarize value=count()
+  # A tile cannot carry a note, so with type session the value itself says it does not
+  # apply; the Dynatrace app adds the web app's note on top.
   skills_rated:
     title: Skills rated
     kind: number
     dql: >-
       fetch logs | filter ratexp.record_type == "feedback" and isNotNull(ratexp.skill_name) {filters}
       | summarize value=countDistinct(ratexp.skill_name)
+      | fieldsAdd value=if($type == "session", "n/a: session", else:toString(value))
   good_bad_over_time:
     dql: >-
       fetch logs | filter ratexp.record_type == "feedback" {filters}
       | summarize good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2),
       by:{day=bin(timestamp, 1d)}
       | sort day asc
+  # The three bar panels list every row, worst first; their tile is sized for about 5.
   percent_good_by_skill:
     title: Percent good by skill (worst first)
     kind: bar
@@ -106,7 +122,7 @@ panels:
       | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2),
       by:{name=ratexp.skill_name}
       | fieldsAdd percent_good=round(100.0 * good / total, decimals:1)
-      | sort percent_good asc, total desc | limit 10
+      | sort percent_good asc, total desc
   percent_good_by_agent:
     title: Percent good by agent (worst first)
     kind: bar
@@ -115,7 +131,7 @@ panels:
       | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2),
       by:{name=splitString(ratexp.agent, " ")[0]}
       | fieldsAdd percent_good=round(100.0 * good / total, decimals:1)
-      | sort percent_good asc, total desc | limit 10
+      | sort percent_good asc, total desc
   percent_good_by_eval:
     title: Percent good by eval (worst first)
     kind: bar
@@ -124,33 +140,22 @@ panels:
       | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2),
       by:{name=coalesce(ratexp.eval_name, "(none)")}
       | fieldsAdd percent_good=round(100.0 * good / total, decimals:1)
-      | sort percent_good asc, total desc | limit 10
-  latest_comments:
-    title: Latest comments
-    kind: table
+      | sort percent_good asc, total desc
+  # The newest 10 ratings with every column of the web app's Feedback table except
+  # Trajectory: request_id names the rating's stored conversation (null when none was
+  # stored), which the Dynatrace app opens from a "view" button. The published dashboard
+  # hides it.
+  feedback:
+    hidden_columns: [request_id]
     dql: >-
-      fetch logs | filter ratexp.record_type == "feedback" and isNotNull(ratexp.comment)
-      and ratexp.comment != "" {filters}
+      fetch logs | filter ratexp.record_type == "feedback" {filters}
       | sort timestamp desc | limit 10
-      | fields created_at=timestamp, name=coalesce(ratexp.skill_name, ratexp.session_id),
-      agent=ratexp.agent, eval_name=ratexp.eval_name, rating=ratexp.rating, comment=ratexp.comment
-  sessions_usage:
-    dql: >-
-      fetch logs | filter ratexp.record_type == "transcript" {filters}
-      | sort timestamp desc | limit 10
-      | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent,
-      model=ratexp.model, business_case=ratexp.business_case, language=ratexp.language,
-      task_type=ratexp.task_type, steps=ratexp.steps, tool_calls=ratexp.tool_calls,
-      prompt_tokens=ratexp.prompt_tokens, cached_tokens=ratexp.cached_tokens,
-      completion_tokens=ratexp.completion_tokens, session_id=ratexp.session_id
-  conversations:
-    title: Conversations (full trajectories)
-    kind: table
-    # 50 trajectories of up to 256 KiB each (core's max_transcript_bytes) come to 12.5 MB;
-    # past a tile's 1 MB default Dynatrace cuts the rows and only warns.
-    max_result_megabytes: 20
-    dql: >-
-      fetch logs | filter ratexp.record_type == "transcript" {filters}
-      | sort timestamp desc | limit 50
-      | fields created_at=timestamp, skill_name=ratexp.skill_name, agent=ratexp.agent,
-      session_id=ratexp.session_id, request_id=ratexp.request_id, content
+      | fields When=timestamp, Type=if(isNull(ratexp.skill_name), "session", else:"skill"),
+      Name=coalesce(ratexp.skill_name, ratexp.session_id), Agent=ratexp.agent,
+      Model=coalesce(transcript.model, splitString(ratexp.agent, " ")[1]),
+      Labels=if(isNotNull(transcript.business_case) or isNotNull(transcript.language)
+      or isNotNull(transcript.task_type), concat(coalesce(transcript.business_case, "—"),
+      " · ", coalesce(transcript.language, "—"), " · ", coalesce(transcript.task_type, "—"))),
+      Eval=ratexp.eval_name,
+      Score=if(ratexp.score == 1, "good", else:if(ratexp.score == 2, "bad")),
+      Comment=ratexp.comment, Session=ratexp.session_id, request_id=transcript.request_id

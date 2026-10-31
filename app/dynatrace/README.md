@@ -11,6 +11,7 @@ app/dynatrace/
 ├── ui/app/
 │   ├── pages/Dashboard.tsx   the filters, timeframe, Download trajectories and the panel grid
 │   ├── components/Panel.tsx  one panel: its DQL run with useDql, drawn by its kind
+│   ├── components/TrajectoryDetails.tsx  the side panel a Feedback row's "view" opens
 │   └── dashboard/            dashboard.json (generated, see below) and the logic the tests cover
 ├── scripts/sync-dashboard.mjs  writes dashboard.json from ../../core/modules/dashboard/
 ├── tests/                   vitest: filters, download, per-day series, dashboard.json drift

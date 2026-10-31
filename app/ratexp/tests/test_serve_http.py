@@ -1,4 +1,4 @@
-"""Read-only dashboard API: health, meta, the list endpoints, and the top-skills stats."""
+"""Read-only dashboard API: health, meta and the list endpoints."""
 
 from __future__ import annotations
 
@@ -144,31 +144,3 @@ def test_get_transcript_full_returns_max(app_with_fake_pool):
 def test_get_transcript_limit_too_high(app_with_fake_pool):
     client, _ = app_with_fake_pool
     assert client.get("/transcript?limit=1001").status_code == 422
-
-
-# --- GET /stats/top-skills ----------------------------------------------------
-
-
-def test_top_skills_returns_aggregated_rows(app_with_fake_pool):
-    client, pool = app_with_fake_pool
-    pool.set_select_rows([("goodbye", 5, 4, 1), ("cheerful", 3, 1, 2)])
-    r = client.get("/stats/top-skills")
-    assert r.status_code == 200
-    assert r.json()["skills"] == [
-        {"skill_name": "goodbye", "total": 5, "good": 4, "bad": 1},
-        {"skill_name": "cheerful", "total": 3, "good": 1, "bad": 2},
-    ]
-    assert "GROUP BY skill_name" in pool.store["sql"]
-
-
-def test_top_skills_empty(app_with_fake_pool):
-    client, pool = app_with_fake_pool
-    pool.set_select_rows([])
-    r = client.get("/stats/top-skills")
-    assert r.status_code == 200
-    assert r.json() == {"skills": []}
-
-
-def test_top_skills_limit_too_high(app_with_fake_pool):
-    client, _ = app_with_fake_pool
-    assert client.get("/stats/top-skills?limit=1001").status_code == 422

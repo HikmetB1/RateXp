@@ -64,6 +64,16 @@ Every dashboard file lives in [`core/modules/dashboard/`](./core/modules/dashboa
   with an id, a title and a kind (number, line, bar or table). Each platform's file must
   include all of them, and `core/tests/test_clone_dashboard_from_base.py` fails if one is
   missing.
+- **Same panels and filters** - every adapter's dashboard (now the RateXp app's Dashboard
+  view for PostgreSQL, and the Dynatrace dashboard and Dynatrace app for Dynatrace) shows the
+  same panels in the same order, with the same filters. **Type** comes first: picking skill
+  or session narrows every other dropdown to that type's values.
+
+> **Where they differ** - with Type set to session, the RateXp app and the Dynatrace app hide
+> the Skill dropdown and mark **Skills rated** and **Percent good by skill** "Does not apply".
+> The Dynatrace dashboard can do neither, so there Skill offers only "(none)" and Skills rated
+> reads "n/a: session". Its **Feedback** table also has no Trajectory column, which in the two
+> apps opens a rating's conversation.
 
 ## Config and env: where settings live
 

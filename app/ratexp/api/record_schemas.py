@@ -50,6 +50,7 @@ class PanelFilters(BaseModel):
     """What the Dashboard view's filter row picked. None means all; ``since`` is ISO 8601
     (PostgreSQL casts it)."""
 
+    type: str | None = None  # "skill" or "session": a session rating is one with no skill
     skill: str | None = None
     agent: str | None = None
     eval: str | None = None

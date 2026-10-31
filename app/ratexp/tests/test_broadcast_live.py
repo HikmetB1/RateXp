@@ -7,13 +7,10 @@ import pytest
 
 def test_ws_sends_snapshot_on_connect(app_with_fake_pool):
     client, pool = app_with_fake_pool
-    pool.set_select_rows([])  # all three snapshot queries return empty
+    pool.set_select_rows([])  # both snapshot queries return empty
     with client.websocket_connect("/ws") as ws:
         msg = ws.receive_json()
-    assert msg["type"] == "snapshot"
-    assert msg["feedback"] == []
-    assert msg["transcripts"] == []
-    assert msg["stats"] == []
+    assert msg == {"type": "snapshot", "feedback": [], "transcripts": []}
 
 
 def test_ws_disabled_closes(app_with_fake_pool, monkeypatch):

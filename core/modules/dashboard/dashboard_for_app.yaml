@@ -2,20 +2,23 @@
 # (modules/write/schema/). The app image copies this file and dashboard_base.yaml out of
 # core (see CONTRIBUTING.md).
 #
-# The app runs each sql with seven named parameters - skill, agent, eval, the three labels
-# business_case, language and task_type, and since (an ISO timestamp) - and NULL means
-# all. {filters} in a panel's sql is where filters.sql goes, so the FROM of every panel
-# exposes created_at, skill_name, agent, eval_name and the three labels: a rating panel
-# reads feedback_with_labels, which adds its conversation's labels, and a transcript panel
-# takes eval_name from a join with feedback, as transcript has none. filters.values fill
-# the dropdowns; download.sql is the "Download trajectories" button, with limit as an
-# eighth parameter. A null skill, eval or label is shown and matched as "(none)", as on
-# Dynatrace, so whole-session ratings, ratings without an eval and ratings without a
-# labeled conversation can be picked.
+# The app runs each sql with eight named parameters - type, skill, agent, eval, the three
+# labels business_case, language and task_type, and since (an ISO timestamp) - and NULL
+# means all. type is skill or session: a session rating is one that has no skill. {filters}
+# in a panel's sql is where filters.sql goes, so the FROM of every panel exposes
+# created_at, skill_name, agent, eval_name and the three labels: every panel reads
+# feedback_with_labels, which adds each rating's conversation's labels. filters.values
+# fill the dropdowns, each run with type alone so that picking a type narrows the others
+# to the values that exist for it; download.sql is the "Download trajectories" button,
+# with limit as a ninth parameter. A null skill, eval or label is shown and matched as
+# "(none)", as on Dynatrace, so whole-session ratings, ratings without an eval and
+# ratings without a labeled conversation can be picked.
 name: RateXp
 filters:
   sql: >-
-    (%(skill)s::text IS NULL OR COALESCE(skill_name, '(none)') = %(skill)s)
+    (%(type)s::text IS NULL
+    OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s)
+    AND (%(skill)s::text IS NULL OR COALESCE(skill_name, '(none)') = %(skill)s)
     AND (%(agent)s::text IS NULL OR split_part(agent, ' ', 1) = %(agent)s)
     AND (%(eval)s::text IS NULL OR COALESCE(eval_name, '(none)') = %(eval)s)
     AND (%(business_case)s::text IS NULL
@@ -24,17 +27,36 @@ filters:
     AND (%(task_type)s::text IS NULL OR COALESCE(task_type, '(none)') = %(task_type)s)
     AND (%(since)s::timestamptz IS NULL OR created_at >= %(since)s)
   values:
-    skill: SELECT DISTINCT COALESCE(skill_name, '(none)') AS skill FROM feedback ORDER BY skill
-    agent: SELECT DISTINCT split_part(agent, ' ', 1) AS agent FROM feedback ORDER BY agent
-    eval: SELECT DISTINCT COALESCE(eval_name, '(none)') AS eval FROM feedback ORDER BY eval
+    type: SELECT type FROM (VALUES ('skill'), ('session')) AS types (type)
+    skill: >-
+      SELECT DISTINCT COALESCE(skill_name, '(none)') AS skill FROM feedback
+      WHERE %(type)s::text IS NULL
+      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
+      ORDER BY skill
+    agent: >-
+      SELECT DISTINCT split_part(agent, ' ', 1) AS agent FROM feedback
+      WHERE %(type)s::text IS NULL
+      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
+      ORDER BY agent
+    eval: >-
+      SELECT DISTINCT COALESCE(eval_name, '(none)') AS eval FROM feedback
+      WHERE %(type)s::text IS NULL
+      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
+      ORDER BY eval
     business_case: >-
       SELECT DISTINCT COALESCE(business_case, '(none)') AS business_case FROM transcript
+      WHERE %(type)s::text IS NULL
+      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
       ORDER BY business_case
     language: >-
       SELECT DISTINCT COALESCE(language, '(none)') AS language FROM transcript
+      WHERE %(type)s::text IS NULL
+      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
       ORDER BY language
     task_type: >-
       SELECT DISTINCT COALESCE(task_type, '(none)') AS task_type FROM transcript
+      WHERE %(type)s::text IS NULL
+      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
       ORDER BY task_type
 download:
   sql: >-
@@ -70,6 +92,7 @@ panels:
       count(*) FILTER (WHERE score = 2) AS bad
       FROM feedback_with_labels WHERE {filters}
       GROUP BY day ORDER BY day
+  # The three bar panels list every row, worst first; the app scrolls them in their box.
   percent_good_by_skill:
     title: Percent good by skill (worst first)
     kind: bar
@@ -79,7 +102,7 @@ panels:
       count(*) FILTER (WHERE score = 2) AS bad,
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
       FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL AND skill_name IS NOT NULL
-      GROUP BY skill_name ORDER BY percent_good ASC, total DESC LIMIT 10
+      GROUP BY skill_name ORDER BY percent_good ASC, total DESC
   percent_good_by_agent:
     title: Percent good by agent (worst first)
     kind: bar
@@ -89,7 +112,7 @@ panels:
       count(*) FILTER (WHERE score = 2) AS bad,
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
       FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
-      GROUP BY name ORDER BY percent_good ASC, total DESC LIMIT 10
+      GROUP BY name ORDER BY percent_good ASC, total DESC
   percent_good_by_eval:
     title: Percent good by eval (worst first)
     kind: bar
@@ -99,49 +122,16 @@ panels:
       count(*) FILTER (WHERE score = 2) AS bad,
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
       FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
-      GROUP BY name ORDER BY percent_good ASC, total DESC LIMIT 10
-  latest_comments:
-    title: Latest comments
-    kind: table
+      GROUP BY name ORDER BY percent_good ASC, total DESC
+  # The newest 10 ratings in the shape of the Query & table view's rows (GET /feedback),
+  # each with its conversation's labels and the conversation itself (atif, NULL when none
+  # was stored): the app draws them in that view's Feedback table.
+  feedback:
     sql: >-
-      SELECT created_at, COALESCE(skill_name, session_id) AS name, agent, eval_name,
-      CASE score WHEN 1 THEN 'good' WHEN 2 THEN 'bad' ELSE 'unrated' END AS rating, comment
-      FROM feedback_with_labels WHERE {filters} AND comment IS NOT NULL AND comment <> ''
-      ORDER BY created_at DESC LIMIT 10
-  # Core's summary of a trajectory (modules/write/summarize_trajectory.py), read from the
-  # stored ATIF with the summary's type checks but not its range limits: a client posts
-  # that ATIF, so a value counts only as the right JSON type - steps an array, a total a
-  # number - and an odd row reads as unknown instead of failing the panel. An oversized
-  # stub keeps no steps, so its count comes from final_metrics and its tool calls stay
-  # unknown. Prompt and completion totals both 0 or missing mean the agent recorded no
-  # usage, so every token column reads NULL, "not recorded", not "cost nothing";
-  # otherwise a missing prompt or completion total reads 0.
-  sessions_usage:
-    sql: >-
-      SELECT created_at, skill_name, agent, model, business_case, language, task_type,
-      COALESCE(NULLIF(jsonb_array_length(step_list), 0), total_steps) AS steps,
-      CASE WHEN jsonb_array_length(step_list) > 0 THEN
-      (SELECT COALESCE(sum(jsonb_array_length(step->'tool_calls')), 0)
-      FROM jsonb_array_elements(step_list) AS step
-      WHERE jsonb_typeof(step->'tool_calls') = 'array') END AS tool_calls,
-      CASE WHEN prompt <> 0 OR completion <> 0 THEN COALESCE(prompt, 0) END AS prompt_tokens,
-      CASE WHEN prompt <> 0 OR completion <> 0 THEN cached END AS cached_tokens,
-      CASE WHEN prompt <> 0 OR completion <> 0 THEN COALESCE(completion, 0) END
-      AS completion_tokens,
-      session_id
-      FROM (SELECT t.created_at, t.skill_name, t.agent, f.eval_name, t.session_id,
-      t.business_case, t.language, t.task_type,
-      COALESCE(NULLIF(t.atif->'agent'->>'model_name', ''),
-      NULLIF(split_part(t.agent, ' ', 2), '')) AS model,
-      CASE WHEN jsonb_typeof(t.atif->'steps') = 'array' THEN t.atif->'steps' END AS step_list,
-      CASE WHEN jsonb_typeof(t.atif->'final_metrics'->'total_steps') = 'number'
-      THEN (t.atif->'final_metrics'->>'total_steps')::numeric END AS total_steps,
-      CASE WHEN jsonb_typeof(t.atif->'final_metrics'->'total_prompt_tokens') = 'number'
-      THEN (t.atif->'final_metrics'->>'total_prompt_tokens')::numeric END AS prompt,
-      CASE WHEN jsonb_typeof(t.atif->'final_metrics'->'total_cached_tokens') = 'number'
-      THEN (t.atif->'final_metrics'->>'total_cached_tokens')::numeric END AS cached,
-      CASE WHEN jsonb_typeof(t.atif->'final_metrics'->'total_completion_tokens') = 'number'
-      THEN (t.atif->'final_metrics'->>'total_completion_tokens')::numeric END AS completion
-      FROM transcript t LEFT JOIN feedback f ON f.request_id = t.request_id) s
+      SELECT created_at, session_id, skill_name, COALESCE(skill_name, session_id) AS name,
+      agent, eval_name, score, comment, request_id, business_case, language, task_type, atif
+      FROM (SELECT f.created_at, f.session_id, f.skill_name, f.agent, f.eval_name, f.score,
+      f.comment, f.request_id, f.business_case, f.language, f.task_type, t.atif
+      FROM feedback_with_labels f LEFT JOIN transcript t ON t.request_id = f.request_id) s
       WHERE {filters}
       ORDER BY created_at DESC LIMIT 10

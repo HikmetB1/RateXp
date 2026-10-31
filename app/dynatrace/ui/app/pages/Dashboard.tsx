@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDql } from "@dynatrace-sdk/react-hooks";
 import { Button } from "@dynatrace/strato-components/buttons";
 import type { Timeframe } from "@dynatrace/strato-components/core";
@@ -7,9 +7,16 @@ import { TimeframeSelector } from "@dynatrace/strato-components/filters";
 import { FormField, Label, Select } from "@dynatrace/strato-components/forms";
 import { Flex, Grid } from "@dynatrace/strato-components/layouts";
 import { DownloadIcon } from "@dynatrace/strato-icons";
-import { Panel } from "../components/Panel";
+import { Panel, type Row } from "../components/Panel";
+import { TrajectoryDetails } from "../components/TrajectoryDetails";
 import { downloadRows, TRANSCRIPT_RESULT_MEGABYTES, transcriptQueries } from "../dashboard/buildDownload";
-import { ALL_FILTERS, fillFilters, type Filters } from "../dashboard/fillFilters";
+import {
+  ALL_FILTERS,
+  fillFilters,
+  fillVariables,
+  keepListedPicks,
+  type Filters,
+} from "../dashboard/fillFilters";
 import { dashboard, FILTER_KEYS, type FilterKey, type PanelKind } from "../dashboard/loadDashboard";
 import { runDql, type QueryTimeframe } from "../dashboard/runDql";
 
@@ -25,13 +32,24 @@ const defaultQueryTimeframe = (): QueryTimeframe => ({
   end: new Date().toISOString(),
 });
 
-/** The web app's Dashboard view: the skill / agent / eval / label filters and a timeframe over
- * every panel in dashboard.json, and the trajectory download. */
+/** The web app's Dashboard view: the type / skill / agent / eval / label filters and a
+ * timeframe over every panel in dashboard.json, the trajectory download, and the side panel
+ * a Feedback row's "view" opens. */
 export const Dashboard = () => {
   const [filters, setFilters] = useState<Filters>(ALL_FILTERS);
   const [timeframe, setTimeframe] = useState<QueryTimeframe>(defaultQueryTimeframe);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [opened, setOpened] = useState<Row | null>(null); // the Feedback row in the side panel
+
+  // A session rating has no skill, so picking session also drops a picked skill.
+  const pick = useCallback((key: FilterKey, value: string | null) => {
+    setFilters((f) => ({ ...f, [key]: value, ...(key === "type" && value === "session" ? { skill: null } : {}) }));
+  }, []);
+  // A pick its dropdown no longer lists, for the picked type, goes back to all.
+  const keepListed = useCallback((key: FilterKey, listed: string[]) => {
+    setFilters((f) => keepListedPicks(f, key, listed));
+  }, []);
 
   const onTimeframe = (value: Timeframe | null) => {
     setTimeframe(
@@ -68,12 +86,15 @@ export const Dashboard = () => {
   return (
     <Flex flexDirection="column" gap={16} padding={16}>
       <Flex alignItems="flex-end" gap={12} flexWrap="wrap">
-        {FILTER_KEYS.map((key) => (
+        {/* Session hides the Skill dropdown: the type has no skills to pick. */}
+        {FILTER_KEYS.filter((key) => !(key === "skill" && filters.type === "session")).map((key) => (
           <FilterSelect
             key={key}
             filterKey={key}
-            value={filters[key]}
-            onChange={(value) => setFilters({ ...filters, [key]: value })}
+            filters={filters}
+            timeframe={timeframe}
+            onPick={pick}
+            onListed={keepListed}
           />
         ))}
         <TimeframeSelector defaultValue={DEFAULT_TIMEFRAME} onChange={onTimeframe} />
@@ -93,26 +114,44 @@ export const Dashboard = () => {
       <Grid gridTemplateColumns="repeat(12, minmax(0, 1fr))" gap={16}>
         {dashboard.panels.map((panel) => (
           <div key={panel.id} style={{ gridColumn: `span ${SPAN[panel.kind]}` }}>
-            <Panel panel={panel} filters={filters} timeframe={timeframe} />
+            <Panel panel={panel} filters={filters} timeframe={timeframe} onOpenTrajectory={setOpened} />
           </div>
         ))}
       </Grid>
+      {opened && <TrajectoryDetails row={opened} timeframe={timeframe} onClose={() => setOpened(null)} />}
     </Flex>
   );
 };
 
 interface FilterSelectProps {
   filterKey: FilterKey;
-  value: string | null;
-  onChange: (value: string | null) => void;
+  filters: Filters;
+  timeframe: QueryTimeframe;
+  onPick: (key: FilterKey, value: string | null) => void;
+  onListed: (key: FilterKey, listed: string[]) => void;
 }
 
-// One dropdown, filled by its filters.values query: "*" first, which shows as All.
-const FilterSelect = ({ filterKey, value, onChange }: FilterSelectProps) => {
-  const { data } = useDql({ query: dashboard.filters.values[filterKey] });
-  const options = (data?.records ?? [])
-    .map((r) => r?.[filterKey])
-    .filter((v): v is string => typeof v === "string" && v !== ALL);
+// One dropdown, filled by its filters.values query over the picked timeframe: "*" first,
+// which shows as All. The query takes the picked type ($type), so the values are the ones
+// that exist for it.
+const FilterSelect = ({ filterKey, filters, timeframe, onPick, onListed }: FilterSelectProps) => {
+  const { data, isLoading } = useDql({
+    query: fillVariables(dashboard.filters.values[filterKey], filters),
+    defaultTimeframeStart: timeframe.start,
+    defaultTimeframeEnd: timeframe.end,
+  });
+  const options = useMemo(
+    () =>
+      (data?.records ?? [])
+        .map((r) => r?.[filterKey])
+        .filter((v): v is string => typeof v === "string" && v !== ALL),
+    [data, filterKey],
+  );
+  useEffect(() => {
+    if (data && !isLoading) onListed(filterKey, options);
+  }, [data, isLoading, filterKey, options, onListed]);
+  const value = filters[filterKey];
+  const onChange = (picked: string | null) => onPick(filterKey, picked);
   return (
     <FormField>
       <Label>{filterKey.replace("_", " ")}</Label>

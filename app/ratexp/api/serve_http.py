@@ -36,7 +36,6 @@ from load_config import (
     QUERY_ENABLED,
     QUERY_MAX_ROWS,
     QUERY_TIMEOUT_MS,
-    TOP_SKILLS_LIMIT,
     WS_ENABLED,
 )
 from modules.read.open_read_source import open_read_source
@@ -140,19 +139,9 @@ def list_transcript(
     return [row_to_transcript(r) for r in rows]
 
 
-@app.get("/stats/top-skills")
-def top_skills(limit: int = Query(TOP_SKILLS_LIMIT, ge=1, le=LIST_MAX_LIMIT)) -> dict:
-    """Most-rated skills with their good/bad tally, for the "Top skills" panel."""
-    try:
-        skills = app.state.read.select_top_skills(limit)
-    except Exception as e:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
-    return {"skills": skills}
-
-
 @app.get("/snapshot")
 def snapshot() -> dict:
-    """The dashboard's whole initial view in one call: feedback + their transcripts + stats.
+    """The dashboard's whole initial view in one call: feedback + their transcripts.
 
     Same shape as the live WebSocket snapshot, so the first paint and later updates agree.
     """
@@ -226,15 +215,16 @@ def _dashboard_unavailable_reason(read) -> str | None:
 
 
 @app.get("/dashboard")
-def dashboard() -> dict:
-    """What the Dashboard view draws: the dropdown values, the panels (id, title, kind), and
-    how many ratings its download holds at most."""
+def dashboard(type: str | None = None) -> dict:
+    """What the Dashboard view draws: the dropdown values - every other dropdown narrowed to
+    the values that exist for `type` - the panels (id, title, kind), and how many ratings its
+    download holds at most."""
     read = app.state.read
     if reason := _dashboard_unavailable_reason(read):
         return {"available": False, "reason": reason}
     dashboard = load_dashboard()
     try:
-        filters = filter_values(read, dashboard)
+        filters = filter_values(read, dashboard, type)
     except Exception as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, f"db error: {e!r}") from e
     return {

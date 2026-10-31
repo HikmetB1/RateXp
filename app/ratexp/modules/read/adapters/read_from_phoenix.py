@@ -12,9 +12,8 @@ filter can only ever read. Inherent limits, all from that same API:
 - It returns spans newest-*ingested* first and takes no sort parameter, so rows
   are re-sorted by timestamp here: "the newest 10" is the newest 10 of the last
   10 ingested.
-- It cannot aggregate or match one attribute against a list, so the top-skills
-  tally and the transcript lookup pull a window of spans and finish the work
-  here, capped at ``list_max_limit``.
+- It cannot match one attribute against a list, so the transcript lookup pulls a
+  window of spans and finishes the work here, capped at ``list_max_limit``.
 """
 
 from __future__ import annotations
@@ -138,25 +137,6 @@ class PhoenixReadAdapter:
             for span in self._newest_first("transcript", LIST_MAX_LIMIT)
             if (span.get("attributes") or {}).get(f"{_PREFIX}request_id") in wanted
         ]
-
-    def select_top_skills(self, limit: int) -> list[dict]:
-        tally: dict[str, dict] = {}
-        for span in self._newest_first("feedback", LIST_MAX_LIMIT):
-            attributes = span.get("attributes") or {}
-            skill_name = attributes.get(f"{_PREFIX}skill_name")
-            # A whole-session rating names no skill, so it belongs to no skill's tally.
-            if not skill_name:
-                continue
-            counts = tally.setdefault(
-                skill_name, {"skill_name": skill_name, "total": 0, "good": 0, "bad": 0}
-            )
-            counts["total"] += 1
-            if attributes.get(f"{_PREFIX}score") == 1:
-                counts["good"] += 1
-            elif attributes.get(f"{_PREFIX}score") == 2:
-                counts["bad"] += 1
-        ranked = sorted(tally.values(), key=lambda row: (-row["total"], row["skill_name"]))
-        return ranked[:limit]
 
     def run_query(
         self, query: str, max_rows: int, timeout_ms: int

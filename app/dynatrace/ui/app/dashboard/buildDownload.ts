@@ -5,8 +5,8 @@ import { dqlString } from "./fillFilters";
 
 type Row = Record<string, unknown>;
 
-// 50 trajectories of up to 256 KiB each fit one query's 20 MB result, as the
-// conversations panel's max_result_megabytes says.
+// 50 trajectories of up to 256 KiB each (core's max_transcript_bytes) fit one query's
+// 20 MB result; past 1 MB Dynatrace cuts the rows and only warns.
 export const TRANSCRIPTS_PER_QUERY = 50;
 export const TRANSCRIPT_RESULT_MEGABYTES = 20;
 

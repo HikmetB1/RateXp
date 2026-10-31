@@ -41,10 +41,6 @@ class ReadAdapter(Protocol):
         in select_transcript's shape."""
         ...
 
-    def select_top_skills(self, limit: int) -> list[dict]:
-        """Most-rated skills with good/bad tallies, as dicts."""
-        ...
-
     def run_query(
         self, query: str, max_rows: int, timeout_ms: int
     ) -> tuple[list[str], list[tuple]]:

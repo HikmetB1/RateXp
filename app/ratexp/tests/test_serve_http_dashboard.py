@@ -15,6 +15,8 @@ from load_config import LIST_MAX_LIMIT
 from modules.read import clone_dashboard_from_base
 
 FILTERS_SQL = (
+    "(%(type)s::text IS NULL OR "
+    "CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s) AND "
     "(%(skill)s::text IS NULL OR COALESCE(skill_name, '(none)') = %(skill)s) AND "
     "(%(agent)s::text IS NULL OR split_part(agent, ' ', 1) = %(agent)s) AND "
     "(%(eval)s::text IS NULL OR COALESCE(eval_name, '(none)') = %(eval)s) AND "
@@ -23,20 +25,23 @@ FILTERS_SQL = (
 BASE = {
     "panels": {
         "good_bad_over_time": {"title": "Good vs bad per day", "kind": "line"},
-        "sessions_usage": {
-            "title": "Sessions: labels, steps, tool calls, tokens, model",
-            "kind": "table",
-        },
+        "feedback": {"title": "Feedback", "kind": "table"},
     }
 }
+# The skill, agent and eval dropdowns, narrowed to the picked type's values.
+TYPE_WHERE = (
+    "WHERE %(type)s::text IS NULL "
+    "OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s"
+)
 APP = {
     "name": "RateXp",
     "filters": {
         "sql": FILTERS_SQL,
         "values": {
-            "skill": "SELECT DISTINCT COALESCE(skill_name, '(none)') FROM feedback ORDER BY 1",
-            "agent": "SELECT DISTINCT split_part(agent, ' ', 1) FROM feedback ORDER BY 1",
-            "eval": "SELECT DISTINCT COALESCE(eval_name, '(none)') FROM feedback ORDER BY 1",
+            "type": "SELECT type FROM (VALUES ('skill'), ('session')) AS types (type)",
+            "skill": f"SELECT DISTINCT COALESCE(skill_name, '(none)') FROM feedback {TYPE_WHERE}",
+            "agent": f"SELECT DISTINCT split_part(agent, ' ', 1) FROM feedback {TYPE_WHERE}",
+            "eval": f"SELECT DISTINCT COALESCE(eval_name, '(none)') FROM feedback {TYPE_WHERE}",
         },
     },
     "download": {
@@ -59,16 +64,18 @@ APP = {
                 "GROUP BY day ORDER BY day"
             )
         },
-        "sessions_usage": {
+        "feedback": {
             "sql": (
-                "SELECT created_at, skill_name, agent, session_id FROM (SELECT t.created_at, "
-                "t.skill_name, t.agent, f.eval_name, t.session_id FROM transcript t LEFT JOIN feedback f "
-                "ON f.request_id = t.request_id) s WHERE {filters} ORDER BY created_at DESC LIMIT 10"
+                "SELECT created_at, session_id, skill_name, agent, score, atif FROM (SELECT "
+                "f.created_at, f.session_id, f.skill_name, f.agent, f.eval_name, f.score, t.atif "
+                "FROM feedback f LEFT JOIN transcript t ON t.request_id = f.request_id) s "
+                "WHERE {filters} ORDER BY created_at DESC LIMIT 10"
             )
         },
     },
 }
 ALL = {
+    "type": None,
     "skill": None,
     "agent": None,
     "eval": None,
@@ -91,10 +98,11 @@ def dashboard_files(tmp_path, monkeypatch):
 
 def test_dashboard_lists_the_dropdown_values_and_the_panels(app_with_fake_pool, dashboard_files):
     client, pool = app_with_fake_pool
-    pool.set_select_rows([("demo",), ("other",)])  # answers each of the three values queries
+    pool.set_select_rows([("demo",), ("other",)])  # answers each of the four values queries
     body = client.get("/dashboard").json()
     assert body["available"] is True
     assert body["filters"] == {
+        "type": ["demo", "other"],
         "skill": ["demo", "other"],
         "agent": ["demo", "other"],
         "eval": ["demo", "other"],
@@ -102,13 +110,35 @@ def test_dashboard_lists_the_dropdown_values_and_the_panels(app_with_fake_pool, 
     assert body["panels"] == [
         {"id": "total_ratings", "title": "Total ratings", "kind": "number"},
         {"id": "good_bad_over_time", "title": "Good vs bad per day", "kind": "line"},
-        {
-            "id": "sessions_usage",
-            "title": "Sessions: labels, steps, tool calls, tokens, model",
-            "kind": "table",
-        },
+        {"id": "feedback", "title": "Feedback", "kind": "table"},
     ]
     assert body["download_limit"] == LIST_MAX_LIMIT  # what the Download button promises
+    assert pool.store["params"] == {"type": None}  # no type picked: every value
+
+
+def test_a_picked_type_narrows_the_dropdown_values(
+    app_with_fake_pool, dashboard_files, monkeypatch
+):
+    client, _ = app_with_fake_pool
+    seen = []
+
+    def run_dashboard_sql(sql, params, timeout_ms):
+        seen.append((sql, params))
+        return ["value"], [("session",)] if "VALUES" in sql else [("cursor",)]
+
+    monkeypatch.setattr(client.app.state.read, "run_dashboard_sql", run_dashboard_sql)
+    body = client.get("/dashboard", params={"type": "session"}).json()
+    assert body["filters"] == {
+        "type": ["session"],
+        "skill": ["cursor"],
+        "agent": ["cursor"],
+        "eval": ["cursor"],
+    }
+    assert [params for _, params in seen] == [{"type": "session"}] * 4
+    # "" is what an "All" pick sends: every value.
+    seen.clear()
+    client.get("/dashboard", params={"type": ""})
+    assert [params for _, params in seen] == [{"type": None}] * 4
 
 
 def test_dashboard_is_unavailable_off_postgresql(app_with_fake_pool, dashboard_files, monkeypatch):
@@ -142,13 +172,13 @@ def test_panel_runs_its_sql_with_the_filters_bound(app_with_fake_pool, dashboard
         "/dashboard/panel",
         json={
             "panel": "total_ratings",
-            "filters": {"skill": "demo", "agent": None, "eval": None, "since": None},
+            "filters": {"type": "skill", "skill": "demo", "agent": None, "eval": None},
         },
     )
     assert r.status_code == 200
     assert r.json() == {"columns": ["value"], "rows": [[3]]}
     assert pool.store["sql"] == f"SELECT count(*) AS value FROM feedback WHERE {FILTERS_SQL}"
-    assert pool.store["params"] == {**ALL, "skill": "demo"}
+    assert pool.store["params"] == {**ALL, "type": "skill", "skill": "demo"}
 
 
 def test_panel_binds_every_name_and_passes_since_through(app_with_fake_pool, dashboard_files):
@@ -183,6 +213,17 @@ def test_panel_cells_are_json_ready(app_with_fake_pool, dashboard_files):
     pool.set_select_rows([(datetime(2026, 9, 3, tzinfo=UTC), 2, 1, Decimal("66.7"))])
     body = client.post("/dashboard/panel", json={"panel": "good_bad_over_time"}).json()
     assert body["rows"] == [["2026-09-03T00:00:00Z", 2, 1, 66.7]]
+
+
+def test_the_feedback_panel_carries_each_ratings_conversation(app_with_fake_pool, dashboard_files):
+    # The Feedback table opens a rating's trajectory from the row itself.
+    client, pool = app_with_fake_pool
+    pool.set_columns(["created_at", "session_id", "skill_name", "agent", "score", "atif"])
+    atif = {"steps": [{"source": "user", "message": "hi"}]}
+    pool.set_select_rows([(datetime(2026, 9, 3, 10, tzinfo=UTC), "s1", None, "cursor", 1, atif)])
+    r = client.post("/dashboard/panel", json={"panel": "feedback", "filters": {"type": "session"}})
+    assert r.json()["rows"] == [["2026-09-03T10:00:00Z", "s1", None, "cursor", 1, atif]]
+    assert pool.store["params"] == {**ALL, "type": "session"}
 
 
 def test_panel_unknown_id_is_404(app_with_fake_pool, dashboard_files):
@@ -282,10 +323,15 @@ def test_export_pairs_each_rating_with_its_conversation(
         ],
     )
 
-    r = client.get("/dashboard/export?skill=demo&agent=&eval=&since=")
+    r = client.get("/dashboard/export?type=skill&skill=demo&agent=&eval=&since=")
     assert r.status_code == 200
     assert lookups == [["r1", "r2"]]
-    assert pool.store["params"] == {**ALL, "skill": "demo", "limit": LIST_MAX_LIMIT}
+    assert pool.store["params"] == {
+        **ALL,
+        "type": "skill",
+        "skill": "demo",
+        "limit": LIST_MAX_LIMIT,
+    }
     assert "{filters}" not in pool.store["sql"] and "LIMIT %(limit)s" in pool.store["sql"]
     rows = r.json()
     assert [row["name"] for row in rows] == ["demo", "s2", "demo"]

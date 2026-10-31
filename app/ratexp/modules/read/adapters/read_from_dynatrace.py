@@ -167,24 +167,6 @@ class DynatraceReadAdapter:
             r.get("ratexp.task_type"),
         )
 
-    def select_top_skills(self, limit: int) -> list[dict]:
-        recs = self._dql(
-            f'fetch logs, from:{_LOOKBACK} | filter ratexp.record_type == "feedback" '
-            "and isNotNull(ratexp.skill_name) "
-            "| summarize total=count(), good=countIf(ratexp.score == 1), "
-            "bad=countIf(ratexp.score == 2), by:{skill_name=ratexp.skill_name} "
-            f"| sort total desc, skill_name asc | limit {int(limit)}"
-        )
-        return [
-            {
-                "skill_name": r.get("skill_name"),
-                "total": _int_or_none(r.get("total")) or 0,
-                "good": _int_or_none(r.get("good")) or 0,
-                "bad": _int_or_none(r.get("bad")) or 0,
-            }
-            for r in recs
-        ]
-
     def run_query(
         self, query: str, max_rows: int, timeout_ms: int
     ) -> tuple[list[str], list[tuple]]:

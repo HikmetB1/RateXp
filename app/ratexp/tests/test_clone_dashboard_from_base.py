@@ -15,10 +15,7 @@ from modules.read.clone_dashboard_from_base import DASHBOARD_DIR, clone_dashboar
 BASE = {
     "panels": {
         "good_bad_over_time": {"title": "Good vs bad per day", "kind": "line"},
-        "sessions_usage": {
-            "title": "Sessions: labels, steps, tool calls, tokens, model",
-            "kind": "table",
-        },
+        "feedback": {"title": "Feedback", "kind": "table"},
     }
 }
 
@@ -40,7 +37,7 @@ def test_base_panels_take_the_destination_fields_in_its_order(tmp_path, monkeypa
             "download": {"sql": "SELECT 1"},
             "panels": {
                 "total_ratings": {"title": "Total ratings", "kind": "number", "sql": "SELECT 1"},
-                "sessions_usage": {"sql": "SELECT 3"},
+                "feedback": {"sql": "SELECT 3"},
                 "good_bad_over_time": {"sql": "SELECT 2"},
             },
         },
@@ -51,12 +48,12 @@ def test_base_panels_take_the_destination_fields_in_its_order(tmp_path, monkeypa
     assert dashboard["download"] == {"sql": "SELECT 1"}
     assert [p["id"] for p in dashboard["panels"]] == [
         "total_ratings",
-        "sessions_usage",
+        "feedback",
         "good_bad_over_time",
     ]
     assert dashboard["panels"][1] == {
-        "id": "sessions_usage",
-        "title": "Sessions: labels, steps, tool calls, tokens, model",
+        "id": "feedback",
+        "title": "Feedback",
         "kind": "table",
         "sql": "SELECT 3",
     }
@@ -64,7 +61,7 @@ def test_base_panels_take_the_destination_fields_in_its_order(tmp_path, monkeypa
 
 def test_a_missing_base_panel_is_named(tmp_path, monkeypatch):
     _write(tmp_path, monkeypatch, {"panels": {"good_bad_over_time": {"sql": "SELECT 2"}}})
-    with pytest.raises(ValueError, match="sessions_usage"):
+    with pytest.raises(ValueError, match="feedback"):
         clone_dashboard("app")
 
 
@@ -79,7 +76,7 @@ def test_an_extra_panel_needs_a_title_and_a_known_kind(tmp_path, monkeypatch, ex
         {
             "panels": {
                 "good_bad_over_time": {"sql": "SELECT 2"},
-                "sessions_usage": {"sql": "SELECT 3"},
+                "feedback": {"sql": "SELECT 3"},
                 "ratings_24h": {**extra, "sql": "SELECT 4"},
             }
         },

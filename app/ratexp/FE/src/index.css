@@ -630,6 +630,9 @@ summary:hover { opacity: 0.8; }
 .panel-number { grid-column: span 3; }
 .panel-bar { grid-column: span 4; }
 .panel-line, .panel-table { grid-column: span 12; }
+/* A bar panel lists every row, worst first, and scrolls inside its card past about 5 rows
+   (a row is ~44px - the name line and its track - plus the 10px gap between rows). */
+.bar-scroll { max-height: 262px; overflow-y: auto; padding-right: 6px; }
 .chart-label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; fill: var(--muted); }
 
 /* Phones (<=640px): tighten and turn the table into a stack of cards. */

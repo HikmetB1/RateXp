@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Dashboard from './Dashboard.jsx'
+import { FeedbackTable, labelsOf, scoreLabel, TypeBadge } from './FeedbackTable.jsx'
 import { cardHeading, glassCard, groupBox } from './styles.js'
 
 // Same origin as the API in the built image (VITE_API_BASE ""); defaults to the API on :8001 in dev.
@@ -191,7 +192,6 @@ const VIEWS = [
 export default function App() {
   const [allRows, setAllRows] = useState([]) // full list from /feedback
   const [rows, setRows] = useState([]) // what the table shows (all, or filtered)
-  const [stats, setStats] = useState([]) // top-rated skills from /stats/top-skills
   const [byRequestId, setByRequestId] = useState(() => new Map()) // transcripts for the live preview rows
   const [filterByRequestId, setFilterByRequestId] = useState(() => new Map()) // transcripts for the filtered rows
   const [error, setError] = useState(null)
@@ -224,13 +224,12 @@ export default function App() {
   // Apply a dataset (initial fetch or live snapshot). Index transcripts so each row
   // finds its conversation; leave the visible rows alone while a filter is active. A live
   // snapshot clears a failed initial fetch's error, so the view recovers on its own.
-  const applyData = useCallback((feedback, transcripts, topSkills) => {
+  const applyData = useCallback((feedback, transcripts) => {
     const index = indexTranscripts(transcripts)
     dataApplied.current = true
     setError(null)
     setAllRows(feedback)
     setByRequestId(index)
-    setStats(topSkills ?? [])
     if (!filterRef.current) setRows(feedback)
   }, [])
 
@@ -246,10 +245,10 @@ export default function App() {
     // popup names - both differ per deployment.
     fetch(`${API_BASE}/meta`).then(okJson).then(setMeta).catch(() => {})
     // Initial load over HTTP - works even if the WebSocket is blocked. One /snapshot
-    // call returns feedback + their matching transcripts + stats, the same correlated
-    // shape the live WS pushes, so every row finds its trajectory.
+    // call returns feedback + their matching transcripts, the same correlated shape
+    // the live WS pushes, so every row finds its trajectory.
     fetch(`${API_BASE}/snapshot`).then(okJson)
-      .then((d) => applyData(d.feedback ?? [], d.transcripts ?? [], d.stats ?? []))
+      .then((d) => applyData(d.feedback ?? [], d.transcripts ?? []))
       .catch((e) => { if (!dataApplied.current) setError(String(e)) })
       .finally(() => setLoading(false))
   }, [applyData])
@@ -270,7 +269,7 @@ export default function App() {
         try {
           const msg = JSON.parse(e.data)
           if (msg.type === 'snapshot') {
-            applyData(msg.feedback ?? [], msg.transcripts ?? [], msg.stats ?? [])
+            applyData(msg.feedback ?? [], msg.transcripts ?? [])
             // One re-fetch of an active filter and the Dashboard per snapshot, the on-connect
             // one too (so usually one or two on page load): it is what retries a Dashboard
             // whose first load failed.
@@ -295,16 +294,8 @@ export default function App() {
   // While filtering, resolve trajectories from the filter's own index (its rows' transcripts);
   // otherwise from the live preview index.
   const transcriptFor = (r) => (filter ? filterByRequestId : byRequestId).get(r.request_id)
-
-  // Claude Code records the model per turn inside the trajectory, so it is known
-  // for rows whose conversation was consented. Runtimes that put it in the agent
-  // label instead (Cursor posts "cursor gpt-5", the seeder "langchain gpt-4o-mini")
-  // are read from there, shared or not.
-  const modelFor = (r) => {
-    const fromTrajectory = transcriptFor(r)?.atif?.agent?.model_name
-    if (fromTrajectory) return fromTrajectory
-    return String(r.agent || '').split(' ')[1] || null
-  }
+  // Both views' Feedback tables open a row's trajectory in the one drawer below.
+  const openTrajectory = useCallback((transcript, row) => setOpenTx({ transcript, row }), [])
 
   // A filter replaces the table's rows in place (with their own transcripts); Clear restores
   // the full list.
@@ -373,7 +364,7 @@ export default function App() {
           the chosen filters and the drawn panels. Hidden, the Dashboard asks the API
           nothing; shown again, it refreshes once. */}
       <ViewPanel viewKey="dashboard" view={view}>
-        <Dashboard apiBase={API_BASE} liveTick={liveTick} active={view === 'dashboard'} />
+        <Dashboard apiBase={API_BASE} liveTick={liveTick} active={view === 'dashboard'} onOpenTrajectory={openTrajectory} />
       </ViewPanel>
       <ViewPanel viewKey="table" view={view}>
         {(loading || error || filter) && (
@@ -388,51 +379,10 @@ export default function App() {
             <section className="glow-edge" style={glassCard}>
               <h2 style={cardHeading}>Feedback</h2>
               <PreviewNote onInfo={() => setInfoOpen(true)} />
-              {/* Scrolls sideways inside the card on tight widths instead of overflowing. */}
-              <div className="table-scroll">
-              <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14, marginTop: 12 }}>
-                <thead>
-                  <tr>
-                    <Th>When</Th>
-                    <Th>Type</Th>
-                    <Th>Name</Th>
-                    <Th>Agent</Th>
-                    <Th>Model</Th>
-                    <Th>Labels</Th>
-                    <Th>Eval</Th>
-                    <Th>Score</Th>
-                    <Th>Comment</Th>
-                    <Th>Trajectory</Th>
-                    <Th>Session</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={i}>
-                      <Td label="When">{r.created_at}</Td>
-                      <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
-                      <Td label="Name">{r.name ? <code style={r.skill_name ? undefined : { fontSize: 11 }}>{r.name}</code> : <Dash />}</Td>
-                      <Td label="Agent"><code>{r.agent}</code></Td>
-                      <Td label="Model">{modelFor(r) ? <code>{modelFor(r)}</code> : <Dash />}</Td>
-                      <Td label="Labels">{labelsOf(transcriptFor(r)) ? <code>{labelsOf(transcriptFor(r))}</code> : <Dash />}</Td>
-                      <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
-                      <Td label="Score">{scoreLabel(r.score)}</Td>
-                      <Td label="Comment">{r.comment ?? <Dash />}</Td>
-                      <Td label="Trajectory"><Trajectory transcript={transcriptFor(r)} onOpen={(t) => setOpenTx({ transcript: t, row: r })} /></Td>
-                      <Td label="Session"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
+              <FeedbackTable rows={rows} transcriptFor={transcriptFor} onOpen={openTrajectory} style={{ marginTop: 12 }} />
             </section>
           )}
         </div>
-        {!loading && !error && (
-          <div className="glow-edge" style={groupBox}>
-            <TopSkills skills={stats} />
-          </div>
-        )}
       </ViewPanel>
       {/* Subtle credit: barely above the background, brightens on hover. */}
       <footer className="app-footer">
@@ -527,45 +477,6 @@ function LiveDot({ live }) {
       }} />
       {live ? 'Live' : 'Offline'}
     </span>
-  )
-}
-
-// The most-rated skills and their good/bad score (GET /stats/top-skills).
-function TopSkills({ skills }) {
-  if (!skills || skills.length === 0) return null
-  return (
-    <section className="glow-edge" style={glassCard}>
-      <h2 style={cardHeading}>Top skills</h2>
-      <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8, marginBottom: 12 }}>
-        The {skills.length} most-rated skill{skills.length === 1 ? '' : 's'} and their score across all feedback.
-      </p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {skills.map((s, i) => {
-          const ratio = s.total > 0 ? s.good / s.total : 0
-          return (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 12, alignItems: 'center' }}>
-              <span style={{ color: 'var(--faint)', fontSize: 13, textAlign: 'right' }}>{i + 1}</span>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                  <code>{s.skill_name}</code>
-                  <span style={{ color: 'var(--muted)' }}>{s.total} rating{s.total === 1 ? '' : 's'}</span>
-                </div>
-                {/* Good/bad split bar: green portion is good, red is bad. */}
-                <div style={{ height: 8, borderRadius: 999, overflow: 'hidden', display: 'flex', background: 'var(--row-border)' }}>
-                  <div style={{ width: `${ratio * 100}%`, background: 'var(--good)' }} />
-                  <div style={{ width: `${(s.total > 0 ? s.bad / s.total : 0) * 100}%`, background: 'var(--bad)' }} />
-                </div>
-              </div>
-              <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-                <span style={{ color: 'var(--good)', fontWeight: 600 }}>{s.good}</span>
-                {' / '}
-                <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{s.bad}</span>
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </section>
   )
 }
 
@@ -708,72 +619,6 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
         {err && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{err}</span>}
       </div>
     </section>
-  )
-}
-
-// Each row links to its trajectory, opened in a slide-over drawer (see TrajectoryDrawer),
-// plus a download button that saves just this row's ATIF as a JSON file.
-function Trajectory({ transcript, onOpen }) {
-  const steps = transcript?.atif?.steps ?? []
-  const oversized = transcript?.atif?.oversized
-  // No steps and no oversized note means there's simply no trajectory to show.
-  if (steps.length === 0 && !oversized) return <Dash />
-
-  // Save this single trajectory's ATIF to a JSON file (no server round-trip - we
-  // already have it). Named by session id so multiple downloads don't collide.
-  const downloadTrajectory = () => {
-    const json = JSON.stringify(transcript.atif, null, 2)
-    const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `trajectory-${transcript.atif?.session_id ?? 'export'}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  // Blue chip opens the drawer; orange chip downloads the trajectory JSON.
-  const actions = (
-    <span className="tx-actions">
-      <button
-        className="tx-chip"
-        onClick={() => onOpen(transcript)}
-        title={oversized ? 'Trajectory too large to store - open for details' : `Open trajectory - ${steps.length} steps`}
-      >
-        {/* Chat glyph + sliding arrow; the step count lives in the drawer header. */}
-        <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-          <path
-            d="M3 2.8h10a1.6 1.6 0 0 1 1.6 1.6v5.2a1.6 1.6 0 0 1-1.6 1.6H7l-3 2.8v-2.8H3a1.6 1.6 0 0 1-1.6-1.6V4.4A1.6 1.6 0 0 1 3 2.8Z"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.3"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <span className="tx-chip-arrow" aria-hidden="true">→</span>
-      </button>
-      <button
-        className="tx-chip tx-chip-dl"
-        onClick={downloadTrajectory}
-        title="Download this trajectory as JSON"
-        aria-label="Download trajectory JSON"
-      >
-        {/* Download glyph: a down arrow dropping into a tray. */}
-        <svg className="tx-chip-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-          <path d="M8 2v7" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-          <path d="M5.2 6.4 8 9.2l2.8-2.8" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M3 10.6v1.4A1.4 1.4 0 0 0 4.4 13.4h7.2A1.4 1.4 0 0 0 13 12v-1.4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-    </span>
-  )
-
-  if (!oversized) return actions
-  // Oversized: stack a short red alert under the buttons so it's obvious at a glance.
-  return (
-    <span className="tx-cell">
-      {actions}
-      <span className="tx-large-alert">! large trajectory</span>
-    </span>
   )
 }
 
@@ -1051,58 +896,9 @@ function Md({ className, children, components }) {
   )
 }
 
-// Cell styling lives in index.css (.th/.td) so the mobile breakpoint can restyle
-// the table into cards. `label` becomes data-label, the card row's heading on phones.
-function Th({ children }) { return <th className="th">{children}</th> }
-function Td({ children, label }) { return <td className="td" data-label={label}>{children}</td> }
-function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
-
-// A conversation's three labels as one line ("backend · python · feat"), or null when it
-// was not labeled - or there is no stored conversation at all.
-function labelsOf(transcript) {
-  const labels = [transcript?.business_case, transcript?.language, transcript?.task_type]
-  return labels.some(Boolean) ? labels.map((label) => label ?? '—').join(' · ') : null
-}
-
 function sourceStyle(source) {
   const color = source === 'user' ? 'var(--accent-2)' : source === 'agent' ? 'var(--good)' : 'var(--faint)'
   return { fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color, fontWeight: 600 }
-}
-
-// What the rating is about. A skill rating is named after the skill; a whole-session
-// rating is about no one skill and arrives without a name, which is what tells the
-// two apart. Same plain-text look as ScoreBadge.
-function TypeBadge({ skillName }) {
-  const session = !skillName
-  return (
-    <span style={{
-      color: session ? 'var(--accent)' : 'var(--accent-2)',
-      fontWeight: 700,
-      fontSize: 12,
-      textTransform: 'uppercase',
-      letterSpacing: '.04em',
-    }}>{session ? 'session' : 'skill'}</span>
-  )
-}
-
-// Colored label so good/bad reads at a glance - plain text, no bounding box.
-function ScoreBadge({ kind }) {
-  const color = kind === 'good' ? 'var(--good)' : 'var(--bad)'
-  return (
-    <span style={{
-      color,
-      fontWeight: 700,
-      fontSize: 12,
-      textTransform: 'uppercase',
-      letterSpacing: '.04em',
-    }}>{kind}</span>
-  )
-}
-
-function scoreLabel(score) {
-  if (score === 1) return <ScoreBadge kind="good" />
-  if (score === 2) return <ScoreBadge kind="bad" />
-  return <Dash />
 }
 
 function StatusLine({ loading, error, filtered }) {

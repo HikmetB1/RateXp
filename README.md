@@ -193,15 +193,23 @@ sequenceDiagram
 The [RateXp app](https://ratexp-app.azurewebsites.net/) updates as feedback arrives and has
 two views:
 
-- **Dashboard** - panels: totals, good versus bad per day and per skill, agent and eval, the
-  latest comments, and each session's labels, steps, tool calls, tokens and model - filtered by
-  skill, agent, eval, the three labels and time range, with **Download trajectories** saving
-  the newest matching ratings and their conversations as JSON. A rating takes the labels of
-  its stored conversation, so a label filter narrows every panel.
-- **Query & table** - the latest ratings and the most-rated skills; a rating with a stored
-  conversation opens it in a slide-over timeline. Each rating names the eval it answered in
-  the **Eval** column, and its conversation's labels in the **Labels** column. To filter
-  things, type an **SQL** query into the query box.
+- **Dashboard** - panels:
+  - four numbers: **Total ratings**, **Percent good**, **Ratings in the last 24h** and
+    **Skills rated**;
+  - **Good vs bad per day**, a line chart;
+  - **Percent good** per skill, per agent and per eval: bar charts listing every one, worst
+    first, scrolling inside their box;
+  - **Feedback**: the newest 10 ratings, in the same table as Query & table.
+
+  Filters: type, skill, agent, eval, the three labels and time range. The type is skill or
+  session - a session rating has no skill, so picking session hides the skill filter - and
+  picking a type narrows the other filters to that type's values. A rating takes the labels
+  of its stored conversation, so a label filter narrows every panel. **Download
+  trajectories** saves the newest matching ratings and their conversations as JSON.
+- **Query & table** - the latest ratings in the **Feedback** table; a rating with a stored
+  conversation opens it in a slide-over timeline. Each rating shows the eval it answered
+  (**Eval** column) and its conversation's labels (**Labels** column). To filter, type an
+  **SQL** query into the query box.
 
 The Dashboard view also comes as a [Dynatrace app](./app/dynatrace/README.md), drawn with
 Dynatrace's own charts from the logs core writes there; only users of your tenant can open it.

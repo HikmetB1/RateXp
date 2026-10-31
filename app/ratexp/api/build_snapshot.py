@@ -1,4 +1,4 @@
-"""The dashboard's whole view in one payload: feedback, their transcripts, and stats.
+"""The dashboard's whole view in one payload: feedback and their transcripts.
 
 Transcripts are looked up by the shown feedback's request_id, not fetched as "the newest
 N" - any rating stored without a transcript would otherwise push the two lists out of
@@ -11,7 +11,7 @@ import json
 
 from api.record_schemas import Feedback, Transcript
 from api.trim_result_rows import jsonable
-from load_config import LIST_VIEW_LIMIT, TOP_SKILLS_LIMIT
+from load_config import LIST_VIEW_LIMIT
 from modules.read.adapters.read_adapter_interface import ReadAdapter
 
 
@@ -62,5 +62,4 @@ def build_snapshot(read: ReadAdapter) -> dict:
         "type": "snapshot",
         "feedback": [row_to_feedback(r).model_dump() for r in feedback_rows],
         "transcripts": [row_to_transcript(r).model_dump() for r in transcript_rows],
-        "stats": read.select_top_skills(TOP_SKILLS_LIMIT),
     }

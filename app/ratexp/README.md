@@ -14,7 +14,7 @@ app/ratexp/
 │   └── read/            the one source the dashboard reads back from, one adapter each, and
 │                        clone_dashboard_from_base.py: the Dashboard view's panels, read from
 │                        ../../core/modules/dashboard/ (see CONTRIBUTING.md)
-├── FE/                  the React dashboard: src/{App.jsx, Dashboard.jsx, styles.js}, public/, vite.config.js
+├── FE/                  the React dashboard: src/{App.jsx, Dashboard.jsx, FeedbackTable.jsx, styles.js}, public/, vite.config.js
 ├── tests/               the app's own tests: mocked, no database
 ├── config.yaml          the settings below; load_config.py reads it
 └── Dockerfile           stage 1 builds FE/, stage 2 runs the API with the bundle inside
@@ -45,7 +45,6 @@ cd FE && npm install && npm run dev
 - `list_view_limit` / `list_max_limit`: rows the list endpoints return by default, and the
   hard ceiling on any one response - so **Download trajectories** saves the newest
   `list_max_limit` ratings that match its filters
-- `top_skills_limit`: how many skills the "Top skills" panel shows
 - `query_enabled` / `query_timeout_ms` / `query_max_rows`: the query box; `false` turns the
   endpoint off, the other two cap how long a query runs and how much it returns. The timeout
   also caps each Dashboard view query
@@ -55,8 +54,8 @@ cd FE && npm install && npm run dev
   but is single-select - enable **exactly one**. The choice lives only here, so switching
   source means editing this file and rebuilding. The `*_dynatrace` sources read a transcript
   from its log's content; a log whose content is not ATIF JSON shows as an empty trajectory;
-  `phoenix` sorts rows and counts the top skills in the dashboard, because its API can do
-  neither
+  `phoenix` sorts rows and matches each rating to its transcript in the app, because its API
+  can do neither
 
 ## Env: the secrets it reads
 

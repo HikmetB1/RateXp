@@ -95,25 +95,6 @@ class PostgresReadAdapter:
             )
             return cur.fetchall()
 
-    def select_top_skills(self, limit: int) -> list[dict]:
-        with self._ensure_pool().connection() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT skill_name,
-                       COUNT(*) AS total,
-                       COUNT(*) FILTER (WHERE score = 1) AS good,
-                       COUNT(*) FILTER (WHERE score = 2) AS bad
-                FROM feedback
-                WHERE skill_name IS NOT NULL
-                GROUP BY skill_name
-                ORDER BY total DESC, skill_name ASC
-                LIMIT %s
-                """,
-                (limit,),
-            )
-            rows = cur.fetchall()
-        return [{"skill_name": r[0], "total": r[1], "good": r[2], "bad": r[3]} for r in rows]
-
     def run_query(
         self, query: str, max_rows: int, timeout_ms: int
     ) -> tuple[list[str], list[tuple]]:

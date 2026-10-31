@@ -7,7 +7,6 @@ core_url: https://ratexp-core.azurewebsites.net
 
 list_view_limit: 10
 list_max_limit: 1000
-top_skills_limit: 10
 
 query_enabled: true
 query_timeout_ms: 5000
