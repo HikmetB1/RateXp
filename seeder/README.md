@@ -87,4 +87,4 @@ Mocked, so no model is called and no credits are spent - the chat model and core
 
 The seeder is an Azure Function App, off by default: set `enable_seeder = true` in tfvars and
 push `seeder_image`. See
-[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
+[Deploy to Azure](../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live).

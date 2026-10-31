@@ -2,7 +2,7 @@
 
 app/ratexp is the RateXp web app: it reads what core stored back from the one source
 `read_adapters` turns on and shows it in
-[two views](../../README.md#the-ratexp-app-read-and-export-the-feedback). The Dashboard view
+[two views](../../docs/read-the-feedback.md#the-ratexp-app-two-views). The Dashboard view
 reads PostgreSQL only; with any other source the app opens on Query & table.
 
 ## Layout: what lives in this folder
@@ -86,4 +86,4 @@ by hand.
 ## Deploy: how it gets to Azure
 
 app/ratexp is one of the two web apps in the Terraform stack - see
-[Deploy to Azure](../../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
+[Deploy to Azure](../../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live).

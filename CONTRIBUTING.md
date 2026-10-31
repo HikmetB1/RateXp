@@ -2,10 +2,9 @@
 
 - [The three services](#the-three-services-who-does-what)
 - [Reading the feedback](#reading-the-feedback-where-each-adapter-shows-it)
-  - [Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace)
 - [Config and env](#config-and-env-where-settings-live)
 - [Running locally](#running-locally-the-whole-stack-at-once)
-- [Deploy to Azure](#deploy-to-azure-from-zero-to-live)
+- [Custom deploy](#custom-deploy-run-your-own-ratexp)
 - [Repository layout](#repository-layout-what-each-folder-holds)
 - [Tests](#tests-per-service-and-whole-app)
 - [Documentation rules](#documentation-rules-how-docs-should-read)
@@ -26,76 +25,11 @@ its own README covering its layout, how to run it and what it reads:
 
 ## Reading the feedback: where each adapter shows it
 
-Core's `config.yaml` sets where to write (one or more adapters); the app's `config.yaml` sets
-where it reads from (one adapter only, for now). Each destination shows only what its own
-adapter wrote:
-
-- **The app** - **Query & table** works with any read adapter; the **Dashboard** view only
-  with PostgreSQL, so with any other the app opens on Query & table.
-- **Dynatrace** - in its logs, its
-  [dashboard](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace), or the RateXp
-  Dynatrace app.
-- **Arize Phoenix** - in its spans (traces), or its built-in dashboard. On the current Phoenix
-  plan that dashboard is fixed - you can't build a custom one.
-- **Bluebox** - by asking it plain-English questions. The app can't read from it.
-
-The app's query box (in **Query & table**) speaks the language of its read source:
-
-| Read source | Query box language  |
-|-------------|---------------------|
-| PostgreSQL  | SQL                 |
-| Dynatrace   | DQL                 |
-| Phoenix     | `key:value` filters |
-| Bluebox     | not supported       |
-
-### Dashboards: one panel list, drawn in the app and Dynatrace
-
-Every dashboard file lives in [`core/modules/dashboard/`](./core/modules/dashboard/):
-
-- **Dashboard in the RateXp app** - the **Dashboard** view, drawn from `dashboard_for_app.yaml`
-  using SQL.
-- **Dashboard in Dynatrace** - the same panels, drawn from `dashboard_for_dynatrace.yaml` using
-  DQL. You send it to Dynatrace by running `publish_to_dynatrace.py` (its docstring says how).
-- **App in Dynatrace** - [`app/dynatrace/`](./app/dynatrace/README.md) draws the
-  `dashboard_for_dynatrace.yaml` panels with Dynatrace's own charts, plus the app's filters
-  and **Download trajectories** (its `download` query). It bundles a copy of the panels,
-  which its tests keep equal to the YAML.
-- **One shared base** - `dashboard_base.yaml` lists the panels every dashboard must have, each
-  with an id, a title and a kind (number, line, bar or table). Each platform's file must
-  include all of them, and `core/tests/test_clone_dashboard_from_base.py` fails if one is
-  missing.
-- **Same panels and filters** - every adapter's dashboard (now the RateXp app's Dashboard
-  view for PostgreSQL, and the Dynatrace dashboard and Dynatrace app for Dynatrace) shows the
-  same panels in the same order, with the same filters. **Type** comes first: picking skill
-  or session narrows every other dropdown to that type's values.
-
-> **Where they differ** - with Type set to session, the RateXp app and the Dynatrace app hide
-> the Skill dropdown and mark **Skills rated** and **Percent good by skill** "Does not apply".
-> The Dynatrace dashboard can do neither, so there Skill offers only "(none)" and Skills rated
-> reads "n/a: session". Its **Feedback** table also has no Trajectory column, which in the two
-> apps opens a rating's conversation.
+See [docs/read-the-feedback.md](./docs/read-the-feedback.md).
 
 ## Config and env: where settings live
 
-Each service carries its own settings in two files beside its code:
-
-| Service  | Settings                                  | Secrets                            |
-|----------|-------------------------------------------|------------------------------------|
-| core     | [`core/config.yaml`](./core/config.yaml)     | `core/.env` ([example](./core/.env.example))     |
-| app      | [`app/ratexp/config.yaml`](./app/ratexp/config.yaml)       | `app/ratexp/.env` ([example](./app/ratexp/.env.example))       |
-| seeder   | [`seeder/config.yaml`](./seeder/config.yaml) | `seeder/.env` ([example](./seeder/.env.example)) |
-
-- `config.yaml` holds the non-secret tunables. **Every key is required** - a missing one fails
-  loudly at startup, so the file is the single source of truth.
-- `.env` holds the secrets and per-environment wiring; all three are gitignored.
-- core also reads its surveys, one file per eval laid over a shared `base.yaml`, from
-  [`core/evals/`](./core/evals/) - checked at startup just as strictly.
-- What each key and variable means is listed in that service's README:
-  [core](./core/README.md), [app](./app/ratexp/README.md), [seeder](./seeder/README.md).
-
-	> Stack wiring that spans services (ports, `DATABASE_URL`, `RATEXP_PUBLIC_URL`) has working
-defaults in [`docker-compose.yml`](./docker-compose.yml); to override one, put it in a root
-`.env`, which compose reads automatically.
+See [docs/config-and-env.md](./docs/config-and-env.md).
 
 Anything ignored on your machine alone - agent files like `CLAUDE.md` and `AGENTS.md`,
 `.claude/`, screen recordings, scratch work - belongs in a `.local.gitignore` rather than the
@@ -131,43 +65,9 @@ everything and wipes the data.
 > [app](./app/ratexp/README.md#running-locally-start-it-on-your-machine),
 > [seeder](./seeder/README.md#running-locally-start-it-on-your-machine).
 
-## Deploy to Azure: from zero to live
+## Custom deploy: run your own RateXp
 
-One Terraform stack creates the whole thing on Azure: two web apps (`core` + `app`), a managed
-PostgreSQL server, and a container registry to hold the images. The apps sign in to the
-database through Microsoft Entra ID, so there is **no database password** to store anywhere.
-
-**Before you start**, install the Azure CLI (and run `az login`), Terraform and Docker.
-
-**1. Create the Azure resources.**
-
-```bash
-cd infra
-cp terraform.tfvars.example terraform.tfvars   # put your subscription_id in it
-terraform init && terraform apply
-```
-
-**2. Build the images and push them to the registry.**
-
-```bash
-az acr login --name "$(terraform output -raw acr_name)"
-docker build -t "$(terraform output -raw core_image)" ../core && docker push "$(terraform output -raw core_image)"
-docker build -t "$(terraform output -raw app_image)" -f ../app/ratexp/Dockerfile --build-context dashboard=../core/modules/dashboard ../app/ratexp && docker push "$(terraform output -raw app_image)"
-```
-
-**3. Let the two apps into the database.** Run
-[`infra/grant-db-access.sql`](./infra/grant-db-access.sql) once, connected as the database's
-Entra admin. It needs the app names and identity ids, which `terraform output` prints - along
-with the URLs your services will be reachable on.
-
-**4. Stop each web app, then start it again.** That is what makes Azure pull the image you
-just pushed. `az webapp restart` does **not** - it keeps running the old cached one.
-
-**Optional extras**, switched on in `terraform.tfvars`: `enable_redaction` masks personal data
-in transcripts, `enable_labeling` deploys the model core labels conversations with, and
-`enable_seeder` deploys the demo seeder. With the seeder on, build and push `seeder_image` the
-same way as step 2. The `phoenix_*` values hand core the Arize Phoenix destination's endpoint,
-key and project, and the `bluebox_*` values the Bluebox workspace's endpoint and token.
+See [docs/custom-deploy.md](./docs/custom-deploy.md).
 
 ## Repository layout: what each folder holds
 
@@ -197,6 +97,7 @@ key and project, and the `bluebox_*` values the Bluebox workspace's endpoint and
 │   │   ├── agent/              The model, the skill pool, and the sandboxed run itself
 │   │   └── submit/             Messages → ATIF, and the two posts to core
 │   └── skills/                 The skills the agent picks from (third-party, see ATTRIBUTION.md)
+├── docs/                       Guides that span the services: reading the feedback, config and env, custom deploy
 ├── infra/                      Terraform stack for Azure (two web apps + PostgreSQL)
 ├── tests/                      Whole-app integration tests (run against a live/local stack)
 ├── .github/                    CI checks on every push and pull request, plus issue templates
@@ -212,8 +113,9 @@ helpers (database connection, config loading, `clone_dashboard_from_base.py`) so
 them can be built and deployed on its own. The one exception: the app image copies
 `dashboard_base.yaml` and `dashboard_for_app.yaml` out of `core/modules/dashboard/` at build
 time (the extra build context named `dashboard` in `docker-compose.yml` and the build commands
-above), so every destination's dashboard lives in that one folder - see
-[Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
+in [Deploy to Azure](./docs/custom-deploy.md#deploy-to-azure-from-zero-to-live)), so every
+destination's dashboard lives in that one folder - see
+[Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
 
 ## Tests: per-service and whole-app
 

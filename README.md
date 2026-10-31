@@ -111,7 +111,7 @@ dashboard.
 - **Tested in** - Claude Code and Cursor CLI.
 
 Want to run your own core instead of the hosted one? See
-[CONTRIBUTING.md](./CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
+[Custom deploy](./docs/custom-deploy.md).
 
 ## Available evals: what each one asks
 
@@ -179,7 +179,7 @@ sequenceDiagram
    PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
    Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
 9. **Live dashboard** - shows feedback as it arrives, with panels, a query box and JSON
-   export ([which adapter it reads](./CONTRIBUTING.md#reading-the-feedback-where-each-adapter-shows-it)).
+   export ([which adapter it reads](./docs/read-the-feedback.md#where-to-find-the-feedback-per-destination)).
 10. **Responsive UI** - the table reflows into cards on phones.
 11. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
    Fable.
@@ -191,41 +191,10 @@ sequenceDiagram
 </p>
 
 The [RateXp app](https://ratexp-app.azurewebsites.net/) updates as feedback arrives and has
-two views:
-
-- **Dashboard** - panels:
-  - four numbers: **Total ratings**, **Percent good**, **Ratings in the last 24h** and
-    **Skills rated**;
-  - **Good vs bad per day**, a line chart;
-  - **Percent good** per skill, per agent and per eval: bar charts listing every one, worst
-    first, scrolling inside their box;
-  - **Feedback**: the newest 10 ratings, in the same table as Query & table.
-
-  Filters: type, skill, agent, eval, the three labels and time range. The type is skill or
-  session - a session rating has no skill, so picking session hides the skill filter - and
-  picking a type narrows the other filters to that type's values. A rating takes the labels
-  of its stored conversation, so a label filter narrows every panel. **Download
-  trajectories** saves the newest matching ratings and their conversations as JSON.
-- **Query & table** - the latest ratings in the **Feedback** table; a rating with a stored
-  conversation opens it in a slide-over timeline. Each rating shows the eval it answered
-  (**Eval** column) and its conversation's labels (**Labels** column). To filter, type an
-  **SQL** query into the query box.
-
-The Dashboard view also comes as a [Dynatrace app](./app/dynatrace/README.md), drawn with
-Dynatrace's own charts from the logs core writes there; only users of your tenant can open it.
-
-The query box only ever shows the most recent matches. To get more than that, use **Download JSON**.
-What it writes depends on the last query you ran:
-
-| Last query run | What the download contains |
-|---|---|
-| *(none)* | The 10 most recent ratings. |
-| `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **Every** rating for that skill, up to 1000 ratings. |
-| `SELECT * FROM feedback WHERE agent = 'claude-code'` | **Every** rating from that agent - skill runs and whole sessions - up to 1000 ratings. |
-| `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **Every** rating that answered that eval, up to 1000 ratings. |
-| Anything spanning several skills, several agents and several evals | The 10 most recent ratings. |
-
-Every exported row carries its full trajectory beside the rating.
+two views: **Dashboard** (panels, filters and a trajectory download) and **Query & table** (the
+latest ratings, each one's conversation, a query box and a JSON download). The Dashboard view
+also comes as a Dynatrace app. What each panel, filter and download does:
+[docs/read-the-feedback.md](./docs/read-the-feedback.md).
 
 ## Contact: how to reach me
 Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.com) or on
@@ -255,4 +224,5 @@ This is a short summary; the [LICENSE](./LICENSE) is the binding text. The softw
 
 ---
 
-Want to run it yourself or contribute? See [CONTRIBUTING.md](./CONTRIBUTING.md).
+Want to run it yourself or contribute? See [docs/](./docs/README.md) and
+[CONTRIBUTING.md](./CONTRIBUTING.md).

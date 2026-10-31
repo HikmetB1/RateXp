@@ -72,7 +72,7 @@ dashboard.
 - **Tested in** - Claude Code and Cursor CLI.
 
 Want to run your own core instead of the hosted one? See
-[CONTRIBUTING.md](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live).
+[Custom deploy](../docs/custom-deploy.md).
 
 ## Layout: what lives in this folder
 
@@ -188,6 +188,6 @@ Without `dynatrace-otlp` the Dynatrace writer tests skip quietly.
 ## Deploy: how it gets to Azure
 
 core is one of the two web apps in the Terraform stack - see
-[Deploy to Azure](../CONTRIBUTING.md#deploy-to-azure-from-zero-to-live). The Dynatrace
+[Deploy to Azure](../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live). The Dynatrace
 dashboard goes out by hand: `publish_to_dynatrace.py` in
 [`modules/dashboard/`](./modules/dashboard/) says how to run it.
