@@ -1,182 +1,146 @@
 # core
 
-core hands out the hook script, takes back whatever the hook posts, masks anything personal,
-labels each conversation, and writes the result to every destination switched on - the hook
-only ever posts to the same two endpoints and never knows where the data ends up. That is true
-whether it is rating one skill or the whole session; only how much of the conversation it
-covers differs.
+<!-- shared ../README.md how-ratexp-works -->
+## How RateXp works: from hook to destination
 
-```mermaid
-sequenceDiagram
-    participant A as Coding agent user
-    participant H as the hook script
-    participant C as core
-    participant D as Destinations
+See [How RateXp works](../README.md#how-ratexp-works-from-hook-to-destination) in the README.
+<!-- /shared -->
 
-    Note over A,C: once, while setting up
-    A->>C: GET /install.sh, which fetches /ratexp-claude.sh or /ratexp-cursor.sh
-    C-->>A: the hook for that coding agent, pointing back at this core
-    A->>H: saved beside the agent's settings file, its hooks added to it
+<!-- shared ../README.md quick-start -->
+## Quick start: install RateXp
 
-    Note over H,D: then whenever the user types /ratexp or /ratexp:<skill>, and every 5th turn
-    H->>C: POST /feedback (eval, rating, optional comment)
-    opt user consented
-        H->>C: POST /transcript (the skill's run, or the session so far)
-        C->>C: rebuild the conversation, mask personal data, then label it
-    end
-    C->>D: write to every enabled destination
-    C-->>H: 201 stored, or 503 if none accepted
-```
+See [Quick start](../README.md#quick-start-install-ratexp) in the README.
+<!-- /shared -->
 
-## Quick start: install in one command
-
-Install RateXp once in the coding agent you use - nothing to configure. As of now it works
-with Claude Code and Cursor CLI.
-
-```bash
-# Pick one
-
-# Claude Code  ->  saves ~/.claude/ratexp-claude.sh, adds its hooks to ~/.claude/settings.json
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
-
-# Cursor CLI  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
-```
-
-Everything else in the settings file stays, and a copy of the original settings file is
-saved as `<file>.ratexp-backup`.
-
-Uninstall, check the status, or install for one project? The installer's help shows how to do each:
-
-```bash
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- --help
-```
-
-> [!TIP]
-> Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
-> **Install RateXp** popup shows them. That is the whole setup; ratings land on the same
-> dashboard.
-
-### When it asks: on /ratexp, and every 5th turn
-
-- **The whole session** - whenever you type `/ratexp`, and every 5th turn.
-- **How often** - every 5th turn by default; change `DEFAULT_EVERY` at the top of the saved
-  script, or set `RATEXP_EVERY`.
-- **What is stored** - only with your consent: messages, reasoning, tool calls and their
-  results, with personal data masked (redacted) before it is stored.
-- **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
-- **Which eval** - add an eval's name, as in `/ratexp <eval>` or `/ratexp:<skill> <eval>`;
-  without one you answer the default, `human-satisfaction`. See
-  [Available evals](../README.md#available-evals-what-each-one-asks).
-- **Tested in** - Claude Code and Cursor CLI.
-
-> [!TIP]
-> Want to run your own core instead of the hosted one? See
-> [Custom deploy](../docs/custom-deploy.md).
-
-## Layout: what lives in this folder
+## Layout: what this folder holds
 
 ```text
 core/
-├── ratexp-claude.sh     the Claude Code hook: rates the session and any skill run in it
-├── ratexp-cursor.sh     the same for Cursor CLI
-├── install.sh           saves either hook and adds its hooks to the agent's settings
-├── api/                 routes, record schemas, rate limiting, ATIF trajectory building
+├── ratexp-claude.sh     the Claude Code hook script: rates the session and each skill run in the session
+├── ratexp-cursor.sh     the Cursor CLI hook script: does the same as ratexp-claude.sh
+├── install.sh           saves a hook script and adds the RateXp hooks to the settings of the agent
+├── api/                 routes, record schemas, rate limits and the ATIF trajectory builder
 ├── modules/
-│   ├── dashboard/       the dashboards: a shared base, one file per destination, the publish command
-│   ├── labeling/        labels each stored conversation with its business case, language and task type
-│   ├── redaction/       masks PII before storage: the presidio or azure adapter
-│   └── write/           the destinations, the fan-out, and the SQL migrations
-├── tests/               core's own tests: mocked, no network or database
-├── evals/               the surveys users answer, one file per eval over a shared base (see Config)
-├── config.yaml          the settings below; load_config.py reads it
-└── Dockerfile           builds in the docs site and every optional adapter (config alone picks which adapters run)
+│   ├── dashboard/       the dashboards: a shared base, one file for each destination, the publish command
+│   ├── labeling/        gives each stored conversation a business case, a language and a task type
+│   ├── redaction/       masks PII before storage: the presidio adapter or the azure adapter
+│   └── write/           the destinations, the fan-out and the SQL migrations
+├── tests/               the tests of core: mocked, with no network and no database
+├── evals/               the surveys that users answer: one file for each eval, over a shared base (see Config)
+├── config.yaml          the settings below; load_config.py reads config.yaml
+└── Dockerfile           builds in the docs site and all optional adapters (config.yaml selects the adapters that run)
 ```
 
-## Running locally: start it on your machine
+## Run locally: start core on your machine
 
-From the repo root, this puts core on <http://localhost:8000>, beside PostgreSQL and the
-dashboard:
+To start core on <http://localhost:8000>, with PostgreSQL and the dashboard, run this command
+from the repo root:
 
 ```bash
 docker compose up --build -d
 ```
 
-Compose mounts this folder, so edits reload in place and each hook is re-read per request.
-core also serves the docs site at `/guide/`; which copy it serves is in
-[docs-server](../docs-server/README.md#running-locally-start-it-on-your-machine).
-To run core on its own instead, you install the extras your `config.yaml` switches on
-yourself - the Dockerfile installs all of them, `uv sync` installs none, and Presidio
-additionally needs the per-language spaCy models the Dockerfile downloads:
+- **Live reload:** Compose mounts the `core/` folder. core reloads when you save a file, and
+  core reads the hook scripts again for each request.
+- **Docs site:** core also serves the docs site at `/guide/`. For the copy of the docs site
+  that core serves, see [docs-server](../docs-server/README.md#run-locally-start-docs-server-on-your-machine).
+
+To run core without compose, install the extras that your `config.yaml` switches on:
+
+- **Dockerfile:** The Dockerfile installs all extras.
+- **`uv sync`:** `uv sync` installs no extras.
+- **Presidio:** Presidio also needs the spaCy model of each language. The Dockerfile downloads
+  the spaCy models.
 
 ```bash
 uv sync --extra redaction-presidio --extra dynatrace-otlp
 DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api.serve_http:app --reload
 ```
 
-To label conversations too, add `--extra labeling` and set `AZURE_OPENAI_ENDPOINT`; the model
-is reached with your `az login`, which needs "Cognitive Services OpenAI User" on the account.
+To label conversations, also add `--extra labeling` and set `AZURE_OPENAI_ENDPOINT`. core
+connects to the model with your `az login`. Your account needs the "Cognitive Services OpenAI
+User" role on the Azure OpenAI account.
 
 ## Config: every key in config.yaml
 
-[`config.yaml`](./config.yaml) - every key is required, a missing one fails at startup:
+Each key in [`config.yaml`](./config.yaml) is necessary. If a key is missing, core stops at
+startup with an error.
 
-- `schema_version`: ATIF version stamped on every stored transcript
-- `max_body_bytes`: biggest request body core accepts, in bytes - the cap that guards
-  `/transcript`. A bigger one is turned away with `413` and nothing is kept, not even a stub,
-  so set it higher than `max_transcript_bytes`. The hook never sends more than 4 MiB at once
-- `max_transcript_bytes`: largest trajectory stored in full; a bigger one keeps only a
-  meta-only stub, so a few huge conversations can't bloat the database
-- `rate_limit_per_minute`: per-IP budget; `0` turns the limiter off
-- `default_survey_every`: ask about the whole session every Nth turn, baked into the hooks
-  core serves; `RATEXP_EVERY` on the user's machine overrides it
-- `default_survey_eval`: the eval asked every Nth turn and on a `/ratexp` that names none, one
-  of [`evals/`](./evals/). Each file there is one eval, named for the word users type after
-  `/ratexp`: a `question` - any `{subject}` in it becomes the session or the skill - and a
-  `label` (no commas) and `description` for its `good` and its `bad` answer. Each file is laid
-  over [`evals/base.yaml`](./evals/base.yaml), which holds what every eval shares - the True and
-  False labels - so an eval writes only what differs, and its own value wins. Copy the base to
-  start a new eval; `base` itself is never one. A rating keeps only the eval's name, so a survey
-  that asks something new needs a new name. Baked into the hooks core serves, so users
-  re-download the hook to get a new or reworded eval
-- `redaction`: whether personal data is masked and which adapter does it - `presidio`
-  (in-process, free) or `azure` (AI Language, billed per 1,000 records). Both are in the
-  image, so switching is one value plus a restart, never a rebuild
-- `labeling`: gives each stored conversation one word per group in `labels` - its
-  `business_case`, main `language` and `task_type` - picked by the Azure OpenAI
-  `deployment` from a digest of the masked conversation cut to `max_input_chars`. The
-  groups are fixed (each is a column and an attribute); the words in each list are yours.
-  It never blocks a save: labeling off, no endpoint, an oversized stub, or a model that
-  fails or takes longer than `timeout_seconds` leaves the labels empty
-- `write_adapters`: the destinations every submission is written to. They are independent -
-  one failing is logged and never blocks the others - but the request fails with `503` if
-  none of them accepted. Each shapes a record its own way, as the top of its file in
-  [`modules/write/adapters/`](./modules/write/adapters/) says:
-  - `app_be_psql`, `custom_psql` - one table row
-  - `app_be_dynatrace`, `custom_dynatrace`, `bluebox` - one OTLP log line
-  - `phoenix` - one span
+- `schema_version`: The ATIF version that core writes on each stored transcript.
+- `max_body_bytes`: The largest request body that core accepts, in bytes. The limit protects
+  `/transcript`. If a body is larger, core returns `413` and keeps nothing, not even a stub.
+  Thus, set `max_body_bytes` higher than `max_transcript_bytes`. The hook script never sends
+  more than 4 MiB in one request.
+- `max_transcript_bytes`: The largest trajectory that core stores in full. For a larger
+  trajectory, core stores only a stub with the metadata. Thus, a small number of very large
+  conversations cannot make the database too large.
+- `rate_limit_per_minute`: The number of requests that one IP address can send in one minute.
+  `0` switches the rate limit off.
+- `default_survey_every`: The number of turns between two session ratings (the N in "every Nth
+  turn"). core writes the number into the hook scripts that core serves. `RATEXP_EVERY` on the
+  machine of the user overrides the number.
+- `default_survey_eval`: The eval that RateXp asks every Nth turn, and on a `/ratexp` command
+  without an eval name. The value is the name of one file in [`evals/`](./evals/).
+  - **Eval file:** Each file in `evals/` is one eval. The file name is the word that users type
+    after `/ratexp`.
+  - **`question`:** The question of the eval. core replaces `{subject}` with the session or
+    with the skill.
+  - **`label` and `description`:** The label (with no commas) and the description of the `good`
+    answer and of the `bad` answer.
+  - **Base file:** core puts each eval file over [`evals/base.yaml`](./evals/base.yaml). The
+    base file holds the values that all evals share: the True and False labels. An eval file
+    holds only the values that are different. A value in the eval file wins over the value in
+    the base file.
+  - **New eval:** To start a new eval, copy the base file. `base` itself is never an eval.
+  - **New question:** A rating keeps only the name of the eval. Thus, a survey with a new
+    question needs a new name.
+  - **Hook update:** core writes the evals into the hook scripts that core serves. Thus, users
+    must download the hook script again to get a new or a changed eval.
+- `redaction`: Switches the masks for personal data on or off, and selects the adapter:
+  `presidio` (in-process, free) or `azure` (AI Language, billed for each 1,000 records). The
+  image contains both adapters. To change the adapter, change one value and restart core. You
+  do not have to build the image again.
+- `labeling`: core gives each stored conversation one word from each group in `labels`:
+  `business_case`, the main `language` and `task_type`.
+  - **Model:** The Azure OpenAI `deployment` selects the words from a digest of the masked
+    conversation. core cuts the digest to `max_input_chars`.
+  - **Groups and words:** The groups are fixed, because each group is a column and an
+    attribute. You select the words in each list.
+  - **Empty labels:** Labeling never stops a save. The labels stay empty in these cases:
+    labeling is off, the endpoint is not set, the conversation is an oversized stub, or the
+    model fails or takes longer than `timeout_seconds`.
+- `write_adapters`: The destinations that core writes each submission to. The destinations are
+  independent: core logs a failure of one destination and continues with the other
+  destinations. If no destination accepts the submission, the request fails with `503`. Each
+  adapter makes a different record, as the top of each file in
+  [`modules/write/adapters/`](./modules/write/adapters/) tells:
+  - `app_be_psql`, `custom_psql`: one table row
+  - `app_be_dynatrace`, `custom_dynatrace`, `bluebox`: one OTLP log line
+  - `phoenix`: one span
 
-## Env: the secrets it reads
+## Env: the secrets core reads
 
-Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
+`core/.env` holds the secrets and the settings that change for each environment
+([example](./.env.example)):
 
-- `DATABASE_URL` / `RATEXP_DB_AUTH`: the PostgreSQL `app_be_psql` writes to, and how to
-  authenticate - `password` locally, `entra` (Managed Identity) on Azure
-- `RATEXP_PUBLIC_URL`: the base URL baked into the hooks core serves, so the hooks it hands
-  out post back to the right place. A hook copied straight from this folder has no URL and
-  posts nowhere
-- `RATEXP_REDACTION_PROVIDER`: overrides `redaction.provider` for one deployment
-- `AZURE_OPENAI_ENDPOINT`: the Azure OpenAI account `labeling` calls, named in
-  `config.yaml`; unset skips labeling. Leave it unset under compose: the container has no
-  Azure identity to call it with
+- `DATABASE_URL` / `RATEXP_DB_AUTH`: The PostgreSQL database that `app_be_psql` writes to, and
+  how core authenticates: `password` on your machine, `entra` (Managed Identity) on Azure.
+- `RATEXP_PUBLIC_URL`: The base URL that core writes into the hook scripts that core serves.
+  With the base URL, the hook scripts send the data back to the correct core. A hook script
+  that you copy directly from the `core/` folder has no URL and sends no data.
+- `RATEXP_REDACTION_PROVIDER`: Overrides `redaction.provider` for one deployment.
+- `AZURE_OPENAI_ENDPOINT`: The Azure OpenAI account that `labeling` calls. `config.yaml` names
+  `AZURE_OPENAI_ENDPOINT`. If `AZURE_OPENAI_ENDPOINT` is not set, core does not label conversations. Do not set
+  `AZURE_OPENAI_ENDPOINT` under compose, because the container has no Azure identity to call the account.
 - `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL` /
   `CUSTOM_DT_TOKEN`, `BLUEBOX_OTLP_ENDPOINT` / `BLUEBOX_OTLP_TOKEN`,
-  `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: one group per
-  destination, named (never valued) in `config.yaml`. A destination missing its value is
-  skipped with a warning instead of failing
-- `DT_QUERY_URL` / `DT_DASHBOARD_TOKEN`: the apps host and token the Dynatrace dashboard is
-  published with, read only by `modules/dashboard/publish_to_dynatrace.py` (its docstring
-  gives the scopes), never by the running service
+  `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: One group for each
+  destination. `config.yaml` names each variable, but never holds the value. If a destination
+  has no value, core skips the destination with a warning and does not fail.
+- `DT_QUERY_URL` / `DT_DASHBOARD_TOKEN`: The apps host and the token to publish the Dynatrace
+  dashboard. Only `modules/dashboard/publish_to_dynatrace.py` reads `DT_QUERY_URL` and
+  `DT_DASHBOARD_TOKEN`, and the docstring of `publish_to_dynatrace.py` gives the scopes. The
+  running core service never reads `DT_QUERY_URL` or `DT_DASHBOARD_TOKEN`.
 
 ## Tests: how to run them
 
@@ -184,12 +148,14 @@ Secrets and per-environment wiring, in `core/.env` ([example](./.env.example)):
 uv sync --extra test --extra dynatrace-otlp && uv run pytest
 ```
 
-Mocked, so no network or database. They also drive the hooks and the installer themselves with a fake curl.
-Without `dynatrace-otlp` the Dynatrace writer tests skip quietly.
+- **Mocked:** The tests use no network and no database. The tests also run the hook scripts
+  and the installer, with a fake `curl`.
+- **Dynatrace tests:** Without `dynatrace-otlp`, pytest skips the Dynatrace writer tests and
+  shows no error.
 
-## Deploy: how it gets to Azure
+## Deploy: how core gets to Azure
 
-core is one of the two web apps in the Terraform stack - see
-[Deploy to Azure](../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live). The Dynatrace
-dashboard goes out by hand: `publish_to_dynatrace.py` in
-[`modules/dashboard/`](./modules/dashboard/) says how to run it.
+- **core:** core is one of the two web apps in the Terraform stack. See
+  [Deploy to Azure](../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live).
+- **Dynatrace dashboard:** You publish the Dynatrace dashboard manually. The docstring of
+  `publish_to_dynatrace.py` in [`modules/dashboard/`](./modules/dashboard/) tells how.
