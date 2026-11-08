@@ -44,15 +44,21 @@
   [Redaction](#feature-redaction).
 
 **Who RateXp is for:**
-- **A company that rolls out a coding agent from a vendor to its employees:** The company gets
-  feedback from real users on real sessions. The company sees the types of work that the
-  employees do with the coding agent, and where the employees get good or bad results. Then
-  the company trains the employees where necessary, and tells the vendor what to improve.
-- **An employee who uses a coding agent:** The user of the coding agent tells in seconds what
-  worked and what did not, in the session. Thus, the admin or the vendor of the coding agent
-  hears from the user.
-- **A person who writes skills for a coding agent:** The skill author sees how people rate the
-  skill in real work, not only in the tests of the skill author.
+- **A company that rolls out a coding agent from a vendor to its employees:**
+  - The company gets feedback from real users on real sessions.
+  - The company sees the types of work that the employees do with the coding agent, and where
+    the employees get good or bad results. See [Labels](#feature-labels).
+  - Thus, the company trains the employees where necessary, and tells the vendor what to
+    improve.
+- **An employee who uses a coding agent or a skill:**
+  - The employee tells in seconds what worked and what did not, in the whole session or in
+    one run of a skill. See [Session rating](#feature-session-rating) and
+    [Skill rating](#feature-skill-rating).
+  - The admin or the vendor of the coding agent, or the author of the skill, hears from the
+    employee.
+- **A person who writes skills for a coding agent:**
+  - The skill author sees how people rate the skill in real work, not only in the tests of
+    the skill author.
 
 **Easy to adopt:** Run one install command, one time for each coding agent. See
 [Quick start](#quick-start-install-ratexp).
@@ -120,8 +126,7 @@ Each rating answers one eval. See [Human evals](#feature-human-evals).
 ```
 
 - <strong style="color: #e23a2e">Oh yes, it is annoying to always be asked for a rating.</strong>
-  **Every `RATEXP_EVERY` turns (5 by default):** RateXp also asks for a rating of the whole
-  session. To be asked less often, set `RATEXP_EVERY` to a higher number. See
+  We solved the problem with the `RATEXP_EVERY` parameter. See
   [Session rating](#feature-session-rating).
 - **Consent:** RateXp stores a conversation only with consent, and redacts each stored
   conversation. See
