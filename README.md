@@ -5,7 +5,7 @@
 
 <p align="center">
   <a href="https://github.com/HikmetB1/RateXp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/HikmetB1/RateXp/ci.yml?branch=main&style=flat-square&label=CI&labelColor=30363d&logo=github&logoColor=white" alt="CI status"></a>
-  <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/demo-dashboard-8957e5?style=flat-square&labelColor=30363d" alt="Live demo dashboard"></a>
+  <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/RateXp%20app-dashboard-8957e5?style=flat-square&labelColor=30363d" alt="The RateXp app dashboard"></a>
   <a href="https://ratexp-app.azurewebsites.net/"><img src="https://img.shields.io/badge/status-live-3fb950?style=flat-square&labelColor=30363d" alt="Service status: live"></a>
   <a href="https://ratexp-core.azurewebsites.net/guide/"><img src="https://img.shields.io/badge/docs-guide-ff8a1e?style=flat-square&labelColor=30363d" alt="Docs: the RateXp docs site"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-source%20available-1f6feb?style=flat-square&labelColor=30363d" alt="License: RateXp Source Available License 1.0"></a>
@@ -38,9 +38,9 @@
   experience, from the person who had the experience. Each eval asks specific
   questions with specific objectives: satisfaction, task success, requirement adherence or time
   saved. See [Available human evals](#available-human-evals-the-question-of-each-eval).
-- **The vehicle that delivers the concept, RateXp:** RateXp brings the human eval to the user,
-  in the coding agent. The user rates the whole session or a skill that the user ran. See
-  [Write adapters](#feature-write-adapters), [Dashboard](#feature-dashboard) and
+- **The vehicle that delivers the human evals, RateXp:** RateXp brings the human eval to the
+  user, in the coding agent. The user rates the whole session or a skill that the user ran.
+  See [Write adapters](#feature-write-adapters), [Dashboard](#feature-dashboard) and
   [Redaction](#feature-redaction).
 
 **Who RateXp is for:**
