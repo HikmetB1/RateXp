@@ -294,7 +294,7 @@ arrives. The RateXp app has these views:
 
 More than one destination can be on at the same time. core writes the same data to each
 destination. See [Destinations](#destinations-where-core-writes-the-feedback) and
-[Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace).
+[View options](./docs/read-the-feedback.md#view-options-where-to-see-the-human-evals).
 
 For each panel, filter and download, see
 [docs/read-the-feedback.md](./docs/read-the-feedback.md).

@@ -1,46 +1,31 @@
 # Config and env: where settings live
 
-- [Settings](#settings-every-key-is-required)
-- [Secrets](#secrets-kept-out-of-git)
-- [Stack variables](#stack-variables-defaults-in-docker-composeyml)
+- [Files](#files-what-you-change-in-each-file)
+- [Keep in mind](#keep-in-mind-settings-secrets-and-keys)
 
-Each service keeps its settings and its secrets in files next to its code:
+## Files: what you change in each file
 
-| Service  | Settings                                  | Secrets                            |
-|----------|-------------------------------------------|------------------------------------|
-| core     | [`core/config.yaml`](../core/config.yaml)     | `core/.env` ([example](../core/.env.example))     |
-| app      | [`app/ratexp/config.yaml`](../app/ratexp/config.yaml)       | `app/ratexp/.env` ([example](../app/ratexp/.env.example))       |
-| seeder   | [`seeder/config.yaml`](../seeder/config.yaml) | `seeder/.env` ([example](../seeder/.env.example)) |
-| app/dynatrace | [`app/dynatrace/app.config.json`](../app/dynatrace/app.config.json) | none: it reads as the signed-in Dynatrace user |
-| docs-server | [`docs-server/mkdocs.yml`](../docs-server/mkdocs.yml) | none: it builds the docs site from the repo alone |
+| File | What you change in the file |
+|---|---|
+| [`core/config.yaml`](../core/config.yaml) | The destinations, redaction, labeling and its label lists, the default eval, how often RateXp asks, and the size and rate limits. See [core](../core/README.md#config-every-key-in-configyaml). |
+| `core/.env` ([example](../core/.env.example)) | The database, the public URL of core, the Azure OpenAI endpoint, and the URL and token of each destination. See [core](../core/README.md#env-the-secrets-core-reads). |
+| [`core/evals/`](../core/evals/) | The question and the two answers of each eval. One file is one eval. See [Human evals](./human-evals.md). |
+| [`core/modules/dashboard/`](../core/modules/dashboard/) | `dashboard_base.yaml`: the panels that every dashboard has.<br>`dashboard_for_app.yaml`: the SQL of each panel in the Dashboard view of the RateXp app.<br>`dashboard_for_dynatrace.yaml`: the DQL of each panel in the Dynatrace dashboard and the RateXp Dynatrace app.<br>See [ADR 0001](./adr/0001-one-panel-list-for-every-dashboard.md). |
+| [`app/ratexp/config.yaml`](../app/ratexp/config.yaml) | The read source, the rows of the Feedback table and of the downloads (for every dashboard), the query box, the live feed, and the core in the install popup. See [app/ratexp](../app/ratexp/README.md#config-every-key-in-configyaml). |
+| `app/ratexp/.env` ([example](../app/ratexp/.env.example)) | The database, the URL and token of each read source, the allowed origins, and the URL of core. See [app/ratexp](../app/ratexp/README.md#env-the-secrets-the-app-reads). |
+| [`app/dynatrace/app.config.json`](../app/dynatrace/app.config.json) | The tenant, the id, name and version of the app, and its scopes. See [app/dynatrace](../app/dynatrace/README.md#config-every-key-in-appconfigjson). |
+| [`seeder/config.yaml`](../seeder/config.yaml) | The model, the prompts, the eval, and how often the local loop runs. See [seeder](../seeder/README.md#config-every-key-in-configyaml). |
+| `seeder/.env` ([example](../seeder/.env.example)) | The keys of the model, the URL of core, and the schedule of the deployed timers. See [seeder](../seeder/README.md#env-the-secrets-the-seeder-reads). |
+| [`docs-server/mkdocs.yml`](../docs-server/mkdocs.yml) | The pages, the sidebar and the look of the docs site. See [docs-server](../docs-server/README.md#config-every-key-in-mkdocsyml). |
+| `.env` at the repo root | The local stack: the ports `CORE_HOST_PORT` and `APP_HOST_PORT`, `DATABASE_URL` and `RATEXP_PUBLIC_URL`. [`docker-compose.yml`](../docker-compose.yml) has working defaults. |
+| `infra/terraform.tfvars` ([example](../infra/terraform.tfvars.example)) | The Azure subscription and the optional extras of your own copy. See [Custom deploy](./custom-deploy.md). |
 
-## Settings: every key is required
+## Keep in mind: settings, secrets and keys
 
-- `config.yaml` contains the settings. It contains no secrets.
-- Each key is necessary. If a key is missing, the service stops at startup with an error.
-  This makes `config.yaml` the single source of truth.
-- core also reads its surveys from [`core/evals/`](../core/evals/). Each eval is one file over
-  a shared `base.yaml`. core checks these files at startup with the same strict rules.
-- The README of each service tells what each key and environment variable does:
-  [core](../core/README.md), [app](../app/ratexp/README.md), [seeder](../seeder/README.md),
-  [app/dynatrace](../app/dynatrace/README.md).
-
-## Secrets: kept out of git
-
-- `.env` contains the secrets and the environment variables that change for each environment.
-- Git ignores all three `.env` files.
-
-## Stack variables: defaults in docker-compose.yml
-
-These environment variables apply to the whole local stack:
-
-- `CORE_HOST_PORT` (8000) and `APP_HOST_PORT` (8001): the ports on your machine that reach core
-  and the app.
-- `DATABASE_URL`
-- `RATEXP_PUBLIC_URL`
-
-How to set them:
-
-- **Defaults:** [`docker-compose.yml`](../docker-compose.yml) has defaults for them that work.
-- **To change one:** put it in a `.env` file at the repository root. Compose reads that file
-  automatically.
+- **Settings, not secrets:** A `config.yaml` file holds settings only. A `.env` file holds the
+  secrets and the values that change for each environment.
+- **Required keys:** Each key in a `config.yaml` file is necessary. If a key is missing, the
+  component stops at startup with an error. core checks the eval files at startup with the
+  same rules.
+- **Key descriptions:** The README of each component tells what each key and each environment
+  variable does. The table links to each README.
