@@ -1,6 +1,6 @@
 # RateXp
 <p align="center">
-  <img src="./assets/banner.png" alt="RateXp - get human evals on agents and skills" width="720">
+  <img src="./assets/banner.png" alt="RateXp - get human evals on the agentic experience" width="720">
 </p>
 
 <p align="center">

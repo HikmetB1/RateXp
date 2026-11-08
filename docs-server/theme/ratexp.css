@@ -122,8 +122,8 @@
 
 @media screen and (min-width: 76.25em) {
   /* One card per sidebar item, each under a header bar (--group-bar): a group
-     (Home, Guides, Components, Legal) lists its links below the bar; a page alone
-     (Contributing) is the bar itself, a link. */
+     (Home, Guides, Components, Legal) lists its links below the bar; a page alone in the
+     nav would be the bar itself, a link. */
   .md-nav--primary > .md-nav__list > .md-nav__item {
     background: var(--box-bg);
     border: 1px solid var(--box-line);

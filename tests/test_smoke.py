@@ -49,7 +49,7 @@ def test_core_serves_the_docs_site(core_url, http):
     assert "<title>RateXp docs</title>" in r.text
 
 
-@pytest.mark.parametrize("page", ["docs/custom-deploy/", "core/", "CONTRIBUTING/"])
+@pytest.mark.parametrize("page", ["docs/custom-deploy/", "core/", "app/ratexp/"])
 def test_each_docs_page_sits_at_its_repo_path(core_url, http, page):
     assert http.get(f"{core_url}/guide/{page}").status_code == 200
 

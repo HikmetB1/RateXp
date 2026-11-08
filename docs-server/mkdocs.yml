@@ -26,7 +26,6 @@ nav:
           - ratexp: app/ratexp/README.md
           - dynatrace: app/dynatrace/README.md
       - seeder: seeder/README.md
-  - Contributing: CONTRIBUTING.md
   - Legal:
       - License: https://github.com/HikmetB1/RateXp/blob/main/LICENSE
       - Terms of Service: TERMS.md
