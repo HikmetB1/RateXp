@@ -44,7 +44,7 @@ def test_the_default_eval_core_ships_is_one_of_its_evals():
 
 
 def test_the_readme_lists_every_eval_with_its_question():
-    """Its "Available evals" table repeats evals/, so changing an eval without it fails here."""
+    """Its "Available human evals" table repeats evals/: an eval changed without it fails here."""
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     table = dict(re.findall(r"^\| `([a-z0-9-]+)`(?: \(default\))? \| (.+?) \|$", text, re.M))
     assert table == {name: survey.question for name, survey in EVALS.items()}
