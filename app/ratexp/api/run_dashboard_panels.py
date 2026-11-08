@@ -13,7 +13,7 @@ from decimal import Decimal
 from api.build_snapshot import display_name, row_to_transcript
 from api.record_schemas import Feedback, PanelFilters
 from api.trim_result_rows import jsonable
-from load_config import LIST_MAX_LIMIT, QUERY_TIMEOUT_MS
+from load_config import LIST_MAX_LIMIT, LIST_VIEW_LIMIT, QUERY_TIMEOUT_MS
 from modules.read.clone_dashboard_from_base import clone_dashboard
 
 # The literal every panel's SQL carries where the shared filter fragment goes.
@@ -43,9 +43,14 @@ def find_panel(dashboard: dict, panel_id: str) -> dict | None:
 
 
 def run_panel(read, dashboard: dict, panel: dict, filters: PanelFilters) -> dict:
-    """One panel's ``{"columns", "rows"}`` with the filters applied; cells JSON-ready."""
+    """One panel's ``{"columns", "rows"}`` with the filters applied; cells JSON-ready.
+
+    Every panel gets ``limit`` = LIST_VIEW_LIMIT, which the feedback panel's SQL uses so the
+    Dashboard view's Feedback table shows as many ratings as the Query & table view.
+    """
     sql = panel["sql"].replace(FILTERS_MARKER, dashboard["filters"]["sql"])
-    columns, rows = read.run_dashboard_sql(sql, filters.params(), QUERY_TIMEOUT_MS)
+    params = {**filters.params(), "limit": LIST_VIEW_LIMIT}
+    columns, rows = read.run_dashboard_sql(sql, params, QUERY_TIMEOUT_MS)
     return {"columns": columns, "rows": [[_cell(v) for v in row] for row in rows]}
 
 

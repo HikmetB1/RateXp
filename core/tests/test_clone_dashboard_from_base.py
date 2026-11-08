@@ -163,7 +163,8 @@ def test_every_app_panel_names_its_columns_and_takes_the_shared_filter_once():
     app = clone_dashboard("app")
     for panel in app["panels"]:
         assert panel["sql"].count("{filters}") == 1, panel["id"]
-        assert set(re.findall(r"%\((\w+)\)s", panel["sql"])) == set(), panel["id"]
+        # Besides the filter fragment a panel may only take limit, the app's list_view_limit.
+        assert set(re.findall(r"%\((\w+)\)s", panel["sql"])) <= {"limit"}, panel["id"]
         for column in PANEL_COLUMNS.get(panel["id"], FEEDBACK_COLUMNS["app"]):
             assert re.search(rf"\b{column}\b", panel["sql"]), (panel["id"], column)
     fragment = app["filters"]["sql"]
@@ -184,10 +185,11 @@ def test_every_rating_panel_reads_the_labels_of_its_conversation():
     assert not [sql for sql in queries if re.search(r"FROM feedback\b(?!_)", sql)]
 
 
-def test_the_feedback_panels_show_the_newest_10_ratings():
+def test_the_feedback_panels_show_the_newest_ratings():
     sql = _by_id(clone_dashboard("app"))["feedback"]["sql"]
     dql = _by_id(clone_dashboard("dynatrace"))["feedback"]["dql"]
-    assert sql.endswith("ORDER BY created_at DESC LIMIT 10")
+    # The app caps it with its list_view_limit; Dynatrace cannot read the app's config.
+    assert sql.endswith("ORDER BY created_at DESC LIMIT %(limit)s")
     # A rating's conversation is the transcript with its request_id, or none.
     assert "LEFT JOIN transcript t ON t.request_id = f.request_id" in sql
     assert "| sort timestamp desc | limit 10" in dql

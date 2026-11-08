@@ -9,10 +9,12 @@
 # created_at, skill_name, agent, eval_name and the three labels: every panel reads
 # feedback_with_labels, which adds each rating's conversation's labels. filters.values
 # fill the dropdowns, each run with type alone so that picking a type narrows the others
-# to the values that exist for it; download.sql is the "Download trajectories" button,
-# with limit as a ninth parameter. A null skill, eval or label is shown and matched as
-# "(none)", as on Dynatrace, so whole-session ratings, ratings without an eval and
-# ratings without a labeled conversation can be picked.
+# to the values that exist for it. A ninth parameter, limit, caps the rows: the app's
+# list_view_limit for a panel, so the feedback panel shows as many ratings as the Query &
+# table view, and its list_max_limit for download.sql, the "Download trajectories" button.
+# A null skill, eval or label is shown and matched as "(none)", as on Dynatrace, so
+# whole-session ratings, ratings without an eval and ratings without a labeled
+# conversation can be picked.
 name: RateXp
 filters:
   sql: >-
@@ -123,9 +125,9 @@ panels:
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
       FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
       GROUP BY name ORDER BY percent_good ASC, total DESC
-  # The newest 10 ratings in the shape of the Query & table view's rows (GET /feedback),
-  # each with its conversation's labels and the conversation itself (atif, NULL when none
-  # was stored): the app draws them in that view's Feedback table.
+  # The newest list_view_limit ratings in the shape of the Query & table view's rows
+  # (GET /feedback), each with its conversation's labels and the conversation itself (atif,
+  # NULL when none was stored): the app draws them in that view's Feedback table.
   feedback:
     sql: >-
       SELECT created_at, session_id, skill_name, COALESCE(skill_name, session_id) AS name,
@@ -134,4 +136,4 @@ panels:
       f.comment, f.request_id, f.business_case, f.language, f.task_type, t.atif
       FROM feedback_with_labels f LEFT JOIN transcript t ON t.request_id = f.request_id) s
       WHERE {filters}
-      ORDER BY created_at DESC LIMIT 10
+      ORDER BY created_at DESC LIMIT %(limit)s

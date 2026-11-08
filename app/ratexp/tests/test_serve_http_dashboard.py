@@ -11,7 +11,7 @@ from decimal import Decimal
 
 import pytest
 import yaml
-from load_config import LIST_MAX_LIMIT
+from load_config import LIST_MAX_LIMIT, LIST_VIEW_LIMIT
 from modules.read import clone_dashboard_from_base
 
 FILTERS_SQL = (
@@ -69,7 +69,7 @@ APP = {
                 "SELECT created_at, session_id, skill_name, agent, score, atif FROM (SELECT "
                 "f.created_at, f.session_id, f.skill_name, f.agent, f.eval_name, f.score, t.atif "
                 "FROM feedback f LEFT JOIN transcript t ON t.request_id = f.request_id) s "
-                "WHERE {filters} ORDER BY created_at DESC LIMIT 10"
+                "WHERE {filters} ORDER BY created_at DESC LIMIT %(limit)s"
             )
         },
     },
@@ -84,6 +84,8 @@ ALL = {
     "task_type": None,
     "since": None,
 }
+# What a panel runs with: the filters, and the row cap the feedback panel uses.
+PANEL = {**ALL, "limit": LIST_VIEW_LIMIT}
 
 
 @pytest.fixture
@@ -178,7 +180,7 @@ def test_panel_runs_its_sql_with_the_filters_bound(app_with_fake_pool, dashboard
     assert r.status_code == 200
     assert r.json() == {"columns": ["value"], "rows": [[3]]}
     assert pool.store["sql"] == f"SELECT count(*) AS value FROM feedback WHERE {FILTERS_SQL}"
-    assert pool.store["params"] == {**ALL, "type": "skill", "skill": "demo"}
+    assert pool.store["params"] == {**PANEL, "type": "skill", "skill": "demo"}
 
 
 def test_panel_binds_every_name_and_passes_since_through(app_with_fake_pool, dashboard_files):
@@ -189,9 +191,9 @@ def test_panel_binds_every_name_and_passes_since_through(app_with_fake_pool, das
         json={"panel": "good_bad_over_time", "filters": {"since": "2026-09-03T10:00:00.000Z"}},
     )
     # Every name the fragment binds is present (psycopg would otherwise raise); "" is "all".
-    assert pool.store["params"] == {**ALL, "since": "2026-09-03T10:00:00.000Z"}
+    assert pool.store["params"] == {**PANEL, "since": "2026-09-03T10:00:00.000Z"}
     client.post("/dashboard/panel", json={"panel": "good_bad_over_time", "filters": {"skill": ""}})
-    assert pool.store["params"] == ALL
+    assert pool.store["params"] == PANEL
 
 
 def test_none_is_bound_as_a_value_to_match_not_as_all(app_with_fake_pool, dashboard_files):
@@ -202,7 +204,7 @@ def test_none_is_bound_as_a_value_to_match_not_as_all(app_with_fake_pool, dashbo
     pool.set_select_rows([])
     none = {"skill": "(none)", "eval": "(none)", "language": "(none)"}
     client.post("/dashboard/panel", json={"panel": "total_ratings", "filters": none})
-    assert pool.store["params"] == {**ALL, **none}
+    assert pool.store["params"] == {**PANEL, **none}
     assert client.get("/dashboard/export", params=none).status_code == 200
     assert pool.store["params"] == {**ALL, **none, "limit": LIST_MAX_LIMIT}
 
@@ -223,7 +225,9 @@ def test_the_feedback_panel_carries_each_ratings_conversation(app_with_fake_pool
     pool.set_select_rows([(datetime(2026, 9, 3, 10, tzinfo=UTC), "s1", None, "cursor", 1, atif)])
     r = client.post("/dashboard/panel", json={"panel": "feedback", "filters": {"type": "session"}})
     assert r.json()["rows"] == [["2026-09-03T10:00:00Z", "s1", None, "cursor", 1, atif]]
-    assert pool.store["params"] == {**ALL, "type": "session"}
+    assert pool.store["params"] == {**PANEL, "type": "session"}
+    # The Dashboard view shows as many ratings as the Query & table view.
+    assert pool.store["sql"].endswith("ORDER BY created_at DESC LIMIT %(limit)s")
 
 
 def test_panel_unknown_id_is_404(app_with_fake_pool, dashboard_files):
