@@ -1,90 +1,106 @@
 # Read the feedback: apps, adapters and dashboards
 
-- [Where to find the feedback](#where-to-find-the-feedback-per-destination)
-- [The RateXp app](#the-ratexp-app-two-views)
-  - [Dashboard view](#dashboard-view-panels-and-filters)
-  - [Query & table view](#query--table-view-ratings-and-the-query-box)
+- [Destinations](#destinations-where-core-writes-the-feedback)
+- [Where to find the human evals](#where-to-find-the-human-evals-submitted-by-the-user-per-destination)
+- [The RateXp app](#the-ratexp-app-views-and-downloads)
+  - [Filters](#filters-narrow-the-dashboard-view)
+  - [Download trajectories](#download-trajectories-the-ratings-that-match-the-filters)
   - [Query box](#query-box-one-language-per-read-source)
   - [Download JSON](#download-json-what-the-file-contains)
-- [Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace)
+- [Dashboards](#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace)
 
-## Where to find the feedback: per destination
+<!-- shared ../README.md destinations -->
+## Destinations: where core writes the feedback
 
-- `core/config.yaml` sets where core writes: one or more adapters.
-- `app/ratexp/config.yaml` sets where the RateXp app reads from: one read source only, for now.
-- For these files, see [Config and env](./config-and-env.md).
+See [Destinations](../README.md#destinations-where-core-writes-the-feedback) in the README.
+<!-- /shared -->
 
-Each destination shows only the data that its own adapter wrote:
+## Where to find the human evals submitted by the user: per destination
 
-- **The RateXp app:** in [its two views](#the-ratexp-app-two-views). The
-  [README of the RateXp app](../app/ratexp/README.md) tells which read source each view works
-  with.
-- **Dynatrace:** in its logs, in its
-  [dashboard](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace), or in the RateXp
-  Dynatrace app.
-- **Arize Phoenix:** in its spans (traces), or in its built-in dashboard. On the current
-  Phoenix plan, that dashboard is fixed. You cannot make a custom one.
-- **Bluebox:** ask it questions in plain English, for example with `bluebox ask` in the Bluebox
-  CLI. The RateXp app cannot read from Bluebox.
+core writes the human evals to one or more destinations. This section tells which files select
+the destinations, and where each destination shows the human evals.
 
-## The RateXp app: two views
+- **Write side:** `core/config.yaml` sets where core writes: one or more adapters.
+- **Read side:** `app/ratexp/config.yaml` sets where the RateXp app reads from: one read
+  source only, for now.
+- **Settings files:** For `core/config.yaml` and `app/ratexp/config.yaml`, see
+  [Config and env](./config-and-env.md).
 
-The [RateXp app](https://ratexp-app.azurewebsites.net/) shows the feedback when it arrives.
-It has two views: **Dashboard** and **Query & table**. Each rating answers one eval. For the
-list of evals, see [Available evals](../README.md#available-evals-what-each-one-asks).
+To see the human evals, open one of the destinations that are on:
 
-Both downloads, **Download trajectories** and **Download JSON**, save the ratings as JSON. Each
-rating has a `conversation` field: its stored conversation, or `null`.
+- **The RateXp app:**
+  - **Views:** The human evals are in the
+    [two views of the RateXp app](#the-ratexp-app-views-and-downloads).
+  - **Read source:** The [README of the RateXp app](../app/ratexp/README.md) tells which read
+    source each view works with.
+- **Dynatrace:**
+  - **Logs:** core writes each human eval as one log record. To list the human evals, run the
+    DQL query `fetch logs | filter ratexp.record_type == "feedback"`.
+  - **Dynatrace dashboard:** A dashboard that core publishes to Dynatrace. See
+    [Dashboards](#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace).
+  - **RateXp Dynatrace app:** An app that you install on Dynatrace. See
+    [Dashboards](#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace).
+- **Arize Phoenix:**
+  - **Spans:** The human evals are in the Phoenix spans (traces).
+- **Bluebox:**
+  - **Questions:** Ask Bluebox questions in plain English, for example with `bluebox ask` in
+    the Bluebox CLI.
+  - **No RateXp app:** As of now, the RateXp app cannot read from Bluebox.
 
-### Dashboard view: panels and filters
+## The RateXp app: views and downloads
 
-The **Dashboard** view has these panels:
+The [RateXp app](https://ratexp-app.azurewebsites.net/) shows the human evals when the human
+evals arrive.
 
-- four numbers: **Total ratings**, **Percent good**, **Ratings in the last 24h** and
-  **Skills rated**;
-- **Good vs bad per day**, a line chart;
-- **Percent good** per skill, per agent and per eval: bar charts that list every one, worst
-  first, and scroll inside their box;
-- **Feedback**: the newest 10 ratings, in the same table as Query & table.
+- **Views:** The RateXp app has the **Dashboard** view and the **Query & table** view.
+- **Evals:** Each rating answers one eval. For the list of evals, see
+  [Available human evals](../README.md#available-human-evals-the-question-of-each-eval).
+- **Downloads:** **Download trajectories** and **Download JSON** both save the ratings as
+  JSON. Each rating has a `conversation` field: the stored conversation of the rating, or
+  `null`.
 
-The view has these filters: type, skill, agent, eval, the three labels (business case,
-language and task type) and time range.
+Each use case below names the view, and the part of the view that supports the use case:
 
-- **Type:** skill or session. A session rating has no skill. When you select session, the
-  Dashboard view hides the skill filter. It also marks **Skills rated** and **Percent good by
-  skill** "Does not apply".
-- **Other filters:** when you select a type, the other filters show only the values of that
+| Use case | View | Part of the view |
+|---|---|---|
+| See the total ratings and the percent good | Dashboard | The **Total ratings**, **Percent good**, **Ratings in the last 24h** and **Skills rated** panels. |
+| See the good and bad ratings over time | Dashboard | The **Good vs bad per day** line chart. |
+| Find the weakest skill, agent or eval | Dashboard | The **Percent good by skill**, **Percent good by agent** and **Percent good by eval** bar charts. Each bar chart lists all values, worst first, and scrolls inside its box. |
+| Look at one type, skill, agent, eval, label or time range | Dashboard | The filters. See [Filters](#filters-narrow-the-dashboard-view). |
+| Read the newest ratings and their comments | Dashboard | The **Feedback** table, with an **Eval** column and a **Labels** column: the newest `list_view_limit` ratings that match the filters. |
+| Read the newest ratings and their comments | Query & table | The **Feedback** table, with an **Eval** column and a **Labels** column: the newest `list_view_limit` ratings. |
+| Read the conversation of one rating | Dashboard and Query & table | The blue chip in the **Trajectory** column of the **Feedback** table. The blue chip opens the conversation in a slide-over timeline. |
+| Save the conversation of one rating | Dashboard and Query & table | The orange chip in the **Trajectory** column. The orange chip saves the conversation of the rating as JSON. |
+| Save the conversations that match the filters | Dashboard | **Download trajectories**. See [Download trajectories](#download-trajectories-the-ratings-that-match-the-filters). |
+| Find ratings with a query | Query & table | The query box. See [Query box](#query-box-one-language-per-read-source). |
+| Save the ratings that a query finds | Query & table | **Download JSON**. See [Download JSON](#download-json-what-the-file-contains). |
+| See the same panels in Dynatrace | The Dynatrace dashboard and the RateXp Dynatrace app | See [Dashboards](#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace). |
+
+### Filters: narrow the Dashboard view
+
+- **Type:** Skill or session. A session rating has no skill. When you select session, the
+  Dashboard view hides the skill filter. The Dashboard view also marks **Skills rated** and
+  **Percent good by skill** "Does not apply".
+- **Other filters:** When you select a type, the other filters show only the values of that
   type.
-- **Labels:** a rating has the labels of its stored conversation. Thus, a label filter applies
-  to every panel. Core picks the labels with a model, from the lists in `core/config.yaml` (see
-  `labeling` in the [core README](../core/README.md#config-every-key-in-configyaml)).
-- **Time range:** 24h, 7d, 30d or All, with 30d as the default. It applies to every panel and
-  to **Download trajectories**.
+- **Labels:** Business case, language and task type. A rating has the labels of its stored
+  conversation. Thus, a label filter applies to each panel. core selects the labels with a
+  model, from the lists in `core/config.yaml` (see `labeling` in the
+  [core README](../core/README.md#config-every-key-in-configyaml)).
+- **Time range:** **24h**, **7d**, **30d** or **All**, with **30d** as the default. The time
+  range applies to each panel and to **Download trajectories**.
 
-**Download trajectories**:
+### Download trajectories: the ratings that match the filters
 
-- saves the ratings that match the filters;
-- sorts them by the time that core stored them, newest first;
-- saves at most `list_max_limit` ratings (1000, in `app/ratexp/config.yaml`). If more ratings
-  match, it saves the newest ones.
-
-The Dashboard view is also available as a Dynatrace app. See
-[Dashboards](#dashboards-one-panel-list-drawn-in-the-app-and-dynatrace).
-
-### Query & table view: ratings and the query box
-
-- **Feedback** table: shows the newest `list_view_limit` ratings (10, in
-  `app/ratexp/config.yaml`).
-- **Eval** column: shows the eval that the rating answered.
-- **Labels** column: shows the labels of the rating's conversation.
-- **Trajectory** column: a rating with a stored conversation has two chips. The blue chip opens
-  the conversation in a slide-over timeline. The orange chip saves that one conversation as JSON.
-- **Query box:** see [Query box](#query-box-one-language-per-read-source).
+- **Which ratings:** **Download trajectories** saves the ratings that match the filters.
+- **Order:** The newest rating comes first, by the time that core stored the rating.
+- **Limit:** **Download trajectories** saves at most `list_max_limit` ratings. If more ratings
+  match, the download contains the newest ratings.
 
 ### Query box: one language per read source
 
 Type a query into the query box to filter the ratings. The query uses the language of the
-[read source](#where-to-find-the-feedback-per-destination):
+[read source](#where-to-find-the-human-evals-submitted-by-the-user-per-destination):
 
 | Read source | Query box language  |
 |-------------|---------------------|
@@ -95,46 +111,57 @@ Type a query into the query box to filter the ratings. The query uses the langua
 
 ### Download JSON: what the file contains
 
-The query box shows only the newest `list_view_limit` matches. To get more, use **Download
-JSON**. The contents of the download depend on the last query that you ran:
+The query box shows only the newest `list_view_limit` matches. To get more matches, use
+**Download JSON**. The contents of the download depend on the last query that you ran:
 
-| Last query run | What the download contains |
+| Last query that you ran | What the download contains |
 |---|---|
-| *(none)* | The 10 most recent ratings. |
-| `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **Every** rating for that skill, up to 1000 ratings. |
-| `SELECT * FROM feedback WHERE agent = 'claude-code'` | **Every** rating from that agent - skill runs and whole sessions - up to 1000 ratings. |
-| `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **Every** rating that answered that eval, up to 1000 ratings. |
-| Anything spanning several skills, several agents and several evals | The 10 most recent ratings. |
+| *(none)* | The newest `list_view_limit` ratings. |
+| `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **All** ratings for the `poem-creator` skill, up to `query_max_rows` ratings. |
+| `SELECT * FROM feedback WHERE agent = 'claude-code'` | **All** ratings from the `claude-code` agent (skill runs and whole sessions), up to `query_max_rows` ratings. |
+| `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **All** ratings that answered the `human-satisfaction` eval, up to `query_max_rows` ratings. |
+| A query for several skills, several agents and several evals | The newest `list_view_limit` ratings. |
 
-The 1000 in this table is `query_max_rows` in `app/ratexp/config.yaml`.
+`list_view_limit`, `list_max_limit` and `query_max_rows` are settings in
+[`app/ratexp/config.yaml`](../app/ratexp/config.yaml).
 
-## Dashboards: one panel list, drawn in the app and Dynatrace
+## Dashboards: one panel list for the RateXp app and Dynatrace
 
-All dashboard files are in [`core/modules/dashboard/`](../core/modules/dashboard/):
+RateXp has three dashboards. One dashboard is in the RateXp app. Two dashboards are in
+Dynatrace: the Dynatrace dashboard and the RateXp Dynatrace app.
 
-- **Dashboard in the RateXp app:** the **Dashboard** view. It uses the panels in
-  `dashboard_for_app.yaml`, with SQL queries.
-- **Dashboard in Dynatrace:** the same panels, from `dashboard_for_dynatrace.yaml`, with DQL
-  queries. To send it to Dynatrace, run `publish_to_dynatrace.py`. Its docstring tells you how.
-- **App in Dynatrace:** [`app/dynatrace/`](../app/dynatrace/README.md) shows the
-  `dashboard_for_dynatrace.yaml` panels with the Dynatrace charts, from the logs that core
-  writes to Dynatrace. Only the users of your tenant can open it. It also has the same filters
-  as the RateXp app and **Download trajectories** (its `download` query, capped by
-  `limit 1000`). It keeps a copy of the panels. Its tests make sure that this copy is equal to
-  the YAML.
-- **One shared base:** `dashboard_base.yaml` lists the panels that every dashboard must have.
+- **Dashboard view of the RateXp app:** Opens in the RateXp app. The panels come from
+  `dashboard_for_app.yaml`, with SQL queries. The Dashboard view comes with the RateXp app.
+- **Dynatrace dashboard:** Opens in Dynatrace, as a dashboard. The panels come from
+  `dashboard_for_dynatrace.yaml`, with DQL queries. To install the Dynatrace dashboard, run
+  `publish_to_dynatrace.py`. The docstring of `publish_to_dynatrace.py` tells how.
+- **RateXp Dynatrace app:** Opens in Dynatrace, as an app. The panels come from a copy of
+  `dashboard_for_dynatrace.yaml`, with DQL queries. To install the RateXp Dynatrace app, run
+  `npm run deploy` in [`app/dynatrace/`](../app/dynatrace/README.md).
+
+The three dashboards are different in these points:
+
+| Point | Dashboard view of the RateXp app | Dynatrace dashboard | RateXp Dynatrace app |
+|---|---|---|---|
+| Rows in the **Feedback** table | The newest `list_view_limit` ratings | The newest ratings, up to the fixed `limit 10` in `dashboard_for_dynatrace.yaml` | Same as the Dynatrace dashboard |
+| **Download trajectories** | Yes | No | Yes (the `download` query, which ends in `limit 1000`) |
+| **Trajectory** column, which opens the conversation of a rating | Yes | No | Yes |
+| **Type** is session | Hides the Skill filter and marks **Skills rated** and **Percent good by skill** "Does not apply" | Skill shows only "(none)", and **Skills rated** shows "n/a: session" | Same as the Dashboard view of the RateXp app |
+
+How the three dashboards stay the same:
+
+- **Dashboard files:** All dashboard files are in
+  [`core/modules/dashboard/`](../core/modules/dashboard/).
+- **One shared base:** `dashboard_base.yaml` lists the panels that each dashboard must have.
   Each panel has an id, a title and a kind (number, line, bar or table). The file of each
-  platform must contain all of these panels. If one is missing,
+  platform must contain all of the panels in `dashboard_base.yaml`. If a panel is missing,
   `core/tests/test_clone_dashboard_from_base.py` fails.
-- **Same panels and filters:** all dashboards share panels, order and filters (now the RateXp
-  app's Dashboard view, the Dynatrace dashboard and the Dynatrace app).
-
-> [!NOTE]
-> **Where they differ:**
->
-> - When Type is session, the Dynatrace app works like the RateXp app (see
->   [Dashboard view](#dashboard-view-panels-and-filters)).
-> - The Dynatrace dashboard cannot hide the Skill filter or mark a panel "Does not apply".
->   There, Skill shows only "(none)" and Skills rated shows "n/a: session".
-> - The **Feedback** table of the Dynatrace dashboard has no Trajectory column. In the RateXp
->   app and the Dynatrace app, that column opens the conversation of a rating.
+- **Same panels and filters:** The three dashboards share the panels, the order of the panels
+  and the filters.
+- **Panel copy:** The RateXp Dynatrace app keeps a copy of the panels of
+  `dashboard_for_dynatrace.yaml`. The tests of the RateXp Dynatrace app make sure that the copy
+  is the same as `dashboard_for_dynatrace.yaml`.
+- **Data in Dynatrace:** The Dynatrace dashboard and the RateXp Dynatrace app read the logs that
+  core writes to Dynatrace.
+- **Access in Dynatrace:** Only the users of your tenant can open the Dynatrace dashboard and the
+  RateXp Dynatrace app.
