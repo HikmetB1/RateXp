@@ -1,12 +1,17 @@
-# docs: guides that span the services
+# docs: guides to use, set up and deploy RateXp
 
-The pages in `docs/` are about subjects that no service folder owns. For one service, read the
-README in the folder of that service.
+These guides explain how to use RateXp, and how to run your own copy of RateXp. Each guide
+covers a topic that applies to more than one component of RateXp (core, the RateXp app, the
+RateXp Dynatrace app, the seeder and the docs site):
 
-- [human-evals.md](./human-evals.md): The evals that RateXp asks, and how to add your own
+- **[Human evals](./human-evals.md):** The evals that RateXp asks, and how to add your own
   eval.
-- [read-the-feedback.md](./read-the-feedback.md): Where to find the feedback, and how to use
+- **[Read the feedback](./read-the-feedback.md):** Where to find the feedback, and how to use
   the RateXp app and the dashboards.
-- [config-and-env.md](./config-and-env.md): Where each service keeps its settings and its
+- **[Config and env](./config-and-env.md):** Where each component keeps its settings and its
   secrets.
-- [custom-deploy.md](./custom-deploy.md): How to run your own copy of RateXp.
+- **[Custom deploy](./custom-deploy.md):** How to run your own copy of RateXp.
+
+To run, configure, test or deploy one component, see [core](../core/README.md),
+[app/ratexp](../app/ratexp/README.md), [app/dynatrace](../app/dynatrace/README.md) or
+[seeder](../seeder/README.md).
