@@ -26,8 +26,8 @@
 
 <a id="intro"></a>
 **The problem:**
-- Benchmarks and tests measure coding agents and skills, but they do not tell you whether a
-  real session actually helped the human user.
+- Benchmarks and tests measure coding agents and skills, but they do not show whether a real
+  session actually helped the human user.
 - The person who worked with the agent is seldom asked how the experience felt, so the people
   who can fix the agent or the skill do not know if a session was productive or wasted time.
 - The end user often has no meaningful way to describe their pain in their own words to the
@@ -38,19 +38,21 @@
   experience, from the person who had the experience. Each eval asks specific
   questions with specific objectives: satisfaction, task success, requirement adherence or time
   saved. See [Available human evals](#available-human-evals-the-question-of-each-eval).
-- **The vehicle that delivers the concept, RateXp:** RateXp brings the
-  human eval to the user, in the coding agent. The user rates the whole session or a skill
-  that the user ran. RateXp stores the rating on the
-  [live dashboard](https://ratexp-app.azurewebsites.net/) or in your own storage. If the user
-  agrees, RateXp also stores the conversation, with the personal data masked.
+- **The vehicle that delivers the concept, RateXp:** RateXp brings the human eval to the user,
+  in the coding agent. The user rates the whole session or a skill that the user ran. See
+  [Write adapters](#feature-write-adapters), [Dashboard](#feature-dashboard) and
+  [Redaction](#feature-redaction).
 
 **Who RateXp is for:**
-- **Coding agent users:** Tell in seconds what worked and what did not, in the session.
-  Thus, the admin or the vendor of your coding agent hears from you.
-- **Skill authors:** See how people rate your skill in real work, not only in your tests.
-- **Coding agent providers:** Get feedback from real users on real sessions. See the types of
-  work that your team does with the coding agent, and where the team gets good or bad results.
-  Then train the team where necessary, and tell the vendor what to improve.
+- **A company that rolls out a coding agent from a vendor to its employees:** The company gets
+  feedback from real users on real sessions. The company sees the types of work that the
+  employees do with the coding agent, and where the employees get good or bad results. Then
+  the company trains the employees where necessary, and tells the vendor what to improve.
+- **An employee who uses a coding agent:** The user of the coding agent tells in seconds what
+  worked and what did not, in the session. Thus, the admin or the vendor of the coding agent
+  hears from the user.
+- **A person who writes skills for a coding agent:** The skill author sees how people rate the
+  skill in real work, not only in the tests of the skill author.
 
 **Easy to adopt:** Run one install command, one time for each coding agent. See
 [Quick start](#quick-start-install-ratexp).
@@ -73,14 +75,18 @@ curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
 ```
 
-- **Hook script and settings file:**
-  - **Claude Code:** The installer saves the hook script as `~/.claude/ratexp-claude.sh` and
-    adds the RateXp hooks to `~/.claude/settings.json`.
-  - **Cursor CLI:** The installer saves the hook script as `~/.cursor/ratexp-cursor.sh` and
-    adds the RateXp hooks to `~/.cursor/hooks.json`.
-- **Your settings:** The installer does not change the other entries in the settings file.
-- **Backup:** The installer saves a copy of the original settings file as
-  `<file>.ratexp-backup`.
+- <details><summary><strong>Coding agent settings</strong></summary>
+
+  - **Hook script and settings file:**
+    - **Claude Code:** The installer saves the hook script as `~/.claude/ratexp-claude.sh` and
+      adds the RateXp hooks to `~/.claude/settings.json`.
+    - **Cursor CLI:** The installer saves the hook script as `~/.cursor/ratexp-cursor.sh` and
+      adds the RateXp hooks to `~/.cursor/hooks.json`.
+  - **Your settings:** The installer does not change the other entries in the settings file.
+  - **Backup:** The installer saves a copy of the original settings file as
+    `<file>.ratexp-backup`.
+
+  </details>
 - **Your own core:** To use your own core in place of the hosted RateXp core, see
   [Custom deploy](./docs/custom-deploy.md).
 
@@ -90,11 +96,9 @@ curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- --help
 ```
 
-### Rating: the commands to type
+### How to give a rating: the commands to type
 
-Each rating answers one eval, a survey with its own question. Without an eval name, RateXp
-asks the default eval, `human-satisfaction`.
-See [Available human evals](#available-human-evals-the-question-of-each-eval).
+Each rating answers one eval. See [Human evals](#feature-human-evals).
 
 **To rate the whole session, type:**
 
@@ -115,12 +119,13 @@ See [Available human evals](#available-human-evals-the-question-of-each-eval).
 /ratexp:<skill> <eval>
 ```
 
-- **Every `RATEXP_EVERY` turns:** RateXp also asks for a rating of the whole session, on the
-  default eval. Without `RATEXP_EVERY`, the number of turns is 5. To change the number of
-  turns, set `RATEXP_EVERY`, or change `DEFAULT_EVERY` at the top of the saved hook script.
-- **Consent:** RateXp stores the conversation only if you agree. The conversation contains the
-  messages, the reasoning, the tool calls and the tool results. core masks (redacts) the
-  personal data before core stores the conversation.
+- <strong style="color: #e23a2e">Oh yes, it is annoying to always be asked for a rating.</strong>
+  **Every `RATEXP_EVERY` turns (5 by default):** RateXp also asks for a rating of the whole
+  session. To be asked less often, set `RATEXP_EVERY` to a higher number. See
+  [Session rating](#feature-session-rating).
+- **Consent:** RateXp stores a conversation only with consent, and redacts each stored
+  conversation. See
+  [Transcripts](#feature-transcripts) and [Redaction](#feature-redaction).
 
 <!-- shared:end quick-start -->
 
@@ -167,13 +172,15 @@ The answer to each eval is **True** or **False**.
 <!-- shared:start how-ratexp-works -->
 ## How RateXp works: from hook to destination
 
-- RateXP core follows these steps to submit an human eval value from the end-user to the destination (enabled write adapter):
+- RateXp core follows these steps to send a human eval value from the user to each destination
+  (each write adapter that is on):
 
   1. core serves the hook script for each coding agent.
   2. core receives the ratings and the conversations that the hook script sends.
-  3. core masks the personal data.
-  4. core labels each conversation.
-  5. core writes the result to each destination that is on.
+  3. core masks the personal data. See [Redaction](#feature-redaction).
+  4. core labels each conversation. See [Labels](#feature-labels).
+  5. core writes the result to each destination that is on. See
+     [Write adapters](#feature-write-adapters).
 
 - **Endpoints:** The hook script sends data only to the `/feedback` and `/transcript` endpoints
   of core. The hook script does not know which destinations core writes to.
@@ -205,36 +212,43 @@ sequenceDiagram
 <!-- shared:end how-ratexp-works -->
 
 ## Features: what you get
-1. **Install with one simple command in the terminal:** Run the install command one time in
-   Claude Code or Cursor CLI. See [Quick start](#quick-start-install-ratexp).
-2. **Rate the whole session:** RateXp asks about all the work in the session up to now. See
-   [Rating](#rating-the-commands-to-type).
-3. **Rate just one skill:** RateXp asks about only the most recent run of the skill. See
-   [Rating](#rating-the-commands-to-type).
-4. **Benefit from the available evals, and customize your own:** Use the available evals, for
-   example `human-satisfaction`. See
-   [Available human evals](#available-human-evals-the-question-of-each-eval). To change an
-   eval or to add your own human eval, edit or add one short YAML file in
-   [`core/evals/`](./core/evals/): the question and the two answers. See
+1. <a id="feature-install"></a>**Install:** Run one install command one time in the terminal,
+   for Claude Code or for Cursor CLI. See [Quick start](#quick-start-install-ratexp).
+2. <a id="feature-session-rating"></a>**Session rating:** RateXp asks about all the work in the
+   session up to now, when the user types `/ratexp`. RateXp also asks every `RATEXP_EVERY`
+   turns, on the default eval. Without `RATEXP_EVERY`, the number of turns is 5. To change the
+   number of turns, set `RATEXP_EVERY`, or change `DEFAULT_EVERY` at the top of the saved hook
+   script. See [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
+3. <a id="feature-skill-rating"></a>**Skill rating:** RateXp asks about only the most recent
+   run of the skill, when the user types `/ratexp:<skill>`. See
+   [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
+4. <a id="feature-human-evals"></a>**Human evals:** Each rating answers one eval, a survey with
+   its own question. Without an eval name, RateXp asks the default eval, `human-satisfaction`.
+   See [Available human evals](#available-human-evals-the-question-of-each-eval). To change an
+   eval or to add a new eval, edit or add one short YAML file in [`core/evals/`](./core/evals/):
+   the question and the two answers. See
    [Custom human evals](./docs/human-evals.md#custom-human-evals-copy-the-base-file).
-5. **Give a comment next to your eval values:** Select the eval value, and
-   add an optional comment.
-6. **Store transcripts (only with consent):** RateXp stores the conversation of the rated run
-   only with the consent of the user, in a standard format (ATIF). The hook script uploads the
-   conversation directly from the machine of the user.
-7. **Mask personal data before storage:** core masks the personal data before core stores the
-   data. A pluggable adapter masks the data: self-hosted Presidio or Azure AI Language. If the
-   adapter fails, core drops the data and does not store the data unmasked.
-8. **Group trajectories by label:** core gives each stored conversation a business case, a main
-   language and a task type.
-9. **Send the feedback to the destinations that you choose:** core writes each submission to
-   each adapter that you switch on. The adapters work independently: if one adapter fails, the
-   other adapters continue. See
+5. <a id="feature-comments"></a>**Comments:** The user selects the eval value, and can add an
+   optional comment.
+6. <a id="feature-transcripts"></a>**Transcripts:** RateXp stores the conversation of the rated
+   run only with the consent of the user. The conversation contains the messages, the
+   reasoning, the tool calls and the tool results, in a standard format (ATIF). The hook script
+   uploads the conversation directly from the machine of the user. See
+   [Redaction](#feature-redaction).
+7. <a id="feature-redaction"></a>**Redaction:** core masks the personal data before core stores
+   the data. A pluggable adapter masks the data: self-hosted Presidio or Azure AI Language. If
+   the adapter fails, core drops the data and does not store the data unmasked.
+8. <a id="feature-labels"></a>**Labels:** core gives each stored conversation a business case,
+   a main language and a task type. Thus, the trajectories can be put in groups by label.
+9. <a id="feature-write-adapters"></a>**Write adapters:** core writes each submission to each
+   write adapter that is on. The write adapters work independently: if one write adapter fails,
+   the other write adapters continue. See
    [Destinations](#destinations-where-core-writes-the-feedback).
-10. **Watch the feedback live on the dashboard:** The dashboard shows the feedback when the
+10. <a id="feature-dashboard"></a>**Dashboard:** The dashboard shows the feedback when the
    feedback arrives. The dashboard has panels, a query box and a JSON export. See
-   [which adapter the dashboard reads](./docs/read-the-feedback.md#where-to-find-the-feedback-per-destination).
-11. **Read the dashboard on your phone:** On phones, the table shows each row as a card.
+   [The RateXp app](#the-ratexp-app-read-and-export-the-feedback).
+11. <a id="feature-phone-view"></a>**Phone view:** On phones, the table of the dashboard shows
+   each row as a card.
 
 <!-- shared:start destinations -->
 ## Destinations: where core writes the feedback
@@ -255,27 +269,27 @@ core writes each submission to each write adapter that you switch on in
 
 The tests of RateXp ran with these coding agents and models:
 
-| Type | Name and versions |
-|------|-------------------|
-| Coding agent | Claude Code |
-| Coding agent | Cursor CLI |
-| Model | Claude Opus 5.5, 5, 4.8, 4.7, 4.6, 4.5 |
-| Model | Claude Sonnet 5.5, 5, 4.6, 4.5 |
-| Model | Fable |
+| Type | Names and versions |
+|------|--------------------|
+| Coding agents | Claude Code, Cursor CLI |
+| Models | Claude Opus 5.5, 5, 4.8, 4.7, 4.6, 4.5; Claude Sonnet 5.5, 5, 4.6, 4.5; Fable |
 
 ## The RateXp app: read and export the feedback
 <p align="center">
   <img src="./assets/dashboard.png" alt="The RateXp dashboard" width="720">
 </p>
 
-The [RateXp app](https://ratexp-app.azurewebsites.net/) shows the feedback when the feedback
+The [RateXp app](https://ratexp-app.azurewebsites.net/) is one of the destinations: the RateXp
+app shows the feedback that core writes with the `app_be_psql` write adapter, when the feedback
 arrives. The RateXp app has these views:
 
 - **Dashboard:** panels, filters and a trajectory download.
 - **Query & table:** the latest ratings, the conversation of each rating, a query box and a
   JSON download.
-- **In Dynatrace:** The Dynatrace dashboard and the RateXp Dynatrace app show the same panels
-  as the Dashboard view. See [Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace).
+
+More than one destination can be on at the same time. core writes the same data to each
+destination. See [Destinations](#destinations-where-core-writes-the-feedback) and
+[Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace).
 
 For each panel, filter and download, see
 [docs/read-the-feedback.md](./docs/read-the-feedback.md).
