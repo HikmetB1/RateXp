@@ -1,6 +1,6 @@
 # RateXp
 <p align="center">
-  <img src="./assets/banner.png" alt="RateXp - user based skill feedback" width="720">
+  <img src="./assets/banner.png" alt="RateXp - get human evals on agents and skills" width="720">
 </p>
 
 <p align="center">
@@ -13,110 +13,147 @@
 
 <p align="center">
   <a href="#intro">Intro</a> ·
-  <a href="#showcases-see-it-in-action">Showcases</a> ·
-  <a href="#quick-start-install-in-one-command">Quick start</a> ·
-  <a href="#available-evals-what-each-one-asks">Available evals</a> ·
-  <a href="#how-it-works">How it works</a> ·
+  <a href="#quick-start-install-ratexp">Quick start</a> ·
+  <a href="#showcases-ratexp-in-action">Showcases</a> ·
+  <a href="#available-human-evals-the-question-of-each-eval">Available human evals</a> ·
+  <a href="#how-ratexp-works-from-hook-to-destination">How RateXp works</a> ·
   <a href="#features-what-you-get">Features</a> ·
   <a href="#the-ratexp-app-read-and-export-the-feedback">RateXp app</a> ·
   <a href="#contact-how-to-reach-me">Contact</a> ·
   <a href="#acknowledgements-and-citations-projects-ratexp-builds-on">Acknowledgements</a> ·
-  <a href="#license-what-you-may-do-with-it">License</a>
+  <a href="#license-what-you-may-do-with-ratexp">License</a>
 </p>
 
 <a id="intro"></a>
-**The problem:** coding agents and skills are nowadays measured by benchmarks and tests, but the
-person who actually worked with them is rarely asked. Whether the session helped or wasted
-their time stays in their head and never reaches the people who could fix it.
+**The problem:**
+- Benchmarks and tests measure coding agents and skills, but they do not tell you whether a
+  real session actually helped the human user.
+- The person who worked with the agent is seldom asked how the experience felt, so the people
+  who can fix the agent or the skill do not know if a session was productive or wasted time.
+- The end user often has no meaningful way to describe their pain in their own words to the
+  people who can improve the offered solution.
 
-**What RateXp does:** it collects **human evals / human feedback on the agentic experience, from the human
-who had it**. Right inside the coding agent, the user rates the whole session or any skill
-they just ran. The rating - and, if they agree, the conversation with anything personal
-masked - lands on the [live dashboard](https://ratexp-app.azurewebsites.net/) or your own
-storage.
+**How RateXp solves the problem:**
+- **The concept, human evals:** RateXp collects human evals (human feedback) on the agentic
+  experience, from the person who had the experience. Each eval asks specific
+  questions with specific objectives: satisfaction, task success, requirement adherence or time
+  saved. See [Available human evals](#available-human-evals-the-question-of-each-eval).
+- **The vehicle that delivers the concept, RateXp:** RateXp brings the
+  human eval to the user, in the coding agent. The user rates the whole session or a skill
+  that the user ran. RateXp stores the rating on the
+  [live dashboard](https://ratexp-app.azurewebsites.net/) or in your own storage. If the user
+  agrees, RateXp also stores the conversation, with the personal data masked.
 
-**Who it is for:**
-- **Coding agent users** - say what worked and what did not, in seconds, without leaving
-  the session -> stay closer to your coding agemt admin/vendor.
-- **Skill authors** - see how people rate your skill in real work, not only in your tests.
-- **Coding agent providers** - hear from real users on real sessions. See what kinds of
-  work your team use the coding agent for, where they get great results and where they
-  struggle - then train them where they need it, and tell the vendor what to improve.
+**Who RateXp is for:**
+- **Coding agent users:** Tell in seconds what worked and what did not, in the session.
+  Thus, the admin or the vendor of your coding agent hears from you.
+- **Skill authors:** See how people rate your skill in real work, not only in your tests.
+- **Coding agent providers:** Get feedback from real users on real sessions. See the types of
+  work that your team does with the coding agent, and where the team gets good or bad results.
+  Then train the team where necessary, and tell the vendor what to improve.
 
-**Easy to adopt:** one download and one paste of hooks, once per coding agent - see the
-[Quick start](#quick-start-install-in-one-command).
+**Easy to adopt:** Run one install command, one time for each coding agent. See
+[Quick start](#quick-start-install-ratexp).
 
-## Showcases: see it in action
+<!-- shared:start quick-start -->
+## Quick start: install RateXp
 
-### Session: rate a whole session
+**Install RateXp one time in your coding agent:**
 
-A new Claude Code session gets one prompt, then `/ratexp human-satisfaction`. The user answers
-that eval with True, agrees to store the conversation and adds a comment - the
-rating shows up on the dashboard, and its trajectory opens with the full conversation.
-
-<p align="center">
-  <img src="./assets/demo-session.gif" alt="RateXp demo - rating a whole Claude Code session and opening it on the dashboard" width="720">
-</p>
-
-### Skill: rate one skill's run
-
-The user runs `/poem-creator` and picks a mood, then `/ratexp:poem-creator human-satisfaction`
-rates just that run on that eval. The dashboard shows it as a skill rating, with only that
-skill's part of the conversation.
-
-<p align="center">
-  <img src="./assets/demo-skill.gif" alt="RateXp demo - rating one run of the poem-creator skill and opening it on the dashboard" width="720">
-</p>
-
-## Quick start: install in one command
-
-Install RateXp once in the coding agent you use - nothing to configure. As of now it works
-with Claude Code and Cursor CLI.
+<!-- tabs -->
+**Claude Code:**
 
 ```bash
-# Pick one
-
-# Claude Code  ->  saves ~/.claude/ratexp-claude.sh, adds its hooks to ~/.claude/settings.json
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
+```
 
-# Cursor CLI  ->  saves ~/.cursor/ratexp-cursor.sh, adds its hooks to ~/.cursor/hooks.json
+**Cursor CLI:**
+
+```bash
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
 ```
 
-Everything else in the settings file stays, and a copy of the original settings file is
-saved as `<file>.ratexp-backup`.
+- **Hook script and settings file:**
+  - **Claude Code:** The installer saves the hook script as `~/.claude/ratexp-claude.sh` and
+    adds the RateXp hooks to `~/.claude/settings.json`.
+  - **Cursor CLI:** The installer saves the hook script as `~/.cursor/ratexp-cursor.sh` and
+    adds the RateXp hooks to `~/.cursor/hooks.json`.
+- **Your settings:** The installer does not change the other entries in the settings file.
+- **Backup:** The installer saves a copy of the original settings file as
+  `<file>.ratexp-backup`.
+- **Your own core:** To use your own core in place of the hosted RateXp core, see
+  [Custom deploy](./docs/custom-deploy.md).
 
-Uninstall, check the status, or install for one project? The installer's help shows how to do each:
+**To uninstall, to see the status, or to install for one project only, read the installer help:**
 
 ```bash
 curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- --help
 ```
 
-> [!TIP]
-> Rather paste the hooks yourself? The [dashboard](https://ratexp-app.azurewebsites.net/)'s
-> **Install RateXp** popup shows them. That is the whole setup; ratings land on the same
-> dashboard.
+### Rating: the commands to type
 
-### When it asks: on /ratexp, and every 5th turn
+Each rating answers one eval, a survey with its own question. Without an eval name, RateXp
+asks the default eval, `human-satisfaction`.
+See [Available human evals](#available-human-evals-the-question-of-each-eval).
 
-- **The whole session** - whenever you type `/ratexp`, and every 5th turn.
-- **How often** - every 5th turn by default; change `DEFAULT_EVERY` at the top of the saved
-  script, or set `RATEXP_EVERY`.
-- **What is stored** - only with your consent: messages, reasoning, tool calls and their
-  results, with personal data masked (redacted) before it is stored.
-- **One skill** - type `/ratexp:<skill>` to rate that skill's most recent run.
-- **Which eval** - add an eval's name, as in `/ratexp <eval>` or `/ratexp:<skill> <eval>`;
-  without one you answer the default, `human-satisfaction`. See
-  [Available evals](#available-evals-what-each-one-asks).
-- **Tested in** - Claude Code and Cursor CLI.
+**To rate the whole session, type:**
 
-> [!TIP]
-> Want to run your own core instead of the hosted one? See
-> [Custom deploy](./docs/custom-deploy.md).
+```bash
+/ratexp
+```
 
-## Available evals: what each one asks
+**To rate the most recent run of one skill, type:**
 
-Each is answered **True** or **False**.
+```bash
+/ratexp:<skill>
+```
+
+**To ask a different eval, add the name of the eval to the command:**
+
+```bash
+/ratexp <eval>
+/ratexp:<skill> <eval>
+```
+
+- **Every `RATEXP_EVERY` turns:** RateXp also asks for a rating of the whole session, on the
+  default eval. Without `RATEXP_EVERY`, the number of turns is 5. To change the number of
+  turns, set `RATEXP_EVERY`, or change `DEFAULT_EVERY` at the top of the saved hook script.
+- **Consent:** RateXp stores the conversation only if you agree. The conversation contains the
+  messages, the reasoning, the tool calls and the tool results. core masks (redacts) the
+  personal data before core stores the conversation.
+
+<!-- shared:end quick-start -->
+
+## Showcases: RateXp in action
+
+### Session: rate a whole session
+
+1. The user types one prompt in a new Claude Code session.
+2. The user types `/ratexp human-satisfaction`.
+3. The user answers the eval with True, agrees to store the conversation and adds a comment.
+4. The dashboard shows the rating. The trajectory of the rating opens with the full
+   conversation.
+
+<p align="center">
+  <img src="./assets/demo-session.gif" alt="RateXp demo - rating a whole Claude Code session and opening the rating on the dashboard" width="720">
+</p>
+
+### Skill: rate the run of one skill
+
+1. The user runs the skill `/poem-creator` and selects a mood.
+2. The user types `/ratexp:poem-creator human-satisfaction`. RateXp asks for a rating of only
+   the `poem-creator` skill run, on the `human-satisfaction` eval.
+3. The dashboard shows a skill rating. The trajectory contains only the part of the
+   conversation that the skill ran.
+
+<p align="center">
+  <img src="./assets/demo-skill.gif" alt="RateXp demo - rating one run of the poem-creator skill and opening the rating on the dashboard" width="720">
+</p>
+
+<!-- shared:start available-human-evals -->
+## Available human evals: the question of each eval
+
+The answer to each eval is **True** or **False**.
 
 | Eval | Question |
 |---|---|
@@ -125,105 +162,154 @@ Each is answered **True** or **False**.
 | `human-requirement-adherence` | Did it follow my instructions and constraints? |
 | `human-time-saved` | Did the agent actually make me faster? |
 
-## How it works
+<!-- shared:end available-human-evals -->
 
-core hands out the hook script, takes back whatever the hook posts, masks anything personal,
-labels each conversation, and writes the result to every destination switched on - the hook
-only ever posts to the same two endpoints and never knows where the data ends up. That is true
-whether it is rating one skill or the whole session; only how much of the conversation it
-covers differs.
+<!-- shared:start how-ratexp-works -->
+## How RateXp works: from hook to destination
+
+- RateXP core follows these steps to submit an human eval value from the end-user to the destination (enabled write adapter):
+
+  1. core serves the hook script for each coding agent.
+  2. core receives the ratings and the conversations that the hook script sends.
+  3. core masks the personal data.
+  4. core labels each conversation.
+  5. core writes the result to each destination that is on.
+
+- **Endpoints:** The hook script sends data only to the `/feedback` and `/transcript` endpoints
+  of core. The hook script does not know which destinations core writes to.
+- **Skill or session:** core does the same steps for a skill rating and for a session rating.
+  Only the part of the conversation is different: the skill run, or the whole session.
 
 ```mermaid
 sequenceDiagram
     participant A as Coding agent user
-    participant H as the hook script
+    participant H as Hook script
     participant C as core
     participant D as Destinations
 
-    Note over A,C: once, while setting up
-    A->>C: GET /ratexp-claude.sh or /ratexp-cursor.sh
-    C-->>A: the hook for that coding agent, pointing back at this core
-    A->>H: saved in ~/.claude/ or ~/.cursor/, its hooks pasted into the agent's settings
+    Note over A,C: One time, at installation
+    A->>C: GET /install.sh, which gets /ratexp-claude.sh or /ratexp-cursor.sh
+    C-->>A: The hook script for the coding agent, with the URL of the core that serves the hook script
+    A->>H: install.sh saves the hook script next to the settings file and adds the hooks
 
-    Note over H,D: then whenever the user types /ratexp or /ratexp:<skill>, and every 5th turn
+    Note over H,D: On /ratexp, on /ratexp:<skill>, and every 5th turn
     H->>C: POST /feedback (eval, rating, optional comment)
-    opt user consented
-        H->>C: POST /transcript (the skill's run, or the session so far)
-        C->>C: rebuild the conversation, mask personal data, then label it
+    opt The user gives consent
+        H->>C: POST /transcript (the skill run, or the session up to now)
+        C->>C: Build the conversation again, mask the personal data, add the labels
     end
-    C->>D: write to every enabled destination
-    C-->>H: 201 stored, or 503 if none accepted
+    C->>D: Write to each destination that is on
+    C-->>H: 201 when stored, or 503 when no destination accepted the data
 ```
 
+<!-- shared:end how-ratexp-works -->
+
 ## Features: what you get
-1. **One install, in your own coding agent** - Claude Code or Cursor CLI, once for every
-   project. Nothing has to be built into the skills or the agent you rate.
-2. **Rate the session or one skill** - the whole session every 5th turn and on `/ratexp`;
-   any skill's most recent run on `/ratexp:<skill>`, the names autocompleting in Claude Code.
-3. **Evals: pick the survey** - each eval is one survey with its own wording, such as
-   `human-satisfaction`. Whoever runs core adds one as a file in [`core/evals/`](./core/evals/);
-   users answer it with `/ratexp <eval>` or `/ratexp:<skill> <eval>`, and every rating keeps the
-   name of the eval it answered.
-4. **Ratings and comments** - a quick good/bad rating with an optional comment, asked in one
-   go - one picker in Claude Code, two short questions in Cursor CLI - so it never gets in the way.
-5. **Opt-in transcripts** - only with the user's consent, that run is stored in a standard
-   format (ATIF). The hook uploads it straight from the user's machine.
-6. **PII redaction** - personal data is masked before storage by a pluggable adapter
-   (self-hosted Presidio or Azure AI Language), and dropped rather than stored unmasked.
-7. **Trajectory labels** - each stored conversation gets a business case, main language and
-   task type, picked by a cheap Azure OpenAI model from lists you set in
-   [`core/config.yaml`](./core/config.yaml), so trajectories can be grouped. A model that is
-   down only leaves the labels empty.
-8. **Write adapters** - storage is an adapter architecture: core writes each submission to
-   every adapter you switch on, and they run independently, so one failing never blocks the
-   others. Six ship today - `app_be_psql` (RateXp's PostgreSQL), `custom_psql` (your own
-   PostgreSQL), `app_be_dynatrace` (RateXp's Dynatrace), `custom_dynatrace` (your own
-   Dynatrace), `bluebox` (a Bluebox workspace) and `phoenix` (an Arize Phoenix project).
-9. **Live dashboard** - shows feedback as it arrives, with panels, a query box and JSON
-   export ([which adapter it reads](./docs/read-the-feedback.md#where-to-find-the-feedback-per-destination)).
-10. **Responsive UI** - the table reflows into cards on phones.
-11. **Tested models** - Claude Opus (5.5, 5, 4.8, 4.7, 4.6, 4.5), Sonnet (5.5, 5, 4.6, 4.5) and
-   Fable.
-12. **Tested coding agents** - Claude Code and Cursor CLI
+1. **Install with one simple command in the terminal:** Run the install command one time in
+   Claude Code or Cursor CLI. See [Quick start](#quick-start-install-ratexp).
+2. **Rate the whole session:** RateXp asks about all the work in the session up to now. See
+   [Rating](#rating-the-commands-to-type).
+3. **Rate just one skill:** RateXp asks about only the most recent run of the skill. See
+   [Rating](#rating-the-commands-to-type).
+4. **Benefit from the available evals, and customize your own:** Use the available evals, for
+   example `human-satisfaction`. See
+   [Available human evals](#available-human-evals-the-question-of-each-eval). To change an
+   eval or to add your own human eval, edit or add one short YAML file in
+   [`core/evals/`](./core/evals/): the question and the two answers. See
+   [Custom human evals](./docs/human-evals.md#custom-human-evals-copy-the-base-file).
+5. **Give a comment next to your eval values:** Select the eval value, and
+   add an optional comment.
+6. **Store transcripts (only with consent):** RateXp stores the conversation of the rated run
+   only with the consent of the user, in a standard format (ATIF). The hook script uploads the
+   conversation directly from the machine of the user.
+7. **Mask personal data before storage:** core masks the personal data before core stores the
+   data. A pluggable adapter masks the data: self-hosted Presidio or Azure AI Language. If the
+   adapter fails, core drops the data and does not store the data unmasked.
+8. **Group trajectories by label:** core gives each stored conversation a business case, a main
+   language and a task type.
+9. **Send the feedback to the destinations that you choose:** core writes each submission to
+   each adapter that you switch on. The adapters work independently: if one adapter fails, the
+   other adapters continue. See
+   [Destinations](#destinations-where-core-writes-the-feedback).
+10. **Watch the feedback live on the dashboard:** The dashboard shows the feedback when the
+   feedback arrives. The dashboard has panels, a query box and a JSON export. See
+   [which adapter the dashboard reads](./docs/read-the-feedback.md#where-to-find-the-feedback-per-destination).
+11. **Read the dashboard on your phone:** On phones, the table shows each row as a card.
+
+<!-- shared:start destinations -->
+## Destinations: where core writes the feedback
+
+core writes each submission to each write adapter that you switch on in
+[`core/config.yaml`](./core/config.yaml). RateXp has these write adapters:
+
+- `app_be_psql`: the PostgreSQL database of RateXp
+- `custom_psql`: your own PostgreSQL database
+- `app_be_dynatrace`: the Dynatrace tenant of RateXp
+- `custom_dynatrace`: your own Dynatrace tenant
+- `bluebox`: a Bluebox workspace
+- `phoenix`: an Arize Phoenix project
+
+<!-- shared:end destinations -->
+
+## Tested: the coding agents and the models
+
+The tests of RateXp ran with these coding agents and models:
+
+| Type | Name and versions |
+|------|-------------------|
+| Coding agent | Claude Code |
+| Coding agent | Cursor CLI |
+| Model | Claude Opus 5.5, 5, 4.8, 4.7, 4.6, 4.5 |
+| Model | Claude Sonnet 5.5, 5, 4.6, 4.5 |
+| Model | Fable |
 
 ## The RateXp app: read and export the feedback
 <p align="center">
   <img src="./assets/dashboard.png" alt="The RateXp dashboard" width="720">
 </p>
 
-The [RateXp app](https://ratexp-app.azurewebsites.net/) updates as feedback arrives and has
-two views: **Dashboard** (panels, filters and a trajectory download) and **Query & table** (the
-latest ratings, each one's conversation, a query box and a JSON download). The Dashboard view
-also comes as a Dynatrace app. What each panel, filter and download does:
+The [RateXp app](https://ratexp-app.azurewebsites.net/) shows the feedback when the feedback
+arrives. The RateXp app has these views:
+
+- **Dashboard:** panels, filters and a trajectory download.
+- **Query & table:** the latest ratings, the conversation of each rating, a query box and a
+  JSON download.
+- **In Dynatrace:** The Dynatrace dashboard and the RateXp Dynatrace app show the same panels
+  as the Dashboard view. See [Dashboards](./docs/read-the-feedback.md#dashboards-one-panel-list-for-the-ratexp-app-and-dynatrace).
+
+For each panel, filter and download, see
 [docs/read-the-feedback.md](./docs/read-the-feedback.md).
 
 ## Contact: how to reach me
-Very glad to be in contact - reach me by [email](mailto:hikmet.beyoglu@hotmail.com) or on
+To contact me, send an [email](mailto:hikmet.beyoglu@hotmail.com) or a message on
 [LinkedIn](https://www.linkedin.com/in/hikmetb/).
 
 ## Acknowledgements and citations: projects RateXp builds on
-We're grateful to the open-source projects that RateXp leveraged; for their licenses and
-formal citations see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md). To cite RateXp
-itself, use [CITATION.cff](./CITATION.cff).
+- **Open-source projects:** RateXp uses open-source projects, and we thank the open-source
+  projects. For the licenses and the formal citations of the open-source projects, see
+  [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
+- **Cite RateXp:** To cite RateXp, use [CITATION.cff](./CITATION.cff).
 
-## License: what you may do with it
-[RateXp Source Available License 1.0](./LICENSE) - source-available, not open source.
+## License: what you may do with RateXp
+RateXp has the [RateXp Source Available License 1.0](./LICENSE). The license is
+source-available. RateXp is not open source.
 
-- **Hosted service - free, no time limit:** install the hook scripts and send ratings and
-  conversations to the [live dashboard](https://ratexp-app.azurewebsites.net/), alone or as a
-  whole team, with no data limit. The [Terms of Service](./TERMS.md) apply.
-- **Your own copy - 30-day trial:** read, run, change and deploy RateXp on your own machines,
-  for personal or internal use. One trial per person or organization; it does not restart.
-- **Commercial license needed:** after the trial, for production use, to host it for others,
-  or to build it into a product.
-- **Not allowed without written permission:** publishing or sharing the code or changed
-  versions, building a competing product, or training AI models on the code.
-
-This is a short summary; the [LICENSE](./LICENSE) is the binding text. The software comes
-**as is, with no warranty**. Commercial license or questions:
-[email me here](mailto:hikmet.beyoglu@hotmail.com).
+- **Hosted service, free, with no time limit:** Install the hook scripts, and send ratings and
+  conversations to the [live dashboard](https://ratexp-app.azurewebsites.net/). One person or
+  a full team can use the hosted service, with no data limit. The
+  [Terms of Service](./TERMS.md) apply.
+- **Your own copy, 30-day trial:** Read, run, change and deploy RateXp on your own machines,
+  for personal or internal use. Each person or organization gets one trial. The trial does
+  not start again.
+- **Commercial license necessary:** You need a commercial license after the trial, for
+  production use, to host RateXp for other people, or to build RateXp into a product.
+- **Not permitted without written permission:** Do not publish or share the code or a changed
+  version of the code. Do not build a competing product. Do not train AI models on the code.
+- **Binding text:** This list is a short summary. The [LICENSE](./LICENSE) is the binding text.
+- **No warranty:** The software comes **as is, with no warranty**.
+- **Commercial license or questions:** [Send me an email](mailto:hikmet.beyoglu@hotmail.com).
 
 ---
 
-Want to run it yourself or contribute? See the [docs](https://ratexp-core.azurewebsites.net/guide/)
-and [CONTRIBUTING.md](./CONTRIBUTING.md).
+To run RateXp yourself or to contribute, see the
+[docs](https://ratexp-core.azurewebsites.net/guide/) and [CONTRIBUTING.md](./CONTRIBUTING.md).
