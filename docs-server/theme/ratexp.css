@@ -122,7 +122,7 @@
 
 @media screen and (min-width: 76.25em) {
   /* One card per sidebar item, each under a header bar (--group-bar): a group
-     (Home, Guides, Services, Legal) lists its links below the bar; a page alone
+     (Home, Guides, Components, Legal) lists its links below the bar; a page alone
      (Contributing) is the bar itself, a link. */
   .md-nav--primary > .md-nav__list > .md-nav__item {
     background: var(--box-bg);
@@ -213,6 +213,40 @@
   margin-top: 0.8rem;
 }
 
+/* The page title stands on a thick rule in the colour of the title. */
+.md-typeset h1 {
+  padding-bottom: 0.2em;
+  border-bottom: 4px solid currentcolor;
+}
+
+/* A sublist gets its own bullet, as on GitHub: a dot, then a circle, then a square. Material
+   draws a dot at every level. */
+.md-typeset ul ul {
+  list-style-type: circle;
+}
+
+.md-typeset ul ul ul {
+  list-style-type: square;
+}
+
+/* A table of eight or more columns, such as the view options in read-the-feedback.md, gets
+   tighter cells and drops Material's minimum column width, so all of its columns fit beside
+   the sidebars; the first column, the only one with sentences, keeps room to read. */
+.md-typeset table:not([class]):has(th:nth-child(8)) :is(th, td) {
+  min-width: 0;
+  padding: 0.6em 0.5em;
+}
+
+.md-typeset table:not([class]):has(th:nth-child(8)) th:first-child {
+  min-width: 8rem;
+}
+
+/* In a two-column table, such as the files in config-and-env.md, the first column holds a
+   name or a path; it is wide enough for the longest path, so a path never breaks mid-word. */
+.md-typeset table:not([class]):not(:has(th:nth-child(3))) th:first-child {
+  min-width: 13rem;
+}
+
 /* Code blocks: one framed box with a title bar - an icon and the language, from
    pymdownx.highlight's auto_title - and the copy button sitting in that bar. Inside a code
    block the copy button takes the title's colour, so it shows on the yellow Sunburst bar. */
@@ -266,6 +300,64 @@
 
 .md-typeset .highlight pre > code {
   border-radius: 0;
+}
+
+/* A code box with tabs (tab_code_blocks.py): the title bar, a row of tabs under it, then
+   the code of the open tab. The open tab is underlined in the accent colour; the other tabs
+   are dimmed. Each tab is a hidden radio button, its label and its code, in that order;
+   flex order lifts the labels into one row above all the code. */
+
+.md-typeset .code-tabs {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.md-typeset .code-tabs > span.filename {
+  flex: 0 0 100%;
+  order: -2;
+}
+
+.md-typeset .code-tabs > input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.md-typeset .code-tabs > label {
+  order: -1;
+  padding: 0.5em 1.1764705882em;
+  border-bottom: 3px solid transparent;
+  color: var(--md-default-fg-color);
+  font-size: 0.85em;
+  font-weight: 700;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.md-typeset .code-tabs > label:hover {
+  opacity: 0.8;
+}
+
+.md-typeset .code-tabs > input:checked + label {
+  border-bottom-color: var(--md-accent-fg-color);
+  opacity: 1;
+}
+
+.md-typeset .code-tabs > input:focus-visible + label {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: -2px;
+}
+
+/* min-width: 0 lets a long line scroll inside the box instead of widening it. */
+.md-typeset .code-tabs > pre {
+  display: none;
+  flex: 0 0 100%;
+  min-width: 0;
+  border-top: 1px solid var(--box-line);
+}
+
+.md-typeset .code-tabs > input:checked + label + pre {
+  display: block;
 }
 
 /* Tip and Note boxes, written in the pages as GitHub's > [!TIP] and > [!NOTE]: a coloured
