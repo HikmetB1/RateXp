@@ -5,7 +5,8 @@ clone_dashboard_from_base.py) - a header, one tile per panel, a query variable f
 filter (type, skill, agent, eval and the three labels), a 30-day default timeframe - and
 stores it under the fixed document id "ratexp", named as the YAML's name: created when
 absent, its name and content replaced when present, so running this again after
-editing the YAML updates the dashboard in place.
+editing the YAML updates the dashboard in place. The DQL's {list_view_limit} is filled in
+from the RateXp app's config.yaml, so publish again after changing it there.
 
 Env, exported (e.g. ``set -a; . ./.env; set +a``):
 - DT_QUERY_URL - the apps host, as in https://xxxxxxxx.apps.dynatrace.com
@@ -23,10 +24,16 @@ import sys
 import urllib.error
 import urllib.request
 import uuid
+from pathlib import Path
 
+import yaml
 from modules.dashboard.clone_dashboard_from_base import clone_dashboard
 
 DOCUMENT_ID = "ratexp"
+# The row limits are the RateXp app's settings, so every dashboard shows as many ratings.
+# Publishing runs from a checkout of the repo, so the app's config.yaml is beside core/.
+APP_CONFIG = Path(__file__).resolve().parents[3] / "app" / "ratexp" / "config.yaml"
+APP_LIMITS = ("list_view_limit", "list_max_limit")
 _DOCUMENTS_PATH = "/platform/document/v1/documents"
 _VISUALIZATIONS = {
     "number": "singleValue",
@@ -65,12 +72,26 @@ def _variable(key: str, values_dql: str) -> dict:
     }
 
 
+def read_app_limits() -> dict[str, int]:
+    """The RateXp app's row limits from its config.yaml, keyed by their DQL placeholder."""
+    config = yaml.safe_load(APP_CONFIG.read_text(encoding="utf-8"))
+    return {f"{{{key}}}": int(config[key]) for key in APP_LIMITS}
+
+
+def fill_app_limits(dql: str, limits: dict[str, int]) -> str:
+    """`dql` with each {list_view_limit} and {list_max_limit} replaced by its value."""
+    for placeholder, value in limits.items():
+        dql = dql.replace(placeholder, str(value))
+    return dql
+
+
 def build_dashboard_document(dashboard: dict) -> dict:
     """The dashboard as the Dynatrace document API stores it: tiles and layouts share
     keys "0", "1", ...; "0" is the header, then one data tile per panel, placed left to
     right and wrapped to the next row when a tile would cross the grid's right edge. A
     table panel's hidden_columns, when the YAML gives them, stay out of its table."""
     filters = dashboard["filters"]
+    limits = read_app_limits()
     tiles = {
         "0": {
             "type": "markdown",
@@ -97,7 +118,7 @@ def build_dashboard_document(dashboard: dict) -> dict:
         tiles[str(index)] = {
             "type": "data",
             "title": panel["title"],
-            "query": panel["dql"].replace("{filters}", filters["dql"]),
+            "query": fill_app_limits(panel["dql"].replace("{filters}", filters["dql"]), limits),
             "visualization": _VISUALIZATIONS[panel["kind"]],
             "visualizationSettings": settings,
         }

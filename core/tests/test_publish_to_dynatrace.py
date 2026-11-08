@@ -10,9 +10,11 @@ import json
 import urllib.error
 
 import pytest
+import yaml
 from modules.dashboard import publish_to_dynatrace
 from modules.dashboard.clone_dashboard_from_base import clone_dashboard
 from modules.dashboard.publish_to_dynatrace import (
+    APP_CONFIG,
     DOCUMENT_ID,
     build_dashboard_document,
     build_multipart,
@@ -109,6 +111,14 @@ def test_every_query_has_the_filter_filled_in_and_only_ratings_24h_pins_a_timefr
         pinned = tile["title"] == "Ratings in the last 24h"
         assert ("from:now()-24h" in tile["query"]) == pinned, tile["title"]
         assert ("from:" in tile["query"]) == pinned, tile["title"]
+
+
+def test_the_feedback_tile_shows_as_many_ratings_as_the_ratexp_app(document):
+    list_view_limit = yaml.safe_load(APP_CONFIG.read_text(encoding="utf-8"))["list_view_limit"]
+    for tile in _data_tiles(document):
+        assert "{list_" not in tile["query"], tile["title"]
+    (feedback,) = [t for t in _data_tiles(document) if t["title"] == "Feedback"]
+    assert f"| sort timestamp desc | limit {list_view_limit} |" in feedback["query"]
 
 
 def test_the_seven_filter_variables_default_to_all_and_type_narrows_the_rest(document):

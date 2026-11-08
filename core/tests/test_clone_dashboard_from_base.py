@@ -188,11 +188,12 @@ def test_every_rating_panel_reads_the_labels_of_its_conversation():
 def test_the_feedback_panels_show_the_newest_ratings():
     sql = _by_id(clone_dashboard("app"))["feedback"]["sql"]
     dql = _by_id(clone_dashboard("dynatrace"))["feedback"]["dql"]
-    # The app caps it with its list_view_limit; Dynatrace cannot read the app's config.
+    # Both are capped by the app's list_view_limit: the app binds it, and the Dynatrace
+    # dashboard and app get it filled in when they are published or synced.
     assert sql.endswith("ORDER BY created_at DESC LIMIT %(limit)s")
     # A rating's conversation is the transcript with its request_id, or none.
     assert "LEFT JOIN transcript t ON t.request_id = f.request_id" in sql
-    assert "| sort timestamp desc | limit 10" in dql
+    assert "| sort timestamp desc | limit {list_view_limit}" in dql
     fields = dql.split("| fields ", 1)[1]
     assert re.findall(r"(?:^|, )(\w+)=(?!=)", fields) == FEEDBACK_COLUMNS["dynatrace"]
     assert "request_id=transcript.request_id" in fields

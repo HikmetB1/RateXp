@@ -18,6 +18,10 @@
 #
 # download.dql is the "Download trajectories" button of the Dynatrace app (app/dynatrace/),
 # which draws these same panels; the published dashboard has no button and skips it.
+#
+# {list_view_limit} and {list_max_limit} are the RateXp app's settings of the same names
+# (app/ratexp/config.yaml), so every dashboard shows and downloads as many ratings:
+# publish_to_dynatrace.py and app/dynatrace/scripts/sync-dashboard.mjs fill them in.
 name: RateXp
 filters:
   dql: >-
@@ -65,12 +69,12 @@ filters:
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{task_type=coalesce(ratexp.task_type, "(none)")}
       | fields task_type | sort task_type asc]
-# The newest 1000 ratings, as the app's list_max_limit; the app adds each one's
-# conversation, the transcript with the same request_id.
+# The newest list_max_limit ratings; the app adds each one's conversation, the
+# transcript with the same request_id.
 download:
   dql: >-
     fetch logs | filter ratexp.record_type == "feedback" {filters}
-    | sort timestamp desc | limit 1000
+    | sort timestamp desc | limit {list_max_limit}
     | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name,
     agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score,
     comment=ratexp.comment, request_id=ratexp.request_id,
@@ -141,15 +145,15 @@ panels:
       by:{name=coalesce(ratexp.eval_name, "(none)")}
       | fieldsAdd percent_good=round(100.0 * good / total, decimals:1)
       | sort percent_good asc, total desc
-  # The newest 10 ratings with every column of the web app's Feedback table except
-  # Trajectory: request_id names the rating's stored conversation (null when none was
-  # stored), which the Dynatrace app opens from a "view" button. The published dashboard
-  # hides it.
+  # The newest list_view_limit ratings with every column of the web app's Feedback table
+  # except Trajectory: request_id names the rating's stored conversation (null when none
+  # was stored), which the Dynatrace app opens from a "view" button. The published
+  # dashboard hides it.
   feedback:
     hidden_columns: [request_id]
     dql: >-
       fetch logs | filter ratexp.record_type == "feedback" {filters}
-      | sort timestamp desc | limit 10
+      | sort timestamp desc | limit {list_view_limit}
       | fields When=timestamp, Type=if(isNull(ratexp.skill_name), "session", else:"skill"),
       Name=coalesce(ratexp.skill_name, ratexp.session_id), Agent=ratexp.agent,
       Model=coalesce(transcript.model, splitString(ratexp.agent, " ")[1]),
