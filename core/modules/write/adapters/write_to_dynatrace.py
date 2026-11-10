@@ -155,6 +155,10 @@ class DynatraceWriteAdapter:
             )
         )
 
+    def delete_old_ratings(self) -> None:
+        """Nothing: retention does not cover the OTLP destinations. Dynatrace is open work
+        (CONTRIBUTING.md), and Bluebox offers no way to delete."""
+
     def close(self) -> None:
         if self._provider is not None:
             provider = self._provider

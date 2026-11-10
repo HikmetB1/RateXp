@@ -10,7 +10,7 @@ from modules.write.adapters.write_to_postgres import PostgresWriteAdapter
 
 
 class AppBePostgresWriteAdapter(PostgresWriteAdapter):
-    def __init__(self) -> None:
+    def __init__(self, keep_newest: int | None = None) -> None:
         from modules.write.connect_to_postgres import DATABASE_URL, DB_AUTH
 
-        super().__init__("app_be_psql", dsn=DATABASE_URL, auth=DB_AUTH)
+        super().__init__("app_be_psql", dsn=DATABASE_URL, auth=DB_AUTH, keep_newest=keep_newest)

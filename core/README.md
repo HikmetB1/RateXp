@@ -19,7 +19,7 @@ core/
 ├── ratexp-claude.sh     the Claude Code hook script: rates the session and each skill run in the session
 ├── ratexp-cursor.sh     the Cursor CLI hook script: does the same as ratexp-claude.sh
 ├── install.sh           saves a hook script and adds the RateXp hooks to the settings of the agent
-├── api/                 routes, record schemas, rate limits and the ATIF trajectory builder
+├── api/                 routes, record schemas, rate limits, the ATIF trajectory builder and the local hourly delete
 ├── modules/
 │   ├── dashboard/       the dashboards: a shared base, one file for each destination, the publish command
 │   ├── labeling/        gives each stored conversation a business case, a language and a task type
@@ -28,7 +28,9 @@ core/
 ├── tests/               the tests of core: mocked, with no network and no database
 ├── evals/               the surveys that users answer: one file for each eval, over a shared base (see Config)
 ├── config.yaml          the settings below; load_config.py reads config.yaml
-└── Dockerfile           builds in the docs site and all optional adapters (config.yaml selects the adapters that run)
+├── retention_function/  the hourly timer of the retention Function, its host.json and its dependencies
+├── Dockerfile           builds in the docs site and all optional adapters (config.yaml selects the adapters that run)
+└── Dockerfile.retention builds the image of the retention Function: the Azure Functions base, the code of core, the timer
 ```
 
 ## Run locally: start core on your machine
@@ -60,6 +62,20 @@ DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api
 To label conversations, also add `--extra labeling` and set `AZURE_OPENAI_ENDPOINT`. core
 connects to the model with your `az login`. Your account needs the "Cognitive Services OpenAI
 User" role on the Azure OpenAI account.
+
+The web app of core never deletes old ratings. To delete old ratings on your machine, start
+the opt-in `retention` profile:
+
+- **When:** The `retention` service deletes one time at start, then one time each hour.
+- **Where:** The `retention` service deletes from each destination that has the `retention`
+  switch on in `core/config.yaml`. The `app_be_psql` destination is the database of the stack.
+- **Credentials:** `core/.env` gives each destination its credentials.
+
+Run this command from the repo root:
+
+```bash
+docker compose --profile retention up --build -d
+```
 
 ## Config: every key in config.yaml
 
@@ -109,6 +125,15 @@ startup with an error.
   - **Empty labels:** Labeling never stops a save. The labels stay empty in these cases:
     labeling is off, the endpoint is not set, the conversation is an oversized stub, or the
     model fails or takes longer than `timeout_seconds`.
+- `retention`: How many of the newest ratings a destination keeps.
+  - **`keep_newest`:** The number of the newest ratings that each destination keeps when the
+    `retention` switch of the destination is on.
+  - **Deletion:** The destination also keeps the conversations from the same time span, and
+    deletes the older ratings and conversations permanently, one time each hour.
+  - **Who deletes:** The retention Function deletes (`retention_function/`). The web app of core
+    never deletes. On your machine, the opt-in `retention` profile in Run locally deletes.
+  - **Between two runs:** A destination can hold the ratings of up to one hour more than
+    `keep_newest`.
 - `write_adapters`: The destinations that core writes each submission to. The destinations are
   independent: core logs a failure of one destination and continues with the other
   destinations. If no destination accepts the submission, the request fails with `503`. Each
@@ -117,6 +142,10 @@ startup with an error.
   - `app_be_psql`, `custom_psql`: one table row
   - `app_be_dynatrace`, `custom_dynatrace`, `bluebox`: one OTLP log line
   - `phoenix`: one span
+  - **`retention` switch:** `app_be_psql`, `custom_psql` and `phoenix` each have a `retention`
+    switch (see `retention`). With the switch on, `phoenix` deletes each old trace in its
+    project. Thus, give RateXp a Phoenix project of its own. The OTLP destinations never
+    delete.
 
 ## Env: the secrets core reads
 
@@ -156,6 +185,9 @@ uv sync --extra test --extra dynatrace-otlp && uv run pytest
 ## Deploy: how core gets to Azure
 
 - **core:** core is one of the two web apps in the Terraform stack. See
+  [Deploy to Azure](../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live).
+- **Retention Function:** `Dockerfile.retention` builds the retention Function from this
+  folder. For the deploy steps of the retention Function, see
   [Deploy to Azure](../docs/custom-deploy.md#deploy-to-azure-from-zero-to-live).
 - **Dynatrace dashboard:** You publish the Dynatrace dashboard manually. The docstring of
   `publish_to_dynatrace.py` in [`modules/dashboard/`](./modules/dashboard/) tells how.

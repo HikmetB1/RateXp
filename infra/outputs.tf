@@ -58,14 +58,29 @@ output "app_identity_object_id" {
   value       = azurerm_linux_web_app.app.identity[0].principal_id
 }
 
+output "retention_identity_object_id" {
+  description = "retention Function App Managed Identity object id (used to create its DB role)."
+  value       = azurerm_linux_function_app.retention.identity[0].principal_id
+}
+
 output "grant_db_access_hint" {
   description = "Run infra/grant-db-access.sql against the DB (as the Entra admin) with these role names."
-  value       = "core role: ${local.core_name} (read/write) · app role: ${local.app_name} (read-only)"
+  value       = "core role: ${local.core_name} (read/write) · app role: ${local.app_name} (read-only) · retention role: ${local.retention_name} (read/delete)"
 }
 
 output "seeder_name" {
   description = "Seeder Function App name (empty when enable_seeder is false). Use with `az functionapp restart`."
   value       = var.enable_seeder ? azurerm_linux_function_app.seeder[0].name : ""
+}
+
+output "retention_name" {
+  description = "Retention Function App name: the hourly delete. Use with `az functionapp stop/start`."
+  value       = azurerm_linux_function_app.retention.name
+}
+
+output "retention_image" {
+  description = "Build & push this image (core/Dockerfile.retention), then stop/start the retention function app."
+  value       = "${azurerm_container_registry.this.login_server}/retention:${var.image_tag}"
 }
 
 output "seeder_image" {

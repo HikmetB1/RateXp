@@ -15,6 +15,9 @@ accepted the record. Each concrete destination lives in its own file:
 - ``write_to_phoenix.py`` - an Arize Phoenix project, one span per record over
   Phoenix's REST API.
 
+PostgreSQL and Phoenix also keep only the newest ratings when their own ``retention``
+switch in config.yaml is on (``delete_old_ratings``); the OTLP destinations never delete.
+
 The two shared bases they build on are ``write_to_postgres.py`` ->
 ``PostgresWriteAdapter`` and ``write_to_dynatrace.py`` -> ``DynatraceWriteAdapter``.
 To add a destination: implement this interface and register it in
@@ -41,6 +44,14 @@ class WriteAdapter(Protocol):
 
     def write_transcript(self, record: Transcript) -> None:
         """Send one transcript to this destination. May raise; the caller isolates it."""
+        ...
+
+    def delete_old_ratings(self) -> None:
+        """Delete every rating and conversation older than the newest ``retention.keep_newest``
+        ratings (config.yaml); nothing when this destination's ``retention`` switch is off or
+        it cannot delete. The retention Function calls it once an hour (locally,
+        api/delete_old_ratings_hourly.py); core's web app never does. May raise; the caller
+        isolates it."""
         ...
 
     def close(self) -> None:

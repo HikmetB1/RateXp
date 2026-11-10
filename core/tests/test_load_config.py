@@ -226,3 +226,18 @@ def test_every_labeling_key_is_required(tmp_path, key):
     )
     assert result.returncode != 0
     assert f"missing required key: labeling.{key!r}" in result.stderr
+
+
+@pytest.mark.parametrize("name", ["app_be_psql", "custom_psql", "phoenix"])
+def test_every_destination_that_can_delete_needs_its_own_retention_switch(tmp_path, name):
+    core = Path(__file__).resolve().parents[1]
+    shutil.copy(core / "load_config.py", tmp_path)
+    shutil.copytree(core / "evals", tmp_path / "evals")
+    config = yaml.safe_load((core / "config.yaml").read_text(encoding="utf-8"))
+    del config["write_adapters"][name]["retention"]
+    (tmp_path / "config.yaml").write_text(yaml.safe_dump(config), encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-c", "import load_config"], cwd=tmp_path, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert f"missing required key: write_adapters.{name}.'retention'" in result.stderr

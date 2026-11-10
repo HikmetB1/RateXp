@@ -38,6 +38,7 @@ class _FakeCursor:
     def execute(self, sql, params):
         self._calls["sql"] = sql
         self._calls["params"] = params
+        self._calls.setdefault("all", []).append((sql, params))
 
 
 class _FakeConnection:
@@ -66,8 +67,8 @@ class _FakePool:
         pass
 
 
-def _postgres() -> PostgresWriteAdapter:
-    adapter = PostgresWriteAdapter("app_be_psql", dsn="x", auth="password")
+def _postgres(keep_newest: int | None = None) -> PostgresWriteAdapter:
+    adapter = PostgresWriteAdapter("app_be_psql", dsn="x", auth="password", keep_newest=keep_newest)
     adapter._pool = _FakePool()  # set directly, so no migrations and no real database
     return adapter
 
@@ -127,6 +128,43 @@ def test_a_trajectorys_labels_fill_their_own_columns():
     sql = adapter._pool.calls["sql"]
     assert "business_case, language, task_type)" in sql
     assert adapter._pool.calls["params"][-3:] == ("devops", "go", "fix")
+
+
+def test_with_retention_storing_a_rating_still_deletes_nothing():
+    # Deleting is the hourly run's job alone, the same for every destination.
+    adapter = _postgres(keep_newest=1000)
+    adapter.write_feedback(Feedback(skill_name="demo", agent="claude-code"))
+    assert [sql.split()[0] for sql, _ in adapter._pool.calls["all"]] == ["INSERT"]
+
+
+def test_the_hourly_run_deletes_everything_older_than_the_nth_newest_rating():
+    adapter = _postgres(keep_newest=1000)
+    adapter.delete_old_ratings()
+    ((delete, params),) = adapter._pool.calls["all"]
+    assert "DELETE FROM feedback" in delete and "DELETE FROM transcript" in delete
+    assert params == {"skip": 999}  # the 1000th newest rating is the cutoff, and it stays
+
+
+def test_the_delete_never_runs_core_s_migrations(monkeypatch):
+    # The retention Function's role may only SELECT and DELETE (infra/grant-db-access.sql);
+    # a migration would need CREATE and fail before anything is deleted.
+    from modules.write import connect_to_postgres
+    from modules.write.schema import apply_migrations
+
+    def migrations_must_not_run(**_):
+        raise AssertionError("delete_old_ratings ran the migrations")
+
+    monkeypatch.setattr(apply_migrations, "apply_migrations", migrations_must_not_run)
+    monkeypatch.setattr(connect_to_postgres, "make_pool", lambda **_: _FakePool())
+    adapter = PostgresWriteAdapter("app_be_psql", dsn="x", auth="password", keep_newest=5)
+    adapter.delete_old_ratings()
+    assert "DELETE FROM feedback" in adapter._pool.calls["sql"]
+
+
+def test_without_retention_nothing_is_ever_deleted():
+    adapter = _postgres()
+    adapter.delete_old_ratings()
+    assert "all" not in adapter._pool.calls
 
 
 def test_an_adopters_postgres_with_no_connection_string_is_refused(monkeypatch):
@@ -307,6 +345,19 @@ def test_bluebox_accepts_every_form_of_its_endpoint(configured):
     adapter = BlueboxWriteAdapter(configured, "tok")
     assert adapter._endpoint == "https://abc12345.live.dynatrace.com" + OTLP_LOGS
     assert adapter.name == "bluebox"
+
+
+@pytest.mark.parametrize(
+    "adapter",
+    [
+        AppBeDynatraceWriteAdapter("https://tenant.example", "tok"),
+        CustomDynatraceWriteAdapter("https://tenant.example", "tok"),
+        BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp", "tok"),
+    ],
+)
+def test_the_otlp_destinations_never_delete(adapter):
+    # Retention covers PostgreSQL and Phoenix only; Dynatrace is open work in CONTRIBUTING.md.
+    assert adapter.delete_old_ratings() is None
 
 
 def test_bluebox_without_an_endpoint_or_token_is_refused():
@@ -508,3 +559,53 @@ def test_an_answer_that_queued_nothing_fails(monkeypatch):
     adapter = _phoenix_answering(monkeypatch, {"total_received": 1, "total_queued": 0})
     with pytest.raises(RuntimeError):
         adapter.write_feedback(Feedback(skill_name="demo", agent="claude-code"))
+
+
+# Retention: page the rating spans newest first, then delete every trace before the Nth.
+
+
+def _phoenix_deleting(monkeypatch, pages: list[dict], keep_newest) -> list[tuple[str, str]]:
+    sent: list[tuple[str, str]] = []
+    pages = iter(pages)
+
+    def _urlopen(request, timeout=None):
+        sent.append((request.get_method(), request.full_url))
+        return _FakeResponse({} if request.get_method() == "DELETE" else next(pages))
+
+    monkeypatch.setattr(write_to_phoenix.urllib.request, "urlopen", _urlopen)
+    PhoenixWriteAdapter(
+        "https://phoenix.example", "key", "ratexp", keep_newest=keep_newest
+    ).delete_old_ratings()
+    return sent
+
+
+def _rating_span(start: str) -> dict:
+    return {"name": "ratexp.feedback", "start_time": start}
+
+
+def test_phoenix_deletes_every_trace_older_than_the_nth_newest_rating(monkeypatch):
+    sent = _phoenix_deleting(
+        monkeypatch,
+        [
+            {"data": [_rating_span("2026-10-31T10:00:00+00:00")] * 2, "next_cursor": "c"},
+            {"data": [_rating_span("2026-10-30T08:00:00+00:00")], "next_cursor": "d"},
+        ],
+        keep_newest=3,
+    )
+    (_, first), (_, second), (method, deleted) = sent
+    assert "name=ratexp.feedback" in first and "order=desc" in first and "limit=3" in first
+    assert "cursor=c" in second and "limit=1" in second
+    assert method == "DELETE"
+    assert deleted.startswith("https://phoenix.example/v1/projects/ratexp/traces?")
+    assert "end_time=2026-10-30T08%3A00%3A00%2B00%3A00" in deleted
+
+
+def test_phoenix_with_fewer_ratings_than_it_keeps_deletes_nothing(monkeypatch):
+    sent = _phoenix_deleting(
+        monkeypatch, [{"data": [_rating_span("2026-10-31T10:00:00+00:00")]}], keep_newest=3
+    )
+    assert [method for method, _ in sent] == ["GET"]
+
+
+def test_phoenix_without_retention_sends_nothing(monkeypatch):
+    assert _phoenix_deleting(monkeypatch, [], keep_newest=None) == []

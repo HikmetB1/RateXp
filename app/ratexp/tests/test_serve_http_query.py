@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from load_config import LIST_VIEW_LIMIT, QUERY_MAX_ROWS
+from load_config import LIST_MAX_LIMIT, LIST_VIEW_LIMIT, QUERY_MAX_ROWS
 
 
 def test_query_select_returns_columns_and_rows(app_with_fake_pool):
@@ -27,7 +27,7 @@ def test_query_names_a_session_row_by_its_session(app_with_fake_pool):
     client, pool = app_with_fake_pool
     pool.set_columns(["skill_name", "session_id"])
     pool.set_select_rows([(None, "sess-1")])
-    # full=True skips the transcript lookup, which this fake pool would answer with these rows.
+    # The row has no request_id, so no transcript is looked up for it.
     r = client.post(
         "/query", json={"query": "SELECT skill_name, session_id FROM feedback", "full": True}
     )
@@ -124,25 +124,49 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
     assert body["transcripts"][0]["language"] == "go"  # the table's Labels column reads these
 
 
-def test_query_full_skips_transcripts(app_with_fake_pool, monkeypatch):
-    """Download (full=true) fetches transcripts separately, so /query doesn't bundle them."""
+def test_a_download_carries_each_rows_own_transcript(app_with_fake_pool, monkeypatch):
+    """Download (full=true) pairs every exported row with its conversation by request_id,
+    however old, just as the Dashboard view's Download trajectories does."""
     client, pool = app_with_fake_pool
     pool.set_columns(["skill_name", "created_at", "request_id"])
-    pool.set_select_rows([("handoff", "2026-06-10T00:00:00Z", "req1")])
+    pool.set_select_rows(
+        [("handoff", "2026-06-10T00:00:00Z", "req1"), ("handoff", "2020-01-01T00:00:00Z", "old")]
+    )
+    captured = {}
 
-    def boom(*_):
-        raise AssertionError("transcripts must not be fetched for a full export")
+    def fake_transcripts(request_ids):
+        captured["request_ids"] = request_ids
+        return [
+            (
+                "2020-01-01T00:00:00Z",
+                "s",
+                "handoff",
+                "claude",
+                "ATIF-v1.7",
+                {},
+                "old",
+                None,
+                None,
+                None,
+            )
+        ]
 
-    monkeypatch.setattr(client.app.state.read, "select_transcripts_by_request_ids", boom)
+    monkeypatch.setattr(
+        client.app.state.read, "select_transcripts_by_request_ids", fake_transcripts
+    )
     body = client.post("/query", json={"query": "SELECT * FROM feedback", "full": True}).json()
-    assert body["transcripts"] == []
+    assert captured == {"request_ids": ["req1", "old"]}
+    assert [t["request_id"] for t in body["transcripts"]] == ["old"]
 
 
-def test_query_full_caps_at_max_rows(app_with_fake_pool):
+def test_a_download_reads_up_to_list_max_limit(app_with_fake_pool):
+    """Both downloads stop at list_max_limit; the query box itself at query_max_rows."""
     client, pool = app_with_fake_pool
     pool.set_columns(["n"])
     pool.set_select_rows([(1,)])
     client.post("/query", json={"query": "SELECT n FROM feedback", "full": True})
+    assert pool.store["params"] == (LIST_MAX_LIMIT,)
+    client.post("/query", json={"query": "SELECT n FROM feedback"})
     assert pool.store["params"] == (QUERY_MAX_ROWS,)
 
 

@@ -22,7 +22,7 @@ variable "location" {
 }
 
 variable "plan_sku" {
-  description = "App Service Plan SKU shared by both web apps. B1 is the cheapest that runs custom containers."
+  description = "App Service Plan SKU shared by core, app and the Functions (retention, and the seeder when enable_seeder). B1 is the cheapest that runs custom containers; production runs all four on B2."
   type        = string
   default     = "B1"
 }

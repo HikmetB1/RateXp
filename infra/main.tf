@@ -1,13 +1,16 @@
-# RateXp on Azure: two Linux web apps (containers) sharing one App Service Plan,
-# plus an Azure PostgreSQL Flexible Server.
+# RateXp on Azure: two Linux web apps and the retention Function (containers) sharing one
+# App Service Plan, plus an Azure PostgreSQL Flexible Server.
 #
 #   core (public)  ──writes──►  PostgreSQL  ◄──reads──  app (dashboard)
+#                                   ▲
+#                       retention ──┘ deletes old ratings, hourly
 #
-# Auth to PostgreSQL is passwordless: each web app has a System-Assigned Managed
-# Identity and connects with a Microsoft Entra ID access token (see core/modules/write/connect_to_postgres.py).
+# Auth to PostgreSQL is passwordless: each web app and the retention Function has a
+# System-Assigned Managed Identity and connects with a Microsoft Entra ID access token (see
+# core/modules/write/connect_to_postgres.py).
 # Password authentication is disabled on the server entirely.
 #
-# Images are pulled from an ACR provisioned here using the web apps' identities.
+# Images are pulled from an ACR provisioned here using the web apps' and Functions' identities.
 
 locals {
   # Deterministic, suffix-free resource names. The default (prod) env is just the
@@ -22,9 +25,12 @@ locals {
   core_name   = "${local.name_base}-core"
   app_name    = "${local.name_base}-app"
   seeder_name = "${local.name_base}-seeder"
+  # The hourly delete of what core/config.yaml retention no longer keeps.
+  retention_name = "${local.name_base}-retention"
 
   # Storage account names: lowercase alphanumeric only, <=24 chars, globally unique.
-  seeder_sa_name = "${replace(local.name_base, "-", "")}seed"
+  seeder_sa_name    = "${replace(local.name_base, "-", "")}seed"
+  retention_sa_name = "${replace(local.name_base, "-", "")}retain"
 
   # Azure OpenAI (AI Foundry) account the seeder's agent and core's labeling call - one per
   # environment, provisioned when either is on.
@@ -42,6 +48,8 @@ locals {
   # password is supplied at runtime as an Entra token. TLS is required.
   core_dsn = "postgresql://${local.core_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
   app_dsn  = "postgresql://${local.app_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
+  # The retention Function's role may only read and delete (see grant-db-access.sql).
+  retention_dsn = "postgresql://${local.retention_name}@${local.pg_fqdn}:5432/${var.pg_database}?sslmode=require"
 
   # The Language account is always provisioned when enable_redaction (whichever provider
   # core actively uses), so flipping to the azure adapter needs no re-provisioning. Null
@@ -358,12 +366,63 @@ resource "azurerm_role_assignment" "seeder_aoai" {
   principal_id         = azurerm_linux_function_app.seeder[0].identity[0].principal_id
 }
 
-# Let each web app's (and the seeder's) identity pull images from the ACR.
+# --- retention: the hourly delete of what core/config.yaml retention no longer keeps ---
+# core's own code in its own Functions image (core/Dockerfile.retention); core's web app
+# never deletes. Its database role may only SELECT and DELETE (see grant-db-access.sql).
+resource "azurerm_storage_account" "retention" {
+  name                     = local.retention_sa_name
+  resource_group_name      = azurerm_resource_group.this.name
+  location                 = azurerm_resource_group.this.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+}
+
+resource "azurerm_linux_function_app" "retention" {
+  name                = local.retention_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_service_plan.this.location
+  service_plan_id     = azurerm_service_plan.this.id
+
+  storage_account_name       = azurerm_storage_account.retention.name
+  storage_account_access_key = azurerm_storage_account.retention.primary_access_key
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    always_on = true # keep the hourly timer firing on the dedicated B1 plan
+    application_stack {
+      docker {
+        registry_url = "https://${azurerm_container_registry.this.login_server}"
+        image_name   = "retention"
+        image_tag    = var.image_tag
+      }
+    }
+    container_registry_use_managed_identity = true
+  }
+
+  app_settings = {
+    # As on the seeder: without it the host can't see the image's code.
+    WEBSITES_ENABLE_APP_SERVICE_STORAGE = "false"
+    FUNCTIONS_WORKER_RUNTIME            = "python"
+    RATEXP_DB_AUTH                      = "entra"
+    DATABASE_URL                        = local.retention_dsn
+    # Phoenix, the one other destination it deletes from, with the values core writes to it
+    # with. The OTLP destinations (Dynatrace, Bluebox) get none: retention skips them.
+    PHOENIX_COLLECTOR_ENDPOINT = var.phoenix_collector_endpoint
+    PHOENIX_API_KEY            = var.phoenix_api_key
+    PHOENIX_PROJECT_NAME       = var.phoenix_project_name
+  }
+}
+
+# Let each web app's (and each Function's) identity pull images from the ACR.
 resource "azurerm_role_assignment" "acr_pull" {
   for_each = merge(
     {
-      core = azurerm_linux_web_app.core.identity[0].principal_id
-      app  = azurerm_linux_web_app.app.identity[0].principal_id
+      core      = azurerm_linux_web_app.core.identity[0].principal_id
+      app       = azurerm_linux_web_app.app.identity[0].principal_id
+      retention = azurerm_linux_function_app.retention.identity[0].principal_id
     },
     var.enable_seeder ? { seeder = azurerm_linux_function_app.seeder[0].identity[0].principal_id } : {},
   )

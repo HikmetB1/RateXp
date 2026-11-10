@@ -20,6 +20,7 @@ class _Recorder:
         self.boom_on_close = boom_on_close
         self.feedback: list = []
         self.transcripts: list = []
+        self.deleted_old_ratings = False
         self.closed = False
 
     def write_feedback(self, record):
@@ -31,6 +32,11 @@ class _Recorder:
         if self.boom:
             raise RuntimeError(f"{self.name} down")
         self.transcripts.append(record)
+
+    def delete_old_ratings(self):
+        if self.boom:
+            raise RuntimeError(f"{self.name} down")
+        self.deleted_old_ratings = True
 
     def close(self):
         self.closed = True
@@ -87,6 +93,14 @@ def test_a_trajectory_no_destination_accepted_raises(monkeypatch):
         dispatch_to_adapters.write_transcript(_transcript())
 
 
+def test_old_ratings_are_deleted_everywhere_even_when_one_destination_fails(monkeypatch, caplog):
+    first, broken, last = _Recorder("first"), _Recorder("broken", boom=True), _Recorder("last")
+    _use(monkeypatch, first, broken, last)
+    dispatch_to_adapters.delete_old_ratings_everywhere()  # no raise
+    assert first.deleted_old_ratings and last.deleted_old_ratings
+    assert "broken failed deleting old ratings" in caplog.text
+
+
 def test_shutdown_closes_every_destination_and_forgets_them(monkeypatch):
     first, second = _Recorder("first"), _Recorder("second")
     _use(monkeypatch, first, second)
@@ -110,8 +124,8 @@ def test_one_destination_failing_to_close_does_not_strand_the_others(monkeypatch
 def _adapter_config(**enabled_by_name) -> dict:
     """The six destinations, all off, then the named ones turned on."""
     config = {
-        "app_be_psql": {"enabled": False},
-        "custom_psql": {"enabled": False, "dsn_env": "UNUSED_DSN"},
+        "app_be_psql": {"enabled": False, "retention": False},
+        "custom_psql": {"enabled": False, "retention": False, "dsn_env": "UNUSED_DSN"},
         "app_be_dynatrace": {
             "enabled": False,
             "tenant_url_env": "UNUSED_TENANT",
@@ -129,6 +143,7 @@ def _adapter_config(**enabled_by_name) -> dict:
         },
         "phoenix": {
             "enabled": False,
+            "retention": False,
             "endpoint_env": "UNUSED_ENDPOINT",
             "api_key_env": "UNUSED_KEY",
             "project_env": "UNUSED_PROJECT",
@@ -178,6 +193,23 @@ def test_an_enabled_destination_is_built_without_touching_it(monkeypatch):
 
     monkeypatch.setattr(load_config, "WRITE_ADAPTERS", _adapter_config(app_be_psql=True))
     assert [a.name for a in dispatch_to_adapters.build_write_adapters()] == ["app_be_psql"]
+
+
+@pytest.mark.parametrize("retention", [True, False])
+def test_each_destination_keeps_only_the_newest_ratings_by_its_own_switch(monkeypatch, retention):
+    import load_config
+
+    config = _adapter_config(app_be_psql=True, phoenix=True)
+    config["phoenix"]["retention"] = retention
+    monkeypatch.setattr(load_config, "WRITE_ADAPTERS", config)
+    monkeypatch.setenv("UNUSED_ENDPOINT", "https://phoenix.example")
+    monkeypatch.setenv("UNUSED_KEY", "key")
+    monkeypatch.setenv("UNUSED_PROJECT", "ratexp")
+    built = {a.name: a._keep_newest for a in dispatch_to_adapters.build_write_adapters()}
+    assert built == {
+        "app_be_psql": None,  # its switch stays off in _adapter_config
+        "phoenix": load_config.KEEP_NEWEST_RATINGS if retention else None,
+    }
 
 
 def test_a_config_naming_a_destination_that_does_not_exist_is_skipped(monkeypatch):

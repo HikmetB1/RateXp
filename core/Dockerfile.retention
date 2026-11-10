@@ -1,0 +1,30 @@
+# core's retention Function - deletes what config.yaml retention no longer keeps, hourly.
+#
+#   docker build -t ratexp-retention -f Dockerfile.retention .
+#
+# Built like seeder/Dockerfile, from core's own code: the timer in retention_function/
+# calls the same delete_old_ratings() of each write adapter that core's tests cover.
+# Nothing here is per-environment: config.yaml and the env vars pick what actually runs.
+
+FROM mcr.microsoft.com/azure-functions/python:4-python3.12
+
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
+    AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+
+# function_app.py declares the timer with a decorator instead of a function.json,
+# and the host only finds those with worker indexing switched on.
+ENV AzureWebJobsFeatureFlags=EnableWorkerIndexing
+
+# Installed with pip, not from uv.lock: the Functions host looks for packages in the base
+# image's own Python, not in a project venv. Only what the delete path imports.
+COPY retention_function/requirements.txt /
+RUN pip install --no-cache-dir -r /requirements.txt
+
+# The host only finds function_app.py and host.json at the script root above, so
+# retention_function/ is flattened into it; everything else keeps the path it has in
+# core, which is what api/ and modules/ import each other by.
+COPY retention_function/function_app.py retention_function/host.json /home/site/wwwroot/
+COPY load_config.py config.yaml /home/site/wwwroot/
+COPY evals/ /home/site/wwwroot/evals/
+COPY api/ /home/site/wwwroot/api/
+COPY modules/ /home/site/wwwroot/modules/

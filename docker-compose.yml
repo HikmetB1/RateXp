@@ -1,5 +1,5 @@
-# Local RateXp stack. Mirrors the cloud topology (core + app + PostgreSQL) on
-# your machine, using password auth instead of Entra ID.
+# Local RateXp stack. Mirrors the cloud topology (core + app + PostgreSQL, and the retention
+# Function as an opt-in profile) on your machine, using password auth instead of Entra ID.
 #
 #   docker compose up --build -d
 #   open http://localhost:8001                    # dashboard
@@ -15,6 +15,10 @@
 #
 # Add the demo feedback seeder with the opt-in `seed` profile (costs API credits):
 #   docker compose --profile seed up --build -d
+#
+# Add the hourly delete of what core/config.yaml retention no longer keeps with the opt-in
+# `retention` profile (deletes for good, also in any Phoenix project core/.env names):
+#   docker compose --profile retention up --build -d
 
 services:
   db:
@@ -114,6 +118,28 @@ services:
     depends_on:
       core:
         condition: service_started
+
+  # Opt-in: deletes what core/config.yaml retention no longer keeps, now and then hourly -
+  # the local stand-in for the retention Function on Azure. Only under the `retention`
+  # profile, because core/.env may name the same Phoenix project as production, and the
+  # delete there is for good.
+  retention:
+    build:
+      context: ./core
+      additional_contexts:
+        repo: .
+    profiles: ["retention"]
+    restart: unless-stopped
+    env_file:
+      - path: ./core/.env
+        required: false
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
+      RATEXP_DB_AUTH: password
+    command: python -m api.delete_old_ratings_hourly
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -8,6 +8,11 @@ own SDK exports over OTLP instead, which batches in the background and would
 report success before Phoenix has seen the record, breaking the fan-out's
 at-least-one rule (see ../dispatch_to_adapters.py).
 
+With retention on, ``delete_old_ratings`` finds the Nth newest rating span and deletes
+every trace that started before it through ``DELETE <endpoint>/v1/projects/<project>/traces``
+(Phoenix 20.6+). It deletes the whole project's traces in that window, so the project
+should hold RateXp's records only.
+
 The span id is derived from the record's ``request_id``, so a hook that retries
 posts the same id twice and Phoenix answers ``400 duplicate`` - the same
 de-duplication ``ON CONFLICT (request_id) DO NOTHING`` gives the PostgreSQL
@@ -24,9 +29,14 @@ import urllib.error
 import urllib.request
 import uuid
 from datetime import UTC, datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 _SPANS_PATH = "/v1/projects/{project}/spans"
+_TRACES_PATH = "/v1/projects/{project}/traces"
+# Phoenix's own ceiling on one page of spans.
+_MAX_SPANS_PER_PAGE = 1000
+# Before any record Phoenix holds: DELETE needs a start, and everything older goes.
+_BEGINNING = "1970-01-01T00:00:00Z"
 # PHOENIX_COLLECTOR_ENDPOINT is often copied with the OTLP path already on it.
 _OTLP_TRACES_SUFFIX = "/v1/traces"
 _SCORE_LABELS = {1: "good", 2: "bad"}
@@ -68,7 +78,15 @@ def _is_already_stored(error: urllib.error.HTTPError) -> bool:
 
 
 class PhoenixWriteAdapter:
-    def __init__(self, endpoint: str, api_key: str, project: str, *, timeout: float = 10.0) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        api_key: str,
+        project: str,
+        *,
+        keep_newest: int | None = None,
+        timeout: float = 10.0,
+    ) -> None:
         if not endpoint:
             raise RuntimeError("phoenix needs a collector endpoint")
         if not api_key:
@@ -78,8 +96,39 @@ class PhoenixWriteAdapter:
         self.name = "phoenix"
         base = endpoint.rstrip("/").removesuffix(_OTLP_TRACES_SUFFIX).rstrip("/")
         self._url = base + _SPANS_PATH.format(project=quote(project, safe=""))
+        self._traces_url = base + _TRACES_PATH.format(project=quote(project, safe=""))
         self._api_key = api_key
+        self._keep_newest = keep_newest
         self._timeout = timeout
+
+    def _send(self, url: str, *, method: str = "GET") -> dict:
+        request = urllib.request.Request(
+            url, method=method, headers={"Authorization": f"Bearer {self._api_key}"}
+        )
+        with urllib.request.urlopen(request, timeout=self._timeout) as response:
+            return json.loads(response.read().decode() or "{}")
+
+    def _nth_newest_rating_start(self, n: int) -> str | None:
+        """When the Nth newest rating span started, or None when there are fewer than N."""
+        cursor = None
+        seen = 0
+        while True:
+            params = {
+                "name": "ratexp.feedback",
+                "sort": "start_time",
+                "order": "desc",
+                "limit": min(n - seen, _MAX_SPANS_PER_PAGE),
+            }
+            if cursor:
+                params["cursor"] = cursor
+            page = self._send(self._url + "?" + urlencode(params))
+            spans = page.get("data") or []
+            if seen + len(spans) >= n:
+                return spans[n - seen - 1]["start_time"]
+            seen += len(spans)
+            cursor = page.get("next_cursor")
+            if not spans or not cursor:
+                return None
 
     def _post_span(self, span: dict) -> None:
         request = urllib.request.Request(
@@ -159,6 +208,16 @@ class PhoenixWriteAdapter:
                 },
             )
         )
+
+    def delete_old_ratings(self) -> None:
+        if self._keep_newest is None:
+            return
+        cutoff = self._nth_newest_rating_start(self._keep_newest)
+        if cutoff is None:
+            return
+        # end_time is exclusive, so the Nth newest rating and everything after it stay.
+        window = urlencode({"start_time": _BEGINNING, "end_time": cutoff})
+        self._send(f"{self._traces_url}?{window}", method="DELETE")
 
     def close(self) -> None:
         """Nothing to release - every write is one request, with nothing held open."""

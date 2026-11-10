@@ -19,6 +19,12 @@ def test_meta_names_the_core_the_install_popup_points_at(app_with_fake_pool):
     assert client.get("/meta").json()["core_url"] == CORE_URL
 
 
+def test_meta_gives_the_download_popup_the_configured_row_limits(app_with_fake_pool):
+    client, _ = app_with_fake_pool
+    meta = client.get("/meta").json()
+    assert (meta["list_view_limit"], meta["list_max_limit"]) == (LIST_VIEW_LIMIT, LIST_MAX_LIMIT)
+
+
 # --- GET /feedback ------------------------------------------------------------
 
 

@@ -15,6 +15,7 @@ for each cloud (now: Azure).
 One Terraform stack creates all of RateXp on Azure:
 
 - **Web apps:** two web apps, `core` and `app`.
+- **Retention Function:** the `retention` Function deletes old ratings one time each hour.
 - **Database:** a managed PostgreSQL server.
 - **Registry:** a container registry for the images.
 
@@ -51,11 +52,12 @@ not keep a database password anywhere.
    az acr login --name "$(terraform output -raw acr_name)"
    docker build -t "$(terraform output -raw core_image)" --build-context repo=.. ../core && docker push "$(terraform output -raw core_image)"
    docker build -t "$(terraform output -raw app_image)" -f ../app/ratexp/Dockerfile --build-context dashboard=../core/modules/dashboard ../app/ratexp && docker push "$(terraform output -raw app_image)"
+   docker build -t "$(terraform output -raw retention_image)" -f ../core/Dockerfile.retention ../core && docker push "$(terraform output -raw retention_image)"
    ```
 
-3. **Give the `core` and `app` web apps access to the database.** Run
-   [`infra/grant-db-access.sql`](../infra/grant-db-access.sql) one time, as the header of the
-   file tells. Connect as the Entra admin of the server (by default, the account that ran
+3. **Give the `core` and `app` web apps and the `retention` Function access to the database.**
+   Run [`infra/grant-db-access.sql`](../infra/grant-db-access.sql) one time, as the header of
+   the file tells. Connect as the Entra admin of the server (by default, the account that ran
    `terraform apply`):
 
    1. In the Azure portal, add your IP address under **Networking** of the PostgreSQL server.
@@ -73,15 +75,17 @@ not keep a database password anywhere.
       psql "host=$(terraform output -raw postgres_fqdn) user=ratexp-deployer dbname=postgres sslmode=require"
       ```
 
-4. **Stop each web app. Then start the web app again.** Azure then pulls the image that you
-   pushed. Do not use `az webapp restart`, because `az webapp restart` continues to use the
-   old cached image.
+4. **Stop each web app and the `retention` Function. Then start each web app and the
+   `retention` Function again.** Azure then pulls the images that you pushed. Do not use `az webapp restart`, because
+   `az webapp restart` continues to use the old cached image.
 
    ```bash
    for name in "$(terraform output -raw core_name)" "$(terraform output -raw app_name)"; do
      az webapp stop --resource-group "$(terraform output -raw resource_group)" --name "$name"
      az webapp start --resource-group "$(terraform output -raw resource_group)" --name "$name"
    done
+   az functionapp stop --resource-group "$(terraform output -raw resource_group)" --name "$(terraform output -raw retention_name)"
+   az functionapp start --resource-group "$(terraform output -raw resource_group)" --name "$(terraform output -raw retention_name)"
    ```
 
 5. **Install RateXp from your own core.** Run the install command from
@@ -138,6 +142,15 @@ Each part:
     entry.
   - For the list of write adapters, see
     [Destinations](#destinations-where-core-writes-the-feedback).
+- **Retention:**
+  - **Count:** `retention.keep_newest` in `core/config.yaml` sets how many of the newest ratings
+    stay.
+  - **Switch:** `app_be_psql`, `custom_psql` and `phoenix` each have a `retention` switch in
+    `core/config.yaml`.
+  - **Deletion:** the `retention` Function deletes the older ratings and conversations
+    permanently, one time each hour. The image of the `retention` Function contains the same
+    `core/config.yaml`.
+  - **Dynatrace and Bluebox:** core never deletes from Dynatrace or Bluebox.
 - **Read source of the app:**
   - `read_adapters` in `app/ratexp/config.yaml` selects the one read source.
   - `dynatrace_query_url` and the Dynatrace token give only the credentials of the read source.

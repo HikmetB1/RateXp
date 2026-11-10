@@ -9,6 +9,7 @@
 - [Tests](#tests-per-component-and-whole-app)
 - [Documentation rules](#documentation-rules-how-docs-should-read)
 - [Code rules](#code-rules-how-code-should-read)
+- [Open work](#open-work-what-is-not-built-yet)
 - [Contributor License Agreement](#contributor-license-agreement-what-you-agree-to)
 
 ## Components: what each component does
@@ -21,7 +22,7 @@ The repo has these components:
 
 | Component | What the component is |
 |---------|------------|
-| [core](./core/README.md) | <ul><li>**Hook scripts:** Serves `ratexp-claude.sh` (Claude Code), `ratexp-cursor.sh` (Cursor CLI) and `install.sh`. `install.sh` adds a hook script to the settings of its agent.</li><li>**Ratings and transcripts:** Receives the ratings and the transcripts that the hook scripts send.</li><li>**Redaction and labels:** Masks the personal data and labels each conversation.</li><li>**Destinations:** Writes the result to each destination that is on.</li><li>**Dynatrace dashboard:** `modules/dashboard/publish_to_dynatrace.py` publishes the Dynatrace dashboard.</li></ul> |
+| [core](./core/README.md) | <ul><li>**Hook scripts:** Serves `ratexp-claude.sh` (Claude Code), `ratexp-cursor.sh` (Cursor CLI) and `install.sh`. `install.sh` adds a hook script to the settings of its agent.</li><li>**Ratings and transcripts:** Receives the ratings and the transcripts that the hook scripts send.</li><li>**Redaction and labels:** Masks the personal data and labels each conversation.</li><li>**Destinations:** Writes the result to each destination that is on.</li><li>**Dynatrace dashboard:** `modules/dashboard/publish_to_dynatrace.py` publishes the Dynatrace dashboard.</li><li>**Retention Function:** `core/Dockerfile.retention` builds the retention Function from the same folder. The retention Function deletes old ratings one time each hour.</li></ul> |
 | [app/ratexp](./app/ratexp/README.md) | <ul><li>**RateXp app:** The dashboard web app.</li><li>**Data:** Reads the stored feedback from one source, and shows the feedback when the feedback arrives.</li><li>**Dashboard view:** Panels and filters.</li><li>**Query & table view:** The query box.</li></ul> |
 | [app/dynatrace](./app/dynatrace/README.md) | <ul><li>**RateXp Dynatrace app:** The same Dashboard view, as an app inside Dynatrace.</li><li>**Data:** Reads the logs that core wrote to Dynatrace.</li><li>**Not the Dynatrace dashboard:** core publishes the Dynatrace dashboard.</li><li>**Optional:** RateXp works without the RateXp Dynatrace app.</li></ul> |
 | [seeder](./seeder/README.md) | <ul><li>**Demo ratings:** On a timer, an agent uses one of the bundled skills and rates the skill.</li><li>**Result:** A demo dashboard is never empty.</li><li>**Optional:** RateXp works without the seeder.</li></ul> |
@@ -86,6 +87,7 @@ See [docs/custom-deploy.md](./docs/custom-deploy.md).
 │   ├── install.sh              Saves a hook script and adds the RateXp hooks to the settings of the agent
 │   ├── evals/                  The surveys that users answer: one file for each eval, over a shared base
 │   ├── api/                    The HTTP surface: routes, schemas, rate limits, the ATIF builder
+│   ├── retention_function/     The retention Function: deletes old ratings one time each hour
 │   └── modules/
 │       ├── dashboard/          The dashboard definitions: one base, one file for each platform (RateXp app, Dynatrace), the publish command
 │       ├── labeling/           Labels each conversation (business case, language, task type) with a low-cost model
@@ -107,11 +109,11 @@ See [docs/custom-deploy.md](./docs/custom-deploy.md).
 ├── docs/                       Guides that span the components (human evals, read the feedback, config and env,
 │                               custom deploy), and the decision records in adr/
 ├── docs-server/                Builds the markdown of the repo into the docs site that core serves at /guide/
-├── infra/                      Terraform stack for Azure: two web apps, PostgreSQL, a container registry and the optional extras
+├── infra/                      Terraform stack for Azure: two web apps, the retention Function, PostgreSQL, a container registry and the optional extras
 ├── tests/                      Whole-app integration tests (run against a live stack or a local stack)
 ├── .github/                    CI checks on each push and pull request, and the issue templates
 ├── assets/                     Images that the README shows (banner, demo GIFs, dashboard screenshot)
-├── docker-compose.yml          Local stack: PostgreSQL, core and app/ratexp (and the opt-in seed profile)
+├── docker-compose.yml          Local stack: PostgreSQL, core and app/ratexp (and the opt-in seed and retention profiles)
 ├── THIRD_PARTY_NOTICES.md      Licenses and citations for the projects that RateXp builds on
 ├── CLA.md / LICENSE / TERMS.md / CITATION.cff  Contributor agreement, license, terms of the hosted service, how to cite
 └── pyproject.toml              Shared ruff config; each component has its own project file
@@ -278,6 +280,21 @@ pass must be enough for both readers.
    a module or select a path. `modules/read/` mirrors `modules/write/`, adapter for adapter,
    because of rule 8. Only Bluebox, which is write-only, has no read adapter. Follow the
    convention that you find, or change each copy in one commit.
+
+## Open work: what is not built yet
+
+- **Retention for Dynatrace:** The hourly delete (`retention` in `core/config.yaml`) covers only
+  PostgreSQL and Phoenix. To add Dynatrace, do these steps:
+  1. Give `app_be_dynatrace` and `custom_dynatrace` a `retention` switch.
+  2. Write a `delete_old_ratings` for the Dynatrace write adapters. Use the Grail
+     [record deletion API](https://docs.dynatrace.com/docs/platform/grail/organize-data/record-deletion-in-grail)
+     on the apps host (`DT_QUERY_URL`).
+  3. Give the Dynatrace token the `storage:records:delete`, `storage:logs:read` and
+     `storage:buckets:read` permissions.
+  - **Grail limits:** The record deletion API has these limits:
+    - **Age:** The data must be at least 4 hours old.
+    - **Size:** One request deletes at most one day of data.
+    - **One at a time:** Only one deletion runs at a time.
 
 ## Contributor License Agreement: what you agree to
 

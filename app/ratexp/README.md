@@ -51,13 +51,13 @@ startup with an error.
 - `list_view_limit` / `list_max_limit`: The default number of rows that the list endpoints
   return, and the maximum number of rows in one response. Thus, the **Feedback** table of the
   Dashboard view and of the Query & table view shows the newest `list_view_limit` ratings, and
-  **Download trajectories** saves the newest `list_max_limit` ratings that match the filters.
-  The Dynatrace dashboard and the RateXp Dynatrace app get the same two values when they are
-  published or synced.
+  **Download trajectories** saves at most `list_max_limit` ratings, in both views. The download
+  popup gets both values from `/meta`. The Dynatrace dashboard and the RateXp Dynatrace app get
+  the same two values when they are published or synced.
 - `query_enabled` / `query_timeout_ms` / `query_max_rows`: The settings of the query box.
   `false` switches the query endpoint off. The timeout and the row limit set the maximum time
-  and the maximum size of one query. The timeout also applies to each query of the Dashboard
-  view.
+  and the maximum size of one query. **Download trajectories** in the Query & table view
+  (`POST /query` with `full`) reads up to `list_max_limit` rows in place of `query_max_rows`. The timeout also applies to each query of the Dashboard view.
 - `ws_enabled` / `ws_broadcast_interval_ms`: The settings of the live feed. `false` switches
   the live feed off. The interval sets how often the live feed checks for new data.
 - `read_adapters`: The one source that the dashboard reads from. The read adapters mirror the

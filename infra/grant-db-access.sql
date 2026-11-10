@@ -1,12 +1,14 @@
--- Create a passwordless PostgreSQL role for each web app's Managed Identity and
--- grant least-privilege access. Run this ONCE after `terraform apply`, connected
--- as the server's Entra administrator (the deployer). Replace the four
+-- Create a passwordless PostgreSQL role for each web app's and the retention Function's
+-- Managed Identity and grant least-privilege access. Run this ONCE after `terraform apply`,
+-- connected as the server's Entra administrator (the deployer). Replace the six
 -- placeholders with values from `terraform output`:
 --
---   CORE_NAME       = terraform output -raw core_name
---   CORE_OBJECT_ID  = terraform output -raw core_identity_object_id
---   APP_NAME        = terraform output -raw app_name
---   APP_OBJECT_ID   = terraform output -raw app_identity_object_id
+--   CORE_NAME            = terraform output -raw core_name
+--   CORE_OBJECT_ID       = terraform output -raw core_identity_object_id
+--   APP_NAME             = terraform output -raw app_name
+--   APP_OBJECT_ID        = terraform output -raw app_identity_object_id
+--   RETENTION_NAME       = terraform output -raw retention_name
+--   RETENTION_OBJECT_ID  = terraform output -raw retention_identity_object_id
 --
 -- It has TWO parts, run against TWO different databases (see docs/custom-deploy.md, step 3):
 --   Part A -> the `postgres` database (where the pgaadauth_* functions live).
@@ -18,6 +20,7 @@
 -- ============================================================================
 SELECT * FROM pgaadauth_create_principal_with_oid('CORE_NAME', 'CORE_OBJECT_ID', 'service', false, false);
 SELECT * FROM pgaadauth_create_principal_with_oid('APP_NAME', 'APP_OBJECT_ID', 'service', false, false);
+SELECT * FROM pgaadauth_create_principal_with_oid('RETENTION_NAME', 'RETENTION_OBJECT_ID', 'service', false, false);
 
 -- ============================================================================
 -- Part B - run connected to dbname=ratexp
@@ -37,3 +40,9 @@ GRANT CONNECT ON DATABASE ratexp TO "APP_NAME";
 GRANT USAGE ON SCHEMA public TO "APP_NAME";
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO "APP_NAME";
 ALTER DEFAULT PRIVILEGES FOR ROLE "CORE_NAME" IN SCHEMA public GRANT SELECT ON TABLES TO "APP_NAME";
+
+-- retention: the hourly delete of what core/config.yaml retention no longer keeps. It reads
+-- and deletes ratings and conversations, nothing else - no insert, no migrations.
+GRANT CONNECT ON DATABASE ratexp TO "RETENTION_NAME";
+GRANT USAGE ON SCHEMA public TO "RETENTION_NAME";
+GRANT SELECT, DELETE ON feedback, transcript TO "RETENTION_NAME";

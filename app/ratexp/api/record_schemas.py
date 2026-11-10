@@ -43,7 +43,7 @@ class QueryRequest(BaseModel):
 
     query: str  # a read-only query in the source's language
     limit: int | None = None  # optional row cap; clamped to query_max_rows
-    full: bool = False  # true = full export (up to query_max_rows); else the view
+    full: bool = False  # true = Download trajectories (up to list_max_limit); else the view
 
 
 class PanelFilters(BaseModel):

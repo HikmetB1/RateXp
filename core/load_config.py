@@ -200,6 +200,13 @@ def load_labels(labels) -> dict[str, list[str]]:
 
 LABELS: dict[str, list[str]] = load_labels(_require_in(_LABELING, "labeling", "labels"))
 
+# How many of the newest ratings a write destination with `retention: true` keeps.
+KEEP_NEWEST_RATINGS: int = _require_in(_require("retention"), "retention", "keep_newest")
+if not isinstance(KEEP_NEWEST_RATINGS, int) or KEEP_NEWEST_RATINGS < 1:
+    raise RuntimeError(
+        f"retention.keep_newest must be a whole number >= 1, got {KEEP_NEWEST_RATINGS!r}"
+    )
+
 # Write adapters (see modules/write/). Each named
 # destination must be present with an `enabled` flag; a submission is written to
 # every one whose flag is true.
@@ -212,6 +219,8 @@ _WRITE_ADAPTER_NAMES = (
     "bluebox",
     "phoenix",
 )
+# The destinations core can delete from, each with its own `retention` switch.
+_DELETING_WRITE_ADAPTERS = ("app_be_psql", "custom_psql", "phoenix")
 WRITE_ADAPTERS: dict[str, dict] = {}
 for _name in _WRITE_ADAPTER_NAMES:
     _cfg = _require_in(_WRITE_ADAPTERS_RAW, "write_adapters", _name)
@@ -219,4 +228,6 @@ for _name in _WRITE_ADAPTER_NAMES:
         raise RuntimeError(
             f"config.yaml write_adapters.{_name} must be a mapping with an 'enabled' key"
         )
+    if _name in _DELETING_WRITE_ADAPTERS:
+        _require_in(_cfg, f"write_adapters.{_name}", "retention")
     WRITE_ADAPTERS[_name] = dict(_cfg)

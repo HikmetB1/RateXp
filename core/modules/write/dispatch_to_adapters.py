@@ -59,6 +59,16 @@ def write_transcript(record: Transcript) -> None:
     _fan_out("transcript", lambda adapter: adapter.write_transcript(record))
 
 
+def delete_old_ratings_everywhere() -> None:
+    """Have every destination delete what retention no longer keeps. Independent like the
+    fan-out: one that fails is logged and the rest still run."""
+    for adapter in get_adapters():
+        try:
+            adapter.delete_old_ratings()
+        except Exception:  # noqa: BLE001 - independent; the rest still run
+            logger.warning("adapter %s failed deleting old ratings", adapter.name, exc_info=True)
+
+
 def close_adapters() -> None:
     global _adapters
     if _adapters is not None:
@@ -77,14 +87,16 @@ def build_write_adapters() -> list[WriteAdapter]:
     token, a custom PostgreSQL with no DSN) is logged and skipped rather than
     raising, so one half-configured destination never stops core from starting.
     """
-    from load_config import WRITE_ADAPTERS
+    from load_config import KEEP_NEWEST_RATINGS, WRITE_ADAPTERS
 
     built: list[WriteAdapter] = []
     for name, cfg in WRITE_ADAPTERS.items():
         if not cfg.get("enabled"):
             continue
+        # Only a destination whose own `retention` switch is on keeps just the newest ratings.
+        keep_newest = KEEP_NEWEST_RATINGS if cfg.get("retention") else None
         try:
-            built.append(_build_one(name, cfg))
+            built.append(_build_one(name, cfg, keep_newest))
         except Exception:  # noqa: BLE001 - one bad destination mustn't stop the rest
             logger.warning(
                 "adapter %s is enabled but could not be built; skipping", name, exc_info=True
@@ -92,16 +104,17 @@ def build_write_adapters() -> list[WriteAdapter]:
     return built
 
 
-def _build_one(name: str, cfg: dict) -> WriteAdapter:
-    """Construct one destination. Secrets come from the env vars cfg names."""
+def _build_one(name: str, cfg: dict, keep_newest: int | None) -> WriteAdapter:
+    """Construct one destination. Secrets come from the env vars cfg names; keep_newest is
+    how many of the newest ratings it keeps (None keeps everything)."""
     if name == "app_be_psql":
         from modules.write.adapters.write_to_app_be_psql import AppBePostgresWriteAdapter
 
-        return AppBePostgresWriteAdapter()
+        return AppBePostgresWriteAdapter(keep_newest)
     if name == "custom_psql":
         from modules.write.adapters.write_to_custom_psql import CustomPostgresWriteAdapter
 
-        return CustomPostgresWriteAdapter(cfg["dsn_env"])
+        return CustomPostgresWriteAdapter(cfg["dsn_env"], keep_newest)
     if name == "app_be_dynatrace":
         from modules.write.adapters.write_to_app_be_dynatrace import AppBeDynatraceWriteAdapter
 
@@ -130,5 +143,6 @@ def _build_one(name: str, cfg: dict) -> WriteAdapter:
             os.environ.get(cfg["endpoint_env"], "").strip(),
             os.environ.get(cfg["api_key_env"], "").strip(),
             os.environ.get(cfg["project_env"], "").strip(),
+            keep_newest=keep_newest,
         )
     raise RuntimeError(f"unknown adapter {name!r}")

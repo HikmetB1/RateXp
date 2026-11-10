@@ -5,7 +5,7 @@
 - [Filters](#filters-narrow-the-panels)
 - [Download trajectories](#download-trajectories-the-ratings-that-match-the-filters)
 - [Query box](#query-box-one-language-per-read-source)
-- [Download JSON](#download-json-what-the-file-contains)
+- [Download trajectories after a query](#download-trajectories-after-a-query-what-the-file-contains)
 
 <!-- shared ../README.md destinations -->
 ## Destinations: where core writes the feedback
@@ -29,7 +29,7 @@ view option. To switch a destination on, see [Config and env](./config-and-env.m
 | Save the conversation of one rating as JSON | ✓ | ✓ |  |  |  |  |  |
 | Save the conversations that match the filters. See [Download trajectories](#download-trajectories-the-ratings-that-match-the-filters). |  | ✓ |  | ✓ |  |  |  |
 | Find ratings with a query. See [Query box](#query-box-one-language-per-read-source). | ✓ |  |  |  | ✓ |  |  |
-| Save the ratings that a query finds. See [Download JSON](#download-json-what-the-file-contains). | ✓ |  |  |  |  |  |  |
+| Save the ratings that a query finds. See [Download trajectories after a query](#download-trajectories-after-a-query-what-the-file-contains). | ✓ |  |  |  |  |  |  |
 | Ask questions in plain English |  |  |  |  |  |  | ✓ |
 
 The dashboards show the same panels and filters. For how the dashboards stay the same, see
@@ -70,19 +70,19 @@ source:
 | Phoenix     | `key:value` filters |
 | Bluebox     | not supported       |
 
-## Download JSON: what the file contains
+## Download trajectories after a query: what the file contains
 
 The query box shows only the newest `list_view_limit` matches. To get more matches, use
-**Download JSON**. The file has the same fields as **Download trajectories**. The contents of
-the download depend on the last query that you ran:
+**Download trajectories** in the Query & table view. Each rating has a `conversation` field:
+the stored conversation of the rating, or `null`. The contents of the download depend on the
+last query that you ran:
 
 | Last query that you ran | What the download contains |
 |---|---|
 | *(none)* | The newest `list_view_limit` ratings. |
-| `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **All** ratings for the `poem-creator` skill, up to `query_max_rows` ratings. |
-| `SELECT * FROM feedback WHERE agent = 'claude-code'` | **All** ratings from the `claude-code` agent (skill runs and whole sessions), up to `query_max_rows` ratings. |
-| `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **All** ratings that answered the `human-satisfaction` eval, up to `query_max_rows` ratings. |
+| `SELECT * FROM feedback WHERE skill_name = 'poem-creator'` | **All** ratings for the `poem-creator` skill, up to `list_max_limit` ratings. |
+| `SELECT * FROM feedback WHERE agent = 'claude-code'` | **All** ratings from the `claude-code` agent (skill runs and whole sessions), up to `list_max_limit` ratings. |
+| `SELECT * FROM feedback WHERE eval_name = 'human-satisfaction'` | **All** ratings that answered the `human-satisfaction` eval, up to `list_max_limit` ratings. |
 | A query for several skills, several agents and several evals | The newest `list_view_limit` ratings. |
 
-For `list_view_limit`, `list_max_limit` and `query_max_rows`, see
-[Config and env](./config-and-env.md).
+For `list_view_limit` and `list_max_limit`, see [Config and env](./config-and-env.md).

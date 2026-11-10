@@ -288,9 +288,9 @@ The [RateXp app](https://ratexp-app.azurewebsites.net/) is one of the destinatio
 app shows the feedback that core writes with the `app_be_psql` write adapter, when the feedback
 arrives. The RateXp app has these views:
 
-- **Dashboard:** panels, filters and a trajectory download.
-- **Query & table:** the latest ratings, the conversation of each rating, a query box and a
-  JSON download.
+- **Dashboard:** panels, filters and **Download trajectories**.
+- **Query & table:** the latest ratings, the conversation of each rating, a query box and
+  **Download trajectories**.
 
 More than one destination can be on at the same time. core writes the same data to each
 destination. See [Destinations](#destinations-where-core-writes-the-feedback) and

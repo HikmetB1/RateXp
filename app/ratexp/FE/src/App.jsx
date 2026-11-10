@@ -110,28 +110,33 @@ ${JSON.stringify(guide.hooks, null, 2)}
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
 // more details" links), rendered as Markdown (see Md). The example query + its code-fence
-// language track the active read source (SQL for PostgreSQL, DQL for Dynatrace), from /meta.
-function downloadInfoMd(queryLanguage = 'SQL', queryExample = EXAMPLE_SQL) {
+// language track the active read source (SQL for PostgreSQL, DQL for Dynatrace), and the
+// two row limits are app/ratexp/config.yaml's, all from /meta.
+function downloadInfoMd(queryLanguage = 'SQL', queryExample = EXAMPLE_SQL, viewLimit, maxLimit) {
   const lang = String(queryLanguage || 'SQL')
   const example = queryExample || EXAMPLE_SQL
+  // Until /meta answers, or if it fails, the limits are unknown, so the text leaves them out.
+  const mostRecent = viewLimit ? `${viewLimit} most recent` : 'most recent'
+  const more = viewLimit ? `more than ${viewLimit}` : 'more'
+  const upTo = maxLimit ? ` (up to ${maxLimit} entries)` : ''
   return `### Preview & downloads
 
 The dashboard updates in **real time**. To stay fast, the table and the query box
-only ever show the **10 most recent** entries. An entry is one rating: either one
+only ever show the **${mostRecent}** entries. An entry is one rating: either one
 **skill** run, or a whole **agent session** (Claude Code or Cursor).
 
-To get more than 10, use **Download JSON**. It exports the **last query you ran**,
+To get ${more}, use **Download trajectories**. It exports the **last query you ran**,
 not what is typed in the box, and each entry comes with its full conversation.
 
-**What Download JSON gives you**
+**What Download trajectories gives you**
 
-- **No query** - the **10 most recent** entries.
-- **A query for one skill** - **every** entry for that skill (up to 1000 entries).
-- **A query for one agent** - **every** entry for that agent (up to 1000 entries).
-- **A query for one eval** - **every** entry for that eval (up to 1000 entries).
-- **Anything else** - the **10 most recent**.
+- **No query** - the **${mostRecent}** entries.
+- **A query for one skill** - **every** entry for that skill${upTo}.
+- **A query for one agent** - **every** entry for that agent${upTo}.
+- **A query for one eval** - **every** entry for that eval${upTo}.
+- **Anything else** - the **${mostRecent}**.
 
-**To get everything for your skill, agent or eval**, run one of these queries, then click Download JSON:
+**To get everything for your skill, agent or eval**, run one of these queries, then click Download trajectories:
 
 \`\`\`${lang.toLowerCase()}
 ${example}
@@ -386,7 +391,7 @@ export default function App() {
           </p>
         )}
         <div className="glow-edge" style={groupBox}>
-          <FilterBar apiBase={API_BASE} rows={rows} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
+          <FilterBar apiBase={API_BASE} rows={rows} transcriptFor={transcriptFor} active={!!filter} liveTick={liveTick} onFilter={applyFilter} onClear={clearFilter} onInfo={() => setInfoOpen(true)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
           {!loading && !error && filter?.truncated && <ViewLimitNotice shown={rows.length} />}
           {!loading && !error && (
             <section className="glow-edge" style={glassCard}>
@@ -406,7 +411,7 @@ export default function App() {
       </footer>
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
       <InstallGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} coreUrl={meta.core_url} />
-      <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} />
+      <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} viewLimit={meta.list_view_limit} maxLimit={meta.list_max_limit} />
     </div>
   )
 }
@@ -448,13 +453,13 @@ function ViewPanel({ viewKey, view, children }) {
 
 // Short red note under the Feedback heading: the table is a real-time preview of the
 // latest rows only (capped in app/ratexp/config.yaml). The full story - including how Download
-// JSON behaves per query - lives in the shared info popup. Hidden while filtering.
+// trajectories behaves per query - lives in the shared info popup. Hidden while filtering.
 function PreviewNote({ onInfo }) {
   return (
     <p style={{ margin: '12px 0 0', color: 'var(--danger)', fontWeight: 700, fontSize: 13 }}>
       This is a real-time preview - only the most recent entries are shown to keep
       things smooth. To see everything for your skill, query it in the filter above, then
-      click Download JSON.{' '}
+      click Download trajectories.{' '}
       <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
     </p>
   )
@@ -468,8 +473,8 @@ function okJson(r) {
 // Transcripts by request_id, the one key a rating finds its conversation by: core gives
 // every record a request_id, and a rating and its transcript are posted under the same one.
 // A looser match (the same session, say) could only borrow another run's conversation, such
-// as when the user declined to store their own. The Dashboard's Download trajectories pairs
-// by the same rule (app/ratexp/api/run_dashboard_panels.py).
+// as when the user declined to store their own. The Dashboard view's Download trajectories
+// pairs by the same rule (app/ratexp/api/run_dashboard_panels.py).
 function indexTranscripts(transcripts) {
   return new Map(transcripts.filter((t) => t.request_id).map((t) => [t.request_id, t]))
 }
@@ -492,7 +497,7 @@ function LiveDot({ live }) {
   )
 }
 
-// Shown when a filter has more matches than the view size; points to Download JSON for all of them.
+// Shown when a filter has more matches than the view size; points to Download trajectories for all of them.
 function ViewLimitNotice({ shown }) {
   return (
     <p style={{
@@ -505,7 +510,7 @@ function ViewLimitNotice({ shown }) {
       fontSize: 13,
     }}>
       Showing the first <strong>{shown}</strong> rows - you have more than the view limit.
-      To see all, use <strong>Download JSON</strong> above.
+      To see all, use <strong>Download trajectories</strong> above.
     </p>
   )
 }
@@ -515,7 +520,7 @@ const EXAMPLE_SQL = "SELECT * FROM feedback WHERE skill_name = '...'"
 // Filter box in the read source's own query language (SQL for PostgreSQL, DQL for
 // Dynatrace - from /meta). The backend read adapter validates it and enforces the
 // guardrails (read-only, timeout, row cap).
-function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo, queryLanguage = 'SQL', queryExample }) {
+function FilterBar({ apiBase, rows, transcriptFor, active, liveTick, onFilter, onClear, onInfo, queryLanguage = 'SQL', queryExample }) {
   const example = queryExample || EXAMPLE_SQL
   const [sql, setSql] = useState('') // what's in the textarea (SQL or DQL)
   const [appliedSql, setAppliedSql] = useState('') // the query currently filtering the table
@@ -561,14 +566,16 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveTick])
 
-  // Export feedback as JSON, attaching each row's full ATIF trajectory under `conversation`.
-  // With an active query we re-run it as a full export; the backend applies the download
-  // rule over the whole result (one skill, agent or eval -> all of it; otherwise the 10 most recent).
-  // With no query we just take the most recent preview rows already on screen.
+  // Download trajectories: each row with its own ATIF conversation under `conversation`.
+  // With an active query the backend re-runs it as a Download - the download rule over the
+  // whole result (one skill, agent or eval -> all of it; otherwise the most recent view) -
+  // and returns each row's conversation. With no query it is the live table's rows, whose
+  // conversations the page already holds.
   const download = async () => {
     setErr(null)
     try {
-      let exportRows
+      let exportRows = rows
+      let conversationOf = transcriptFor
       if (appliedSql.trim()) {
         const r = await fetch(`${apiBase}/query`, {
           method: 'POST',
@@ -578,11 +585,10 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
         const body = await r.json().catch(() => ({}))
         if (!r.ok) throw new Error(body.detail || `HTTP ${r.status}`)
         exportRows = body.rows
-      } else {
-        exportRows = rows.slice(0, 10)
+        const index = indexTranscripts(body.transcripts ?? [])
+        conversationOf = (row) => index.get(row.request_id)
       }
-      const index = indexTranscripts(await fetch(`${apiBase}/transcript?full=true`).then(okJson))
-      const exportWithConversation = exportRows.map((r) => ({ ...r, conversation: index.get(r.request_id)?.atif ?? null }))
+      const exportWithConversation = exportRows.map((row) => ({ ...row, conversation: conversationOf(row)?.atif ?? null }))
       const json = JSON.stringify(exportWithConversation, null, 2)
       const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }))
       const a = document.createElement('a')
@@ -613,7 +619,7 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
       <p style={{ color: 'var(--muted)', fontSize: 13, margin: '8px 0 12px' }}>
         Read-only {queryLanguage} query (capped & time-limited) that replaces the table below -
         query one skill, agent or eval, e.g. <code>{example}</code> (<code>skill_name</code> can be
-        replaced by <code>agent</code> or <code>eval_name</code>), then Download JSON to export all of it.{' '}
+        replaced by <code>agent</code> or <code>eval_name</code>), then Download trajectories to export all of it.{' '}
         <button type="button" className="link-inline" onClick={onInfo}>click <b>here</b> for more details</button>
       </p>
       <textarea
@@ -627,7 +633,14 @@ function FilterBar({ apiBase, rows, active, liveTick, onFilter, onClear, onInfo,
       <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="btn-edge" onClick={run} disabled={running || !sql.trim()}>{running ? 'Filtering...' : 'Apply filter'}</button>
         <button className="btn-edge" onClick={clear} disabled={!active && !sql}>Clear</button>
-        <button className="btn-edge" onClick={download} disabled={rows.length === 0}>Download JSON</button>
+        <button
+          className="btn-edge"
+          onClick={download}
+          disabled={rows.length === 0}
+          title="The ratings of the last query you ran, each with its conversation, as JSON"
+        >
+          Download trajectories
+        </button>
         {err && <span style={{ color: 'var(--danger)', fontSize: 13 }}>{err}</span>}
       </div>
     </section>
@@ -876,9 +889,9 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
   )
 }
 
-// Centered popup explaining the real-time preview and how Download JSON behaves
+// Centered popup explaining the real-time preview and how Download trajectories behaves
 // (downloadInfoMd). Same look as InstallGuideModal; closes on the backdrop, the X, or Escape.
-function DownloadInfoModal({ open, onClose, queryLanguage = 'SQL', queryExample }) {
+function DownloadInfoModal({ open, onClose, queryLanguage = 'SQL', queryExample, viewLimit, maxLimit }) {
   useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
@@ -894,7 +907,7 @@ function DownloadInfoModal({ open, onClose, queryLanguage = 'SQL', queryExample 
       <div className="modal-wrap" onClick={onClose}>
         <div className="modal glow-edge" role="dialog" aria-label="Preview and download details" onClick={(e) => e.stopPropagation()}>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
-          <Md className="md modal-md">{downloadInfoMd(queryLanguage, queryExample)}</Md>
+          <Md className="md modal-md">{downloadInfoMd(queryLanguage, queryExample, viewLimit, maxLimit)}</Md>
         </div>
       </div>
     </>,

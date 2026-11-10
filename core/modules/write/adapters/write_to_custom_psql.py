@@ -12,8 +12,8 @@ from modules.write.adapters.write_to_postgres import PostgresWriteAdapter
 
 
 class CustomPostgresWriteAdapter(PostgresWriteAdapter):
-    def __init__(self, dsn_env: str) -> None:
+    def __init__(self, dsn_env: str, keep_newest: int | None = None) -> None:
         dsn = os.environ.get(dsn_env, "").strip()
         if not dsn:
             raise RuntimeError(f"custom_psql is enabled but {dsn_env} is unset")
-        super().__init__("custom_psql", dsn=dsn, auth="password")
+        super().__init__("custom_psql", dsn=dsn, auth="password", keep_newest=keep_newest)

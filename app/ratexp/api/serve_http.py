@@ -102,7 +102,8 @@ def healthz() -> dict[str, str]:
 def meta() -> dict:
     """What the UI needs to render the filter box for the active read source -
     whether the /query box is on, and the source's query language + an example -
-    and the core its install popup tells users to install from."""
+    the core its install popup tells users to install from, and the two row limits its
+    download popup quotes, so the popup says what config.yaml really sets."""
     read = app.state.read
     return {
         "core_url": CORE_URL,
@@ -110,6 +111,8 @@ def meta() -> dict:
         "read_source": read.name,
         "query_language": read.query_language,
         "query_example": read.query_example,
+        "list_view_limit": LIST_VIEW_LIMIT,
+        "list_max_limit": LIST_MAX_LIMIT,
     }
 
 
@@ -118,7 +121,7 @@ def list_feedback(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
     full: bool = False,
 ) -> list[Feedback]:
-    # full=true (the dashboard's Download) returns up to the hard ceiling; else the small view.
+    # full=true returns up to the hard ceiling; else the small view.
     try:
         rows = app.state.read.select_feedback(LIST_MAX_LIMIT if full else limit)
     except Exception as e:
@@ -131,7 +134,7 @@ def list_transcript(
     limit: int = Query(LIST_VIEW_LIMIT, ge=1, le=LIST_MAX_LIMIT),
     full: bool = False,
 ) -> list[Transcript]:
-    # full=true (the dashboard's Download) returns every transcript up to the hard ceiling.
+    # full=true returns every transcript up to the hard ceiling.
     try:
         rows = app.state.read.select_transcript(LIST_MAX_LIMIT if full else limit)
     except Exception as e:
@@ -163,9 +166,11 @@ def run_query(req: QueryRequest) -> dict:
 
     read = app.state.read
     # The adapter validates + caps + runs the query in its language; newest-first trimming
-    # (and the Download one-skill-agent-or-eval rule) happen below.
+    # (and the Download one-skill-agent-or-eval rule) happen below. A Download reads up to
+    # list_max_limit, the same ceiling as the Dashboard view's Download trajectories.
+    max_rows = LIST_MAX_LIMIT if req.full else QUERY_MAX_ROWS
     try:
-        columns, rows = read.run_query(req.query, QUERY_MAX_ROWS, QUERY_TIMEOUT_MS)
+        columns, rows = read.run_query(req.query, max_rows, QUERY_TIMEOUT_MS)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"query error: {e}") from e
     except Exception as e:
@@ -177,7 +182,7 @@ def run_query(req: QueryRequest) -> dict:
     for r in result:
         if "skill_name" in r or "session_id" in r:
             r.setdefault("name", display_name(r.get("skill_name"), r.get("session_id")))
-    fetched_truncated = len(rows) >= QUERY_MAX_ROWS
+    fetched_truncated = len(rows) >= max_rows
     if req.full:
         # Download: one skill, agent or eval -> all of it (newest first); else the most-recent view.
         result, truncated = apply_download_rule(result, fetched_truncated)
@@ -186,16 +191,13 @@ def run_query(req: QueryRequest) -> dict:
         view_cap = LIST_VIEW_LIMIT if req.limit is None else max(1, min(req.limit, QUERY_MAX_ROWS))
         result, truncated = most_recent(result, view_cap, fetched_truncated)
 
-    # Carry the shown rows' own trajectories so the filtered table resolves them itself,
-    # rather than borrowing the live preview's index (which only holds the newest rows).
-    # Skipped for Download (full=true): that path fetches every transcript separately.
-    transcripts: list[dict] = []
-    if not req.full:
-        request_ids = [r["request_id"] for r in result if r.get("request_id")]
-        transcripts = [
-            row_to_transcript(t).model_dump()
-            for t in read.select_transcripts_by_request_ids(request_ids)
-        ]
+    # Carry the returned rows' own trajectories, found by request_id, so the filtered table
+    # and the Download both pair each rating with exactly its conversation, however old.
+    request_ids = [r["request_id"] for r in result if r.get("request_id")]
+    transcripts = [
+        row_to_transcript(t).model_dump()
+        for t in read.select_transcripts_by_request_ids(request_ids)
+    ]
 
     return {
         "columns": columns,
