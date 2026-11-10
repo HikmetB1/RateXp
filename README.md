@@ -249,11 +249,14 @@ sequenceDiagram
    write adapter that is on. The write adapters work independently: if one write adapter fails,
    the other write adapters continue. See
    [Destinations](#destinations-where-core-writes-the-feedback).
-10. <a id="feature-dashboard"></a>**Dashboard:** The dashboard shows the feedback when the
+10. <a id="feature-retention"></a>**Retention:** RateXp keeps only the newest ratings and
+   their conversations, and deletes the older data automatically. Thus, the storage stays small.
+   You set how many ratings stay.
+11. <a id="feature-dashboard"></a>**Dashboard:** The dashboard shows the feedback when the
    feedback arrives. The dashboard has panels, a query box and a JSON export. See
    [The RateXp app](#the-ratexp-app-read-and-export-the-feedback).
-11. <a id="feature-phone-view"></a>**Phone view:** On phones, the table of the dashboard shows
-   each row as a card.
+12. <a id="feature-phone-view"></a>**Phone view:** The RateXp app has a dynamic UI that fits
+   the screen when you view the results.
 
 <!-- shared:start destinations -->
 ## Destinations: where core writes the feedback
