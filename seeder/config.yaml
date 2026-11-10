@@ -52,6 +52,8 @@ session_task_prompt: |
   finish with your assessment: an honest score (1 = good, 2 = bad) and a short comment
   naming what made it that way. Don't stop before you have rated it.
 
+# Together the tasks aim at every word in core's labeling.labels (../core/config.yaml),
+# "other" too, so the demo data fills each label group.
 session_tasks:
   - Write a Python function that parses a semantic version string like "1.4.2-beta" and compares two versions, with a few tests.
   - Add input validation and clear error messages to a small Flask signup endpoint you write first.
@@ -61,6 +63,20 @@ session_tasks:
   - Build a tiny command-line todo app in Python that stores items in a JSON file.
   - Write a TypeScript debounce function with types and a short usage example.
   - Add a README with install and usage sections to a small Python package you sketch first.
+  - Write Terraform for an Azure storage account and a private blob container, with input variables and outputs.
+  - Write a small Go HTTP handler that returns a user by id, then fix the bug where an unknown id crashes it instead of returning 404.
+  - Write a Python script that loads a saved scikit-learn model, scores it on a held-out CSV, and refuses to promote it below an accuracy threshold.
+  - Write a small NumPy k-means function, then add pytest tests for its edge cases - one cluster, empty input, and more clusters than points.
+  - Write a C++ function that turns an RGB image buffer into grayscale and applies a 3x3 box blur, with a small main that runs it on a 4x4 sample.
+  - Write a small vanilla JavaScript image carousel, then clean up its code style - consistent names, indentation, no unused variables - without changing what it does.
+  - Write a Kotlin Android ViewModel for a login screen that holds the email and password and validates them before sign-in.
+  - Write a small Java class that looks up a user by name with string-built SQL, then fix its SQL injection with a prepared statement.
+  - Write a C# ASP.NET Core controller that queries the database directly, then refactor its data access into a separate service class.
+  - Write a Rust command-line tool that reads a CSV of sales and prints the total per region, skipping and reporting bad rows.
+  - Tidy the setup of a small TypeScript project you sketch first - add a .gitignore, an .editorconfig, and npm scripts for build, lint, and test.
+  - Write an architecture decision record in Markdown that compares PostgreSQL and MongoDB for a small booking app and picks one.
+  - Write a small text-adventure game in Python with three rooms, an inventory, and a win condition.
+  - Write a Python function that finds duplicate files by hashing every file in full, then make it faster by comparing sizes first and hashing only the matches.
 
 # Appended to the task on a `critical_ratio` share of runs, skill and session alike,
 # so the seeder isn't all praise.

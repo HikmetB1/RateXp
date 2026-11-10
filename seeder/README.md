@@ -76,6 +76,8 @@ at startup with an error.
 - `system_prompt` / `task_prompt`: The instructions of the agent for a skill run.
 - `session_system_prompt` / `session_task_prompt` / `session_tasks`: The instructions of the
   agent for a session run, and the coding tasks that a session run selects from at random.
+  The tasks aim at every label in `labeling.labels` of [core's config.yaml](../core/config.yaml),
+  "other" too.
 - `critical_prompt`: The instructions for a harsh reviewer. The seeder adds
   `critical_prompt` to the `critical_ratio` share of the skill runs and of the session runs.
 
