@@ -559,6 +559,28 @@ def test_a_swapped_transcript_file_is_not_uploaded(c):
     assert "Transcript could not be sent" in out
 
 
+def test_macos_stat_uploads_the_transcript(c):
+    """macOS stat gives /dev/fd/N a device of its own; the same file must still match."""
+    c.use_macos_stat()
+    c.request()
+    c.ask()
+    out, _ = c.report("good", "share")
+    assert c.endpoints() == ["feedback", "transcript"]
+    assert "transcript accepted" in out
+
+
+def test_macos_stat_still_refuses_a_swapped_transcript(c):
+    c.use_macos_stat()
+    c.request()
+    c.ask()
+    replacement = c.transcript.with_suffix(".new")
+    replacement.write_bytes(c.transcript.read_bytes() + b"x" * 64)
+    os.replace(replacement, c.transcript)
+    out, _ = c.report("good", "share")
+    assert c.endpoints() == ["feedback"]
+    assert "Transcript could not be sent" in out
+
+
 # --------------------------------------------------------------------------
 # Bad input
 # --------------------------------------------------------------------------
@@ -597,6 +619,7 @@ SHARED = (
     "good_url",
     "post",
     "file_info",
+    "open_file_info",
     "ratexp_request",
     "find_eval",
     "unknown_eval_line",

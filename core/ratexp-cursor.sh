@@ -36,9 +36,9 @@ EVALS=('__RATEXP_EVALS__')
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.
-# The reader, quote, good_url, post, file_info, ratexp_request, find_eval and
-# unknown_eval_line are the same in ratexp-claude.sh: a test holds the two copies
-# identical, so change them together.
+# The reader, quote, good_url, post, file_info, open_file_info, ratexp_request,
+# find_eval and unknown_eval_line are the same in ratexp-claude.sh: a test holds
+# the two copies identical, so change them together.
 fail() { exit 0; }
 white() { while [[ ${json:pos:1} == [$' \t\r\n'] ]]; do pos=$((pos+1)); done; }
 hex4() {
@@ -205,6 +205,14 @@ post() {
 }
 file_info() {
     stat -L -c '%d:%i:%s' -- "$1" 2>/dev/null || stat -L -f '%d:%i:%z' -- "$1" 2>/dev/null
+}
+# fstat of the file open on stdin. macOS stats /dev/fd/N as a device of its own,
+# so file_info on that path never matches the transcript's path. GNU stat reads
+# '-' as stdin and BSD stat reads no file as stdin; BusyBox does neither, but on
+# Linux /dev/stdin leads to the open file itself.
+open_file_info() {
+    stat -L -c '%d:%i:%s' - 2>/dev/null || stat -f '%d:%i:%z' 2>/dev/null ||
+        stat -L -c '%d:%i:%s' /dev/stdin 2>/dev/null
 }
 file_mtime() {
     stat -L -c '%Y' -- "$1" 2>/dev/null || stat -L -f '%m' -- "$1" 2>/dev/null
@@ -483,7 +491,7 @@ report() {
         { printf '%s\n' "$reason"; return 0; }
     [[ -f $transcript && ! -L $transcript ]] || { printf '%s\n' "$reason"; return 0; }
     exec 3< "$transcript" || { printf '%s\n' "$reason"; return 0; }
-    current=$(file_info /dev/fd/3) || { printf '%s\n' "$reason"; return 0; }
+    current=$(open_file_info <&3) || { printf '%s\n' "$reason"; return 0; }
     # Match the device and inode noted when asking, so a swapped file is refused.
     [[ ${current%:*} == "$identity" ]] || { printf '%s\n' "$reason"; return 0; }
     # What is rated ends where the request was made; the survey is not part of it.

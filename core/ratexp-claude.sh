@@ -21,9 +21,9 @@ EVALS=('__RATEXP_EVALS__')
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.
-# The reader, quote, good_url, post, file_info, ratexp_request, find_eval and
-# unknown_eval_line are the same in ratexp-cursor.sh: a test holds the two copies
-# identical, so change them together.
+# The reader, quote, good_url, post, file_info, open_file_info, ratexp_request,
+# find_eval and unknown_eval_line are the same in ratexp-cursor.sh: a test holds
+# the two copies identical, so change them together.
 fail() { exit 0; }
 white() { while [[ ${json:pos:1} == [$' \t\r\n'] ]]; do pos=$((pos+1)); done; }
 hex4() {
@@ -175,6 +175,14 @@ post() {
 }
 file_info() {
     stat -L -c '%d:%i:%s' -- "$1" 2>/dev/null || stat -L -f '%d:%i:%z' -- "$1" 2>/dev/null
+}
+# fstat of the file open on stdin. macOS stats /dev/fd/N as a device of its own,
+# so file_info on that path never matches the transcript's path. GNU stat reads
+# '-' as stdin and BSD stat reads no file as stdin; BusyBox does neither, but on
+# Linux /dev/stdin leads to the open file itself.
+open_file_info() {
+    stat -L -c '%d:%i:%s' - 2>/dev/null || stat -f '%d:%i:%z' 2>/dev/null ||
+        stat -L -c '%d:%i:%s' /dev/stdin 2>/dev/null
 }
 arm() {
     # Deduplicate invocations by key; $2 marks the run's initial byte offset.
@@ -563,7 +571,7 @@ main() {
     [[ $type == string && -f $transcript && ! -L $transcript ]] || { report "$reason"; return; }
     # Open after consent and match Stop's device/inode to prevent file swaps.
     exec 3< "$transcript" || { report "$reason"; return; }
-    current=$(file_info /dev/fd/3) || { report "$reason"; return; }
+    current=$(open_file_info <&3) || { report "$reason"; return; }
     [[ ${current%:*} == "$identity" ]] || { report "$reason"; return; }
     # Include the closing message written after Stop; reject a truncated file.
     (( ${current##*:} >= size )) || { report "$reason"; return; }

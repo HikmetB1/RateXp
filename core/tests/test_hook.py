@@ -39,7 +39,7 @@ pytestmark = pytest.mark.skipif(
 
 # Taken verbatim from the script's own preflight loop. `curl` is replaced by a
 # fake; the rest are symlinked to the real system binaries. /dev/urandom and
-# /dev/fd/3 are devices, not binaries, so they need no entry here.
+# /dev/stdin are devices, not binaries, so they need no entry here.
 ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", "tail", "sort")
 
 # Tools the script must NOT need. The sandbox deliberately hides them.
@@ -122,6 +122,30 @@ if (( wants_body )); then
     printf '%s' "$body" > "$dir/body-$id"
 fi
 printf '%s' "${RATEXP_CURL_STATUS:-201}"
+"""
+
+
+# Stand-in for macOS stat, built over the real GNU stat: BSD options only, and a
+# path under /dev/fd/ reports a device of its own, as the macOS kernel does. With
+# no file, BSD stat reads the file open on stdin.
+MACOS_STAT = """#!/bin/bash
+real=__REAL_STAT__
+follow=() format='' file=''
+while (( $# )); do
+    case $1 in
+        -L) follow=(-L) ;;
+        -f) format=$2; shift ;;
+        --) ;;
+        -*) exit 1 ;;
+        *) file=$1 ;;
+    esac
+    shift
+done
+format=${format//%z/%s}; format=${format//%m/%Y}
+[[ -n $file ]] || exec "$real" "${follow[@]}" -c "$format" -
+out=$("$real" "${follow[@]}" -c "$format" -- "$file") || exit 1
+[[ $file == /dev/fd/* || $file == /dev/stdin ]] && out=2419710062:${out#*:}
+printf '%s\\n' "$out"
 """
 
 
@@ -411,6 +435,14 @@ class Hook:
             path.unlink()
         path.symlink_to(victim)
         return victim
+
+    def use_macos_stat(self) -> None:
+        """Replace stat on the sandbox PATH with the MACOS_STAT stand-in."""
+        stat = self.bin / "stat"
+        real = os.readlink(stat)
+        stat.unlink()
+        stat.write_text(MACOS_STAT.replace("__REAL_STAT__", shlex.quote(real)), encoding="utf-8")
+        stat.chmod(0o755)
 
 
 @pytest.fixture
@@ -1088,6 +1120,28 @@ def test_transcript_never_leaks_without_consent(hook):
 
 def test_swapped_transcript_file_is_not_uploaded(hook):
     """A path swapped between Stop and the answer is a different file; refuse it."""
+    picker = hook.ask()
+    decoy = hook.tmp / "decoy.jsonl"
+    decoy.write_text("DECOY-CONTENT\n" * 50, encoding="utf-8")
+    os.replace(decoy, hook.transcript)  # same path, new inode
+
+    out, _, _ = hook.run_hook(hook.answer(picker, CONSENT))
+    assert hook.endpoints() == ["feedback"]
+    assert b"DECOY-CONTENT" not in hook.curl_log_bytes()
+    assert "Transcript could not be sent" in out
+
+
+def test_macos_stat_uploads_the_transcript(hook):
+    """macOS stat gives /dev/fd/N a device of its own; the same file must still match."""
+    hook.use_macos_stat()
+    picker = hook.ask()
+    out, _, _ = hook.run_hook(hook.answer(picker, CONSENT))
+    assert hook.endpoints() == ["feedback", "transcript"]
+    assert "transcript accepted" in out
+
+
+def test_macos_stat_still_refuses_a_swapped_transcript(hook):
+    hook.use_macos_stat()
     picker = hook.ask()
     decoy = hook.tmp / "decoy.jsonl"
     decoy.write_text("DECOY-CONTENT\n" * 50, encoding="utf-8")
