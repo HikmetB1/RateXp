@@ -489,6 +489,18 @@ def test_nothing_chosen_and_nothing_typed_sends_nothing(hook):
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("status", ["201", "500"])
+def test_an_answered_survey_ends_the_turn(hook, status):
+    """After the report the model says nothing: the hook, not the model, tells the
+    user what happened to the rating, sent or not."""
+    picker = hook.ask()
+    out, _, _ = hook.run_hook(hook.answer(picker, CONSENT), env={"RATEXP_CURL_STATUS": status})
+    reply = json.loads(out)
+    assert reply["continue"] is False
+    assert reply["stopReason"].startswith("RateXp: feedback")
+    assert reply["stopReason"] == reply["systemMessage"], "the line the user sees is the report"
+
+
 def test_a_quoted_consent_label_still_grants_consent(hook):
     """Claude Code quotes a label that holds a comma: `Good, "Yes, store trajectory", great`."""
     picker = hook.ask()

@@ -218,7 +218,10 @@ run_end() {  # run_end <file> <start> <limit>: sets end
 report() {
     quote "$1"
     [[ -L $dir/status ]] || printf '{"systemMessage":%s}\n' "$quoted" > "$dir/status"
-    printf '{"systemMessage":%s}\n' "$quoted"
+    # The survey is over: end the turn, so the model cannot answer the picker itself
+    # and say something about the upload that is not true. Claude Code then shows
+    # the stopReason, not the systemMessage, so both hold the report.
+    printf '{"systemMessage":%s,"continue":false,"stopReason":%s}\n' "$quoted" "$quoted"
 }
 # Skip unrelated or oversized tool payloads before parsing. The dashboard's install
 # popup (app/ratexp/FE/src/App.jsx) has users hook up exactly these events; keep in step.
