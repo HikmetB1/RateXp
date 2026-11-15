@@ -5,6 +5,7 @@
 - [Config and env](#config-and-env-where-settings-live)
 - [Run locally](#run-locally-the-whole-stack-at-once)
 - [Custom deploy](#custom-deploy-run-your-own-ratexp)
+- [Dev environment](#dev-environment-test-a-change-before-prod)
 - [Repository layout](#repository-layout-what-each-folder-holds)
 - [Tests](#tests-per-component-and-whole-app)
 - [Documentation rules](#documentation-rules-how-docs-should-read)
@@ -76,6 +77,11 @@ See [docs/read-the-feedback.md](./docs/read-the-feedback.md).
 ## Custom deploy: run your own RateXp
 
 See [docs/custom-deploy.md](./docs/custom-deploy.md).
+
+## Dev environment: test a change before prod
+
+See [Dev environment](./docs/custom-deploy.md#dev-environment-test-a-change-before-prod)
+in docs/custom-deploy.md.
 
 ## Repository layout: what each folder holds
 
@@ -179,16 +185,25 @@ deployed systems: one against a deployed stack, and one with the real agents on 
 - **With the real agents, on production:**
   - **When:** Run `test_agents_production.py` after you deploy a change to
     `core/ratexp-*.sh` or `core/install.sh`.
-  - **No local stack:** The test installs from the production core and reads the production
-    dashboard. Thus, the test needs no local stack.
+  - **No local stack:** The test installs from the core of production and reads the RateXp app
+    of production (for dev, see **Dev**). Thus, the test needs no local stack.
   - **Needs:** A logged-in `claude` and `cursor-agent`, and a few cents of model use.
   - **Scripted part:** The test scripts only the click on the survey.
-  - **Production data:** Each run leaves its ratings in production, with short, masked test
-    conversations. Each test rating has the comment `ratexp-live-test <time>`.
+  - **Test data:** Each run leaves its ratings in the environment that the test runs on, with
+    short, masked test conversations. Each test rating has the comment
+    `ratexp-live-test <time>`.
   - **Run:**
 
     ```bash
     RATEXP_PROD_AGENTS=1 uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_agents_production.py -v
+    ```
+
+  - **Dev:** Run the test on dev (`ratexp-dev-core` and `ratexp-dev-app`) before you copy the
+    images to prod. Then run the test on production again. To run the test on dev, run this
+    command:
+
+    ```bash
+    RATEXP_PROD_AGENTS=1 RATEXP_AGENTS_ENVIRONMENT=dev uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_agents_production.py -v
     ```
 
 ## Documentation rules: how docs should read

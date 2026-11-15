@@ -45,7 +45,7 @@ output "app_url" {
 
 output "postgres_fqdn" {
   description = "PostgreSQL server hostname."
-  value       = azurerm_postgresql_flexible_server.this.fqdn
+  value       = local.pg_fqdn
 }
 
 output "core_identity_object_id" {

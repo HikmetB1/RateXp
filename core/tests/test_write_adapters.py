@@ -318,6 +318,17 @@ def test_a_summary_fact_that_is_unknown_is_left_off_the_log():
     assert "ratexp.language" not in attributes  # not labeled
 
 
+def test_every_otlp_record_carries_the_environment_that_the_deployment_sets(monkeypatch):
+    pytest.importorskip("opentelemetry.sdk._logs")
+    monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "deployment.environment.name=dev")
+    adapter = BlueboxWriteAdapter("https://abc12345.live.dynatrace.com/api/v2/otlp", "tok")
+    adapter._ensure_logger()
+    attributes = adapter._provider.resource.attributes
+    adapter._provider.shutdown()
+    assert attributes["deployment.environment.name"] == "dev"
+    assert attributes["service.name"] == "ratexp-core"
+
+
 def test_a_tenant_url_or_token_that_is_missing_is_refused():
     with pytest.raises(RuntimeError):
         DynatraceWriteAdapter("app_be_dynatrace", "", "tok")

@@ -10,7 +10,7 @@ variable "project" {
 }
 
 variable "environment" {
-  description = "Environment suffix. Empty = the default (prod) deployment, which keeps its random-suffixed names. A non-empty value (e.g. \"dev\") yields clean, suffix-free names like ratexp-dev-app."
+  description = "Environment name. Empty = the default (prod) deployment, named after the project alone (ratexp-app). A non-empty value (e.g. \"dev\") goes into every name (ratexp-dev-app). core marks its Dynatrace and Bluebox records with the environment, prod for the default."
   type        = string
   default     = ""
 }
@@ -37,6 +37,18 @@ variable "pg_database" {
   description = "Database name created on the server."
   type        = string
   default     = "ratexp"
+}
+
+variable "shared_postgres_server_name" {
+  description = "Name of an existing PostgreSQL Flexible Server to create pg_database on (non-default environments). Empty creates a new server."
+  type        = string
+  default     = ""
+}
+
+variable "shared_postgres_resource_group" {
+  description = "Resource group of the existing server named in shared_postgres_server_name."
+  type        = string
+  default     = ""
 }
 
 variable "pg_sku_name" {

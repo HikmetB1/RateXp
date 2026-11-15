@@ -35,6 +35,16 @@ view option. To switch a destination on, see [Config and env](./config-and-env.m
 The dashboards show the same panels and filters. For how the dashboards stay the same, see
 [ADR 0001](./adr/0001-one-panel-list-for-every-dashboard.md).
 
+- **Environments in Dynatrace:** One Dynatrace tenant can hold the records of prod and dev.
+  The Dynatrace dashboard and the RateXp Dynatrace app show the records of one environment.
+  - **Prod:** the Dynatrace dashboard "RateXp" (document id `ratexp`) and the RateXp Dynatrace
+    app.
+  - **Dev:** the Dynatrace dashboard "RateXp (dev)" (document id `ratexp-dev`) and the dev copy
+    of the RateXp Dynatrace app. See
+    [Deploy](../app/dynatrace/README.md#deploy-how-the-ratexp-dynatrace-app-gets-to-dynatrace).
+  - **Mark:** core marks each record with its environment. See `OTEL_RESOURCE_ATTRIBUTES` in
+    [core](../core/README.md#env-the-secrets-core-reads).
+
 ## Filters: narrow the panels
 
 - **Type:** Skill or session. A session rating has no skill. When you select session, the

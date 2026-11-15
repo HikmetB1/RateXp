@@ -75,6 +75,9 @@ class DynatraceWriteAdapter:
                 headers={"Authorization": f"Api-Token {self._token}"},
                 timeout=int(self._timeout),
             )
+            # Resource.create also reads OTEL_RESOURCE_ATTRIBUTES. Each deployment sets
+            # deployment.environment.name there (infra/main.tf: prod or dev), and the
+            # Dynatrace dashboard and app show the records of one environment by it.
             provider = LoggerProvider(resource=Resource.create({"service.name": "ratexp-core"}))
             provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
             self._provider = provider

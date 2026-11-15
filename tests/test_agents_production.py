@@ -6,6 +6,10 @@ core/install.sh:
     RATEXP_PROD_AGENTS=1 uv run --no-project --with-requirements tests/requirements.txt \\
         pytest tests/test_agents_production.py -v
 
+RATEXP_AGENTS_ENVIRONMENT=dev runs the same checks on dev (ratexp-dev-core and
+ratexp-dev-app), before the tested images are copied to prod; "production" below then
+means dev.
+
 Each test installs RateXp into a scratch project with the one-line installer from the
 production core, runs the agent there with `-p`, answers the survey the way a click
 would - good, and store the conversation - finds the rating and its trajectory on the
@@ -38,11 +42,17 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("RATEXP_PROD_AGENTS") != "1",
-    reason="set RATEXP_PROD_AGENTS=1 to run the real Claude Code and Cursor CLIs on production",
+    reason="set RATEXP_PROD_AGENTS=1 to run the real Claude Code and Cursor CLIs on production"
+    " (or on dev, with RATEXP_AGENTS_ENVIRONMENT=dev)",
 )
 
-CORE_URL = "https://ratexp-core.azurewebsites.net"
-APP_URL = "https://ratexp-app.azurewebsites.net"
+# The name base that infra/main.tf gives each environment's web apps.
+NAME_BASES = {"prod": "ratexp", "dev": "ratexp-dev"}
+ENVIRONMENT = os.environ.get("RATEXP_AGENTS_ENVIRONMENT", "prod")
+if ENVIRONMENT not in NAME_BASES:
+    raise pytest.UsageError(f"RATEXP_AGENTS_ENVIRONMENT must be one of {', '.join(NAME_BASES)}")
+CORE_URL = f"https://{NAME_BASES[ENVIRONMENT]}-core.azurewebsites.net"
+APP_URL = f"https://{NAME_BASES[ENVIRONMENT]}-app.azurewebsites.net"
 # The agents' turns, kept short and cheap; ten minutes covers a slow model.
 AGENT_TIMEOUT = 600
 CLAUDE_MODEL = os.environ.get("RATEXP_LIVE_CLAUDE_MODEL", "haiku")

@@ -1,5 +1,6 @@
 // The dashboard this app draws: core's dashboard_for_dynatrace.yaml cloned from
 // dashboard_base.yaml, bundled as dashboard.json by scripts/sync-dashboard.mjs.
+import { getAppId } from "@dynatrace-sdk/app-environment";
 import dashboardJson from "./dashboard.json";
 
 // Type first: skill or session, where a session rating is one that has no skill; every
@@ -26,4 +27,19 @@ export interface Dashboard {
   panels: Panel[];
 }
 
-export const dashboard = dashboardJson as Dashboard;
+/** The dashboard showing the records of `environment`: the {environment} in the filter
+ * fragment and the dropdowns' values queries filled in. Each panel and the download take
+ * the fragment, so they need no filling of their own. */
+export function fillEnvironment(dashboard: Dashboard, environment: string): Dashboard {
+  const fill = (dql: string) => dql.replace(/\{environment\}/g, () => environment);
+  const values = Object.fromEntries(
+    Object.entries(dashboard.filters.values).map(([key, dql]) => [key, fill(dql)]),
+  ) as Record<FilterKey, string>;
+  return { ...dashboard, filters: { dql: fill(dashboard.filters.dql), values } };
+}
+
+// One tenant holds the records of prod and dev. npm run deploy:dev installs the dev copy of
+// this app under the app id <id>.dev (scripts/deploy-dev.mjs), and that copy shows dev's.
+export const environment = getAppId().endsWith(".dev") ? "dev" : "prod";
+
+export const dashboard = fillEnvironment(dashboardJson as Dashboard, environment);

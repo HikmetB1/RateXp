@@ -18,6 +18,7 @@ from modules.dashboard.publish_to_dynatrace import (
     DOCUMENT_ID,
     build_dashboard_document,
     build_multipart,
+    name_and_document_id,
     publish_dashboard,
 )
 
@@ -36,7 +37,7 @@ FILTER_VARIABLES = (
 
 @pytest.fixture
 def document() -> dict:
-    return build_dashboard_document(clone_dashboard("dynatrace"))
+    return build_dashboard_document(clone_dashboard("dynatrace"), "prod")
 
 
 def _data_tiles(document: dict) -> list[dict]:
@@ -121,6 +122,23 @@ def test_the_feedback_tile_shows_as_many_ratings_as_the_ratexp_app(document):
     assert f"| sort timestamp desc | limit {list_view_limit} |" in feedback["query"]
 
 
+@pytest.mark.parametrize("environment", ["prod", "dev"])
+def test_every_query_and_variable_shows_the_records_of_one_environment(environment):
+    document = build_dashboard_document(clone_dashboard("dynatrace"), environment)
+    match = f'coalesce(deployment.environment.name, "prod") == "{environment}"'
+    queries = [tile["query"] for tile in _data_tiles(document)]
+    inputs = [variable["input"] for variable in document["variables"]]
+    for dql in queries + inputs:
+        assert "{environment}" not in dql
+    for dql in queries + [i for i in inputs if "fetch logs" in i]:
+        assert match in dql, dql
+
+
+def test_prod_keeps_the_yaml_name_and_dev_gets_its_own_document_beside_it():
+    assert name_and_document_id("RateXp", "prod") == ("RateXp", DOCUMENT_ID)
+    assert name_and_document_id("RateXp", "dev") == ("RateXp (dev)", f"{DOCUMENT_ID}-dev")
+
+
 def test_the_seven_filter_variables_default_to_all_and_type_narrows_the_rest(document):
     variables = {variable["key"]: variable for variable in document["variables"]}
     # Type first: a variable can only read one defined above it.
@@ -190,7 +208,7 @@ def _documents_api(monkeypatch, metadata) -> list:
 def test_an_absent_document_is_created_with_its_name_type_and_id(monkeypatch):
     not_found = urllib.error.HTTPError(DOCUMENTS, 404, "Not Found", {}, io.BytesIO(b""))
     seen = _documents_api(monkeypatch, not_found)
-    assert publish_dashboard({"version": 21}, "Team ratings", HOST, "tok") == "created"
+    assert publish_dashboard({"version": 21}, "Team ratings", DOCUMENT_ID, HOST, "tok") == "created"
     assert [r.get_method() for r in seen] == ["GET", "POST"]
     assert seen[0].full_url == f"{DOCUMENTS}/{DOCUMENT_ID}/metadata"
     assert seen[1].full_url == DOCUMENTS
@@ -205,7 +223,8 @@ def test_an_absent_document_is_created_with_its_name_type_and_id(monkeypatch):
 
 def test_an_existing_document_gets_its_name_and_content_replaced_at_its_version(monkeypatch):
     seen = _documents_api(monkeypatch, {"id": DOCUMENT_ID, "version": 7})
-    assert publish_dashboard({"version": 21}, "Team ratings", HOST + "/", "tok") == "updated"
+    outcome = publish_dashboard({"version": 21}, "Team ratings", DOCUMENT_ID, HOST + "/", "tok")
+    assert outcome == "updated"
     assert [r.get_method() for r in seen] == ["GET", "PATCH"]
     assert seen[1].full_url == f"{DOCUMENTS}/{DOCUMENT_ID}?optimistic-locking-version=7"
     parts = _parts(seen[1].data, seen[1].get_header("Content-type"))
@@ -218,14 +237,14 @@ def test_any_other_refusal_of_the_metadata_is_raised(monkeypatch):
     forbidden = urllib.error.HTTPError(DOCUMENTS, 403, "Forbidden", {}, io.BytesIO(b""))
     _documents_api(monkeypatch, forbidden)
     with pytest.raises(urllib.error.HTTPError):
-        publish_dashboard({"version": 21}, "RateXp", HOST, "tok")
+        publish_dashboard({"version": 21}, "RateXp", DOCUMENT_ID, HOST, "tok")
 
 
 def test_main_names_the_dashboard_as_the_yaml_does_and_prints_its_url(monkeypatch, capsys):
     monkeypatch.setenv("DT_QUERY_URL", HOST)
     monkeypatch.setenv("DT_DASHBOARD_TOKEN", "tok")
     seen = _documents_api(monkeypatch, {"version": 1})
-    publish_to_dynatrace.main()
+    publish_to_dynatrace.main([])
     parts = _parts(seen[1].data, seen[1].get_header("Content-type"))
     assert parts["name"].get_content() == clone_dashboard("dynatrace")["name"]
     assert capsys.readouterr().out.strip() == (
@@ -233,9 +252,34 @@ def test_main_names_the_dashboard_as_the_yaml_does_and_prints_its_url(monkeypatc
     )
 
 
+def test_main_for_dev_publishes_the_dev_document_with_dev_records(monkeypatch, capsys):
+    monkeypatch.setenv("DT_QUERY_URL", HOST)
+    monkeypatch.setenv("DT_DASHBOARD_TOKEN", "tok")
+    seen = _documents_api(monkeypatch, {"version": 1})
+    publish_to_dynatrace.main(["dev"])
+    assert seen[0].full_url == f"{DOCUMENTS}/{DOCUMENT_ID}-dev/metadata"
+    parts = _parts(seen[1].data, seen[1].get_header("Content-type"))
+    name = clone_dashboard("dynatrace")["name"]
+    assert parts["name"].get_content() == f"{name} (dev)"
+    content = json.loads(parts["content"].get_content())
+    assert f"## {name} (dev)" in content["tiles"]["0"]["content"]
+    assert '== "dev"' in content["tiles"]["1"]["query"]
+    assert capsys.readouterr().out.strip() == (
+        f"updated: {HOST}/ui/apps/dynatrace.dashboards/dashboard/{DOCUMENT_ID}-dev"
+    )
+
+
+def test_main_refuses_an_unknown_environment(monkeypatch):
+    monkeypatch.setenv("DT_QUERY_URL", HOST)
+    monkeypatch.setenv("DT_DASHBOARD_TOKEN", "tok")
+    with pytest.raises(SystemExit) as stopped:
+        publish_to_dynatrace.main(["staging"])
+    assert stopped.value.code == 2
+
+
 def test_main_without_a_host_or_token_stops_with_a_hint(monkeypatch):
     monkeypatch.delenv("DT_QUERY_URL", raising=False)
     monkeypatch.delenv("DT_DASHBOARD_TOKEN", raising=False)
     monkeypatch.delenv("DT_ACCESS_TOKEN", raising=False)
     with pytest.raises(SystemExit, match="DT_QUERY_URL"):
-        publish_to_dynatrace.main()
+        publish_to_dynatrace.main([])

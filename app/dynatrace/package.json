@@ -1,6 +1,6 @@
 {
   "name": "ratexp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "RateXp inside Dynatrace: the web app's Dashboard view, drawn with Strato",
   "scripts": {
     "sync-dashboard": "node scripts/sync-dashboard.mjs",
@@ -13,6 +13,7 @@
     "create:action": "dt-app action create",
     "uninstall": "dt-app uninstall",
     "deploy": "dt-app deploy",
+    "deploy:dev": "node scripts/deploy-dev.mjs",
     "update": "dt-app update",
     "info": "dt-app info",
     "help": "dt-app help",

@@ -20,6 +20,8 @@ locals {
   # free across all of Azure for the chosen project/environment.
   is_default_env = var.environment == ""
   name_base      = local.is_default_env ? var.project : "${var.project}-${var.environment}"
+  # The environment that core marks its Dynatrace and Bluebox records with.
+  environment_name = local.is_default_env ? "prod" : var.environment
 
   acr_name    = "${replace(local.name_base, "-", "")}acr"
   core_name   = "${local.name_base}-core"
@@ -41,7 +43,11 @@ locals {
   core_url = "https://${local.core_name}.azurewebsites.net"
   app_url  = "https://${local.app_name}.azurewebsites.net"
 
-  pg_fqdn         = azurerm_postgresql_flexible_server.this.fqdn
+  # A non-default environment can put its database on an existing server
+  # (shared_postgres_server_name) in place of a server of its own.
+  shared_pg       = var.shared_postgres_server_name != ""
+  pg_server_id    = local.shared_pg ? data.azurerm_postgresql_flexible_server.shared[0].id : azurerm_postgresql_flexible_server.this[0].id
+  pg_fqdn         = local.shared_pg ? data.azurerm_postgresql_flexible_server.shared[0].fqdn : azurerm_postgresql_flexible_server.this[0].fqdn
   admin_object_id = var.entra_admin_object_id != "" ? var.entra_admin_object_id : data.azurerm_client_config.current.object_id
 
   # Passwordless DSNs: the username is the web app's Managed Identity name; the
@@ -72,6 +78,7 @@ resource "azurerm_container_registry" "this" {
 
 # --- PostgreSQL (Entra-only authentication) ---
 resource "azurerm_postgresql_flexible_server" "this" {
+  count                         = local.shared_pg ? 0 : 1
   name                          = "pg-${local.name_base}"
   resource_group_name           = azurerm_resource_group.this.name
   location                      = azurerm_resource_group.this.location
@@ -91,7 +98,8 @@ resource "azurerm_postgresql_flexible_server" "this" {
 # The deployer becomes the server's Entra admin so it can create the per-app
 # database roles (see docs/custom-deploy.md, Deploy to Azure, step 3).
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "admin" {
-  server_name         = azurerm_postgresql_flexible_server.this.name
+  count               = local.shared_pg ? 0 : 1
+  server_name         = azurerm_postgresql_flexible_server.this[0].name
   resource_group_name = azurerm_resource_group.this.name
   tenant_id           = data.azurerm_client_config.current.tenant_id
   object_id           = local.admin_object_id
@@ -101,7 +109,7 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "ad
 
 resource "azurerm_postgresql_flexible_server_database" "ratexp" {
   name      = var.pg_database
-  server_id = azurerm_postgresql_flexible_server.this.id
+  server_id = local.pg_server_id
   collation = "en_US.utf8"
   charset   = "utf8"
 }
@@ -109,10 +117,37 @@ resource "azurerm_postgresql_flexible_server_database" "ratexp" {
 # "Allow Azure services": lets the web apps' dynamic outbound IPs reach the
 # server without pinning each one.
 resource "azurerm_postgresql_flexible_server_firewall_rule" "azure" {
+  count            = local.shared_pg ? 0 : 1
   name             = "allow-azure-services"
-  server_id        = azurerm_postgresql_flexible_server.this.id
+  server_id        = azurerm_postgresql_flexible_server.this[0].id
   start_ip_address = "0.0.0.0"
   end_ip_address   = "0.0.0.0"
+}
+
+# The existing server of shared_postgres_server_name already has its Entra admin and the
+# "Allow Azure services" rule, so this environment adds only its database to it.
+data "azurerm_postgresql_flexible_server" "shared" {
+  count               = local.shared_pg ? 1 : 0
+  name                = var.shared_postgres_server_name
+  resource_group_name = var.shared_postgres_resource_group
+}
+
+# A state from before shared_postgres_server_name holds these three without the [0] index.
+# These blocks move them to [0], so terraform apply keeps the server and its data in place of
+# a new server.
+moved {
+  from = azurerm_postgresql_flexible_server.this
+  to   = azurerm_postgresql_flexible_server.this[0]
+}
+
+moved {
+  from = azurerm_postgresql_flexible_server_active_directory_administrator.admin
+  to   = azurerm_postgresql_flexible_server_active_directory_administrator.admin[0]
+}
+
+moved {
+  from = azurerm_postgresql_flexible_server_firewall_rule.azure
+  to   = azurerm_postgresql_flexible_server_firewall_rule.azure[0]
 }
 
 # --- Compute ---
@@ -199,6 +234,9 @@ resource "azurerm_linux_web_app" "core" {
     # The account core labels trajectories with; empty leaves labeling off (see
     # core/modules/labeling/label_trajectory.py). No key: core auths with its identity.
     AZURE_OPENAI_ENDPOINT = var.enable_labeling ? local.aoai_endpoint : ""
+    # Marks each record core writes to Dynatrace and Bluebox with this deployment, so one
+    # tenant holds prod and dev apart (core/modules/write/adapters/write_to_dynatrace.py).
+    OTEL_RESOURCE_ATTRIBUTES = "deployment.environment.name=${local.environment_name}"
   }
 }
 

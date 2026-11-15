@@ -166,6 +166,11 @@ startup with an error.
   `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: One group for each
   destination. `config.yaml` names each variable, but never holds the value. If a destination
   has no value, core skips the destination with a warning and does not fail.
+- `OTEL_RESOURCE_ATTRIBUTES`: The OpenTelemetry attributes on each record that core writes to
+  Dynatrace and Bluebox. Set `deployment.environment.name=prod` or
+  `deployment.environment.name=dev` there. A record without `deployment.environment.name`
+  counts as `prod`. Terraform sets the value on Azure. For the Dynatrace views of each
+  environment, see [View options](../docs/read-the-feedback.md#view-options-where-to-see-the-human-evals).
 - `DT_QUERY_URL` / `DT_DASHBOARD_TOKEN`: The apps host and the token to publish the Dynatrace
   dashboard. Only `modules/dashboard/publish_to_dynatrace.py` reads `DT_QUERY_URL` and
   `DT_DASHBOARD_TOKEN`, and the docstring of `publish_to_dynatrace.py` gives the scopes. The

@@ -22,14 +22,22 @@
 # {list_view_limit} and {list_max_limit} are the RateXp app's settings of the same names
 # (app/ratexp/config.yaml), so every dashboard shows and downloads as many ratings:
 # publish_to_dynatrace.py and app/dynatrace/scripts/sync-dashboard.mjs fill them in.
+#
+# {environment} is prod or dev: one tenant holds the records of both deployments, and core
+# marks each with its deployment.environment.name. Records without the mark count as prod.
+# Every fetch logs keeps one environment in filters, so each panel and the download do too.
+# publish_to_dynatrace.py fills it with the environment it publishes for, and the Dynatrace
+# app fills it from its own app id (app/dynatrace/ui/app/dashboard/loadDashboard.ts).
 name: RateXp
 filters:
   dql: >-
     | lookup [fetch logs | filter ratexp.record_type == "transcript"
+    and coalesce(deployment.environment.name, "prod") == "{environment}"
     | fields request_id=ratexp.request_id, business_case=ratexp.business_case,
     language=ratexp.language, task_type=ratexp.task_type, model=ratexp.model],
     sourceField:ratexp.request_id, lookupField:request_id, prefix:"transcript."
-    | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
+    | filter coalesce(deployment.environment.name, "prod") == "{environment}"
+    and matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
     and matchesValue(coalesce(ratexp.skill_name, "(none)"), $skill)
     and matchesValue(splitString(ratexp.agent, " ")[0], $agent)
     and matchesValue(coalesce(ratexp.eval_name, "(none)"), $eval)
@@ -40,32 +48,38 @@ filters:
     type: data record(type="*"), record(type="skill"), record(type="session")
     skill: >-
       data record(skill="*") | append [fetch logs | filter ratexp.record_type == "feedback"
+      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{skill=coalesce(ratexp.skill_name, "(none)")}
       | fields skill | sort skill asc]
     agent: >-
       data record(agent="*") | append [fetch logs | filter ratexp.record_type == "feedback"
+      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{agent=splitString(ratexp.agent, " ")[0]}
       | fields agent | sort agent asc]
     eval: >-
       data record(eval="*") | append [fetch logs | filter ratexp.record_type == "feedback"
+      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{eval=coalesce(ratexp.eval_name, "(none)")}
       | fields eval | sort eval asc]
     business_case: >-
       data record(business_case="*") | append [fetch logs
       | filter ratexp.record_type == "transcript"
+      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{business_case=coalesce(ratexp.business_case, "(none)")}
       | fields business_case | sort business_case asc]
     language: >-
       data record(language="*") | append [fetch logs | filter ratexp.record_type == "transcript"
+      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{language=coalesce(ratexp.language, "(none)")}
       | fields language | sort language asc]
     task_type: >-
       data record(task_type="*") | append [fetch logs | filter ratexp.record_type == "transcript"
+      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{task_type=coalesce(ratexp.task_type, "(none)")}
       | fields task_type | sort task_type asc]

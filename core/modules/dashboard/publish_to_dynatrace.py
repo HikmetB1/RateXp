@@ -3,21 +3,26 @@
 Builds a dashboard document from dashboard_for_dynatrace.yaml (see
 clone_dashboard_from_base.py) - a header, one tile per panel, a query variable for each
 filter (type, skill, agent, eval and the three labels), a 30-day default timeframe - and
-stores it under the fixed document id "ratexp", named as the YAML's name: created when
-absent, its name and content replaced when present, so running this again after
-editing the YAML updates the dashboard in place. The DQL's {list_view_limit} is filled in
-from the RateXp app's config.yaml, so publish again after changing it there.
+stores it under a fixed document id: created when absent, its name and content replaced
+when present, so running this again after editing the YAML updates the dashboard in
+place. The DQL's {list_view_limit} is filled in from the RateXp app's config.yaml, so
+publish again after changing it there.
+
+The dashboard shows the records of one environment, which the DQL's {environment} names.
+prod (the default) is stored as "ratexp", named as the YAML's name; dev is stored beside it
+as "ratexp-dev", named "<name> (dev)".
 
 Env, exported (e.g. ``set -a; . ./.env; set +a``):
 - DT_QUERY_URL - the apps host, as in https://xxxxxxxx.apps.dynatrace.com
 - DT_DASHBOARD_TOKEN, or else DT_ACCESS_TOKEN - a platform token with the scopes
   document:documents:read and document:documents:write
 
-Run from core/:  uv run python -m modules.dashboard.publish_to_dynatrace
+Run from core/:  uv run python -m modules.dashboard.publish_to_dynatrace [prod|dev]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -30,6 +35,7 @@ import yaml
 from modules.dashboard.clone_dashboard_from_base import clone_dashboard
 
 DOCUMENT_ID = "ratexp"
+ENVIRONMENTS = ("prod", "dev")
 # The row limits are the RateXp app's settings, so every dashboard shows as many ratings.
 # Publishing runs from a checkout of the repo, so the app's config.yaml is beside core/.
 APP_CONFIG = Path(__file__).resolve().parents[3] / "app" / "ratexp" / "config.yaml"
@@ -85,12 +91,25 @@ def fill_app_limits(dql: str, limits: dict[str, int]) -> str:
     return dql
 
 
-def build_dashboard_document(dashboard: dict) -> dict:
-    """The dashboard as the Dynatrace document API stores it: tiles and layouts share
-    keys "0", "1", ...; "0" is the header, then one data tile per panel, placed left to
-    right and wrapped to the next row when a tile would cross the grid's right edge. A
-    table panel's hidden_columns, when the YAML gives them, stay out of its table."""
-    filters = dashboard["filters"]
+def name_and_document_id(name: str, environment: str) -> tuple[str, str]:
+    """The dashboard's name and document id for `environment`: prod keeps the YAML's name
+    and DOCUMENT_ID, another environment gets its own document beside it."""
+    if environment == "prod":
+        return name, DOCUMENT_ID
+    return f"{name} ({environment})", f"{DOCUMENT_ID}-{environment}"
+
+
+def build_dashboard_document(dashboard: dict, environment: str) -> dict:
+    """The dashboard as the Dynatrace document API stores it, showing the records of
+    `environment`: tiles and layouts share keys "0", "1", ...; "0" is the header, then one
+    data tile per panel, placed left to right and wrapped to the next row when a tile
+    would cross the grid's right edge. A table panel's hidden_columns, when the YAML gives
+    them, stay out of its table."""
+    filters_dql = dashboard["filters"]["dql"].replace("{environment}", environment)
+    values = {
+        key: dql.replace("{environment}", environment)
+        for key, dql in dashboard["filters"]["values"].items()
+    }
     limits = read_app_limits()
     tiles = {
         "0": {
@@ -118,7 +137,7 @@ def build_dashboard_document(dashboard: dict) -> dict:
         tiles[str(index)] = {
             "type": "data",
             "title": panel["title"],
-            "query": fill_app_limits(panel["dql"].replace("{filters}", filters["dql"]), limits),
+            "query": fill_app_limits(panel["dql"].replace("{filters}", filters_dql), limits),
             "visualization": _VISUALIZATIONS[panel["kind"]],
             "visualizationSettings": settings,
         }
@@ -126,7 +145,7 @@ def build_dashboard_document(dashboard: dict) -> dict:
         x, row_height = x + width, max(row_height, height)
     return {
         "version": 21,
-        "variables": [_variable(key, dql) for key, dql in filters["values"].items()],
+        "variables": [_variable(key, dql) for key, dql in values.items()],
         "tiles": tiles,
         "layouts": layouts,
         "settings": {
@@ -168,18 +187,18 @@ def _send(method: str, url: str, token: str, body: bytes | None = None, content_
         return json.loads(response.read().decode() or "{}")
 
 
-def publish_dashboard(document: dict, name: str, host: str, token: str) -> str:
-    """Create the "ratexp" document on `host` named `name`, or replace its name and content
-    when it exists. Returns "created" or "updated"."""
+def publish_dashboard(document: dict, name: str, document_id: str, host: str, token: str) -> str:
+    """Create the document `document_id` on `host` named `name`, or replace its name and
+    content when it exists. Returns "created" or "updated"."""
     documents = host.rstrip("/") + _DOCUMENTS_PATH
     try:
-        version = _send("GET", f"{documents}/{DOCUMENT_ID}/metadata", token)["version"]
+        version = _send("GET", f"{documents}/{document_id}/metadata", token)["version"]
     except urllib.error.HTTPError as error:
         if error.code != 404:
             raise
         body, content_type = build_multipart(
             {
-                "id": DOCUMENT_ID,
+                "id": document_id,
                 "name": name,
                 "type": "dashboard",
                 "description": "RateXp ratings and trajectories (ratexp.* log attributes)",
@@ -192,7 +211,7 @@ def publish_dashboard(document: dict, name: str, host: str, token: str) -> str:
     body, content_type = build_multipart({"name": name}, document)
     _send(
         "PATCH",
-        f"{documents}/{DOCUMENT_ID}?optimistic-locking-version={version}",
+        f"{documents}/{document_id}?optimistic-locking-version={version}",
         token,
         body,
         content_type,
@@ -200,14 +219,19 @@ def publish_dashboard(document: dict, name: str, host: str, token: str) -> str:
     return "updated"
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Publish the RateXp dashboard to Dynatrace.")
+    parser.add_argument("environment", nargs="?", default="prod", choices=ENVIRONMENTS)
+    environment = parser.parse_args(argv).environment
     host = os.environ.get("DT_QUERY_URL")
     token = os.environ.get("DT_DASHBOARD_TOKEN") or os.environ.get("DT_ACCESS_TOKEN")
     if not host or not token:
         sys.exit("export DT_QUERY_URL and DT_DASHBOARD_TOKEN (or DT_ACCESS_TOKEN) first")
     dashboard = clone_dashboard("dynatrace")
-    outcome = publish_dashboard(build_dashboard_document(dashboard), dashboard["name"], host, token)
-    print(f"{outcome}: {host.rstrip('/')}/ui/apps/dynatrace.dashboards/dashboard/{DOCUMENT_ID}")
+    name, document_id = name_and_document_id(dashboard["name"], environment)
+    document = build_dashboard_document({**dashboard, "name": name}, environment)
+    outcome = publish_dashboard(document, name, document_id, host, token)
+    print(f"{outcome}: {host.rstrip('/')}/ui/apps/dynatrace.dashboards/dashboard/{document_id}")
 
 
 if __name__ == "__main__":

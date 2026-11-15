@@ -21,7 +21,8 @@ app/dynatrace/
 │   ├── components/TrajectoryDetails.tsx  the side panel that "view" in a Feedback row opens
 │   └── dashboard/            dashboard.json (generated, see below) and the logic that the tests cover
 ├── scripts/sync-dashboard.mjs  writes dashboard.json from ../../core/modules/dashboard/
-├── tests/                   vitest: filters, download, per-day series, dashboard.json drift
+├── scripts/deploy-dev.mjs   deploys the dev copy of the RateXp Dynatrace app (npm run deploy:dev)
+├── tests/                   vitest: filters, download, per-day series, environment, dashboard.json drift
 └── app.config.json          the app id my.ratexp, the tenant, and the scopes that the RateXp Dynatrace app reads with
 ```
 
@@ -31,6 +32,9 @@ app/dynatrace/
   runtime.
 - **Update:** `npm start`, `npm run build` and `npm run deploy` first write `dashboard.json`
   again. `npm test` fails when `dashboard.json` is out of date.
+- **Environment:** `dashboard.json` keeps the `{environment}` of the DQL. The RateXp Dynatrace
+  app fills `{environment}` when the app starts, from its own app id: `dev` when the app id
+  ends in `.dev`, else `prod`.
 
 ## Run locally: start the RateXp Dynatrace app on your machine
 
@@ -68,3 +72,13 @@ npm run deploy
 
 - **Before you deploy:** Log in to the tenant with a user that has the right to install apps.
 - **Result:** `npm run deploy` installs the RateXp Dynatrace app on `environmentUrl`.
+- **Dev copy:** To install the dev copy next to the RateXp Dynatrace app, run this command:
+
+  ```bash
+  npm run deploy:dev
+  ```
+
+  - **App id:** The dev copy is `my.ratexp.dev`, named "RateXp (dev)". Thus, the dev copy never
+    replaces `my.ratexp`.
+  - **app.config.json:** `npm run deploy:dev` changes `app.config.json` for the deploy. Then
+    `npm run deploy:dev` writes the old `app.config.json` back, also when the deploy fails.
