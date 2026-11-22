@@ -5,7 +5,7 @@
 // here too, so nothing leaves the test. The kit answers no focus moves, so where the
 // arrows land is tested on focusLanding itself.
 import { expect, test } from 'claude-code/testing'
-import { focusLanding } from './rating-panel.tsx'
+import { focusLanding, panelSite } from './rating-panel.tsx'
 
 const PANE = {
   plugin: 'ratexp',
@@ -17,6 +17,21 @@ const PANE = {
     bodyColumns: 100,
     placement: 'dock',
     scroll: { offset: 0, bodyRows: 20 },
+    view: {},
+  },
+} as const
+
+// The band above the prompt, where an unasked survey shows.
+const BAND = {
+  plugin: 'ratexp',
+  component: 'AbovePrompt',
+  props: {
+    hasSurvey: false,
+    isCollapsed: false,
+    isWorking: false,
+    maxRows: 20,
+    bodyColumns: 100,
+    scroll: { offset: 0, bodyRows: 19 },
     view: {},
   },
 } as const
@@ -221,14 +236,51 @@ test('a session with nothing to draw on keeps the skill and its picker', async (
   expect(opened).toEqual([])
 })
 
-test('a turn the script marked due opens the panel after its Stop hook ran', async ($, on) => {
+test('a turn the script marked due opens the panel in the band after its Stop hook ran', async ($, on) => {
   const { runs, opened } = engine(on, { survey: { ...SURVEY, due: true } })
   on('classic.Stop', () => ({}))
   await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
   await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
-  // The script hears once that the panel asks in this session, then each turn's end.
-  expect(runs.map(run => run.argv[2])).toEqual(['panel-on', 'panel', 'panel'])
-  expect(opened).toEqual(['ratexp-rate', 'ratexp-rate'])
+  // The script hears once that the panel asks in this session, then the turn's end; the
+  // next turn finds the survey still open in the band and opens nothing.
+  expect(runs.map(run => run.argv[2])).toEqual(['panel-on', 'panel'])
+  expect(opened).toEqual([])
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ key: 'send' }))?.text).toBe('Send')
+  await ui.unmount()
+})
+
+test('the band shows how to use it, sends, and then draws nothing of RateXp', async ($, on) => {
+  const { runs, logs } = engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /^ctrl\+x tab or click to use/ })).toBeDefined()
+  await ui.press({ key: 'tab-1' })
+  await ui.press({ key: 'good-human-satisfaction' })
+  await ui.press({ key: 'send' })
+  expect(sent(runs)).toEqual(['/tmp/session-1.jsonl', 'yes', '', 'human-satisfaction', 'good', ''])
+  expect(logs).toEqual(['feedback and transcripts accepted by https://core.test for 2 ratings.'])
+  await ui.redraw()
+  expect(await ui.keepsBeneath()).toBe(true)
+  await ui.unmount()
+})
+
+test('a question the model asks takes the band first', async ($, on) => {
+  engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
+  const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, hasSurvey: true }, surface: 'terminal' })
+  expect(await ui.keepsBeneath()).toBe(true)
+  expect(await ui.find({ key: 'send' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('/ratexp:rate uses the band only where Claude Code would dock a pane', () => {
+  expect(panelSite({ isFullscreen: true, columns: 110 })).toBe('band')
+  expect(panelSite({ isFullscreen: true, columns: 109 })).toBe('pane')
+  expect(panelSite({ isFullscreen: false, columns: 200 })).toBe('pane')
+  expect(panelSite(undefined)).toBe('pane')
 })
 
 test('a turn another Stop hook keeps going opens nothing yet', async ($, on) => {
