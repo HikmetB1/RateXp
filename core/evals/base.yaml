@@ -1,12 +1,13 @@
 # What every eval in this folder shares. Core lays each <name>.yaml over this file, so an
 # eval writes only what differs - and any value it does write wins over the one here.
 #
-# To add an eval, copy this file to <name>.yaml, where <name> is the word users type after
-# /ratexp:rate (lowercase letters, digits and -; "base" is taken), and fill in the three fields
-# commented out below. The labels may stay as they are or go: they come from here anyway.
+# To add an eval, copy this file to <name>.yaml, where <name> is the eval's name (lowercase
+# letters, digits and -; "base" is taken), and fill in the three fields commented out below.
+# The labels may stay as they are or go: they come from here anyway.
 #
 # question: Did {subject} ...?   # one line, at most 300 characters; any {subject} becomes
-#                                # what is rated - this Claude Code session, or the skill
+#                                # "this Claude Code session" in the Claude Code picker, and
+#                                # "it" where one question serves the session and the skill
 good:
   label: "True"                  # one line, at most 40 characters, no comma or quote -
                                  # quoted, since YAML reads a bare True as a boolean

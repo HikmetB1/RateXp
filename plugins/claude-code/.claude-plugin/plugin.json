@@ -1,8 +1,8 @@
 {
   "name": "ratexp",
   "displayName": "RateXp",
-  "version": "1.0.0",
-  "description": "Rate the whole session with /ratexp:rate, or the most recent run of a skill with /ratexp:rate <skill>. The ratings, and the conversation when you agree, go to the RateXp dashboard.",
+  "version": "2.0.0",
+  "description": "Type /ratexp:rate to rate the session, the most recent run of a skill, or both, on as many evals as you like, in one panel. The ratings, and the conversation when you agree, go to the RateXp dashboard.",
   "author": {
     "name": "Hikmet Beyoglu",
     "url": "https://github.com/HikmetB1"

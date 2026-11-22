@@ -104,7 +104,7 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
 **After the install:**
 
 - **Rate:** Type `/ratexp:rate`. See
-  [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
+  [How to give a rating](#how-to-give-a-rating-the-command-and-the-survey).
 - **Cursor hooks file:** The plugin changes `~/.cursor/hooks.json` and keeps a copy of your
   old file as `~/.cursor/hooks.json.ratexp-backup`.
 - **Where the ratings go:** The plugin sends the ratings to the hosted RateXp core. To send
@@ -119,32 +119,35 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
 - **Updates:** When a newer version of the plugin is available, RateXp shows a message that
   tells how to update.
 
-### How to give a rating: the commands to type
+### How to give a rating: the command and the survey
 
-Each rating answers one eval. See [Human evals](#feature-human-evals).
-
-**To rate the whole session, type:**
+Type this command in the coding agent:
 
 ```bash title="Coding agent session"
 /ratexp:rate
 ```
 
-**To rate the most recent run of one skill, add the name of the skill:**
+The survey then asks these questions:
 
-```bash title="Coding agent session"
-/ratexp:rate <skill>
-```
+- **Eval what:** The whole session, the most recent run of the last skill that ran, or
+  both. See [Session rating](#feature-session-rating) and [Skill rating](#feature-skill-rating).
+- **Evals:** True or False for each eval that you want to rate. The survey shows what True and
+  what False mean for each eval. RateXp skips an eval that has no True or False. See
+  [Human evals](#feature-human-evals).
+- **Store trajectory:** Yes or no. With yes, RateXp stores the conversation of each rating.
+- **Comment:** One optional comment. RateXp stores the comment with each rating.
 
-**To ask a different eval, add the name of the eval:**
+RateXp then stores one rating for each eval that you rated, for each part that you rated.
 
-```bash title="Coding agent session"
-/ratexp:rate <eval>
-/ratexp:rate <skill> <eval>
-```
-
-- **One name:** When you add one name, and the name is the name of an eval, RateXp rates the
-  whole session on that eval. Each other name is the name of a skill.
-- **Cursor CLI:** The Cursor CLI also accepts `/ratexp` in place of `/ratexp:rate`.
+- **Claude Code:** The survey is a RateXp panel, with the tabs **Eval what**, **Evals**,
+  **Store** and **Comment**, and the buttons **Send** and **Skip**. The up and down arrows,
+  Enter, the keys 1 to 4 and the mouse work in the panel. Past the last choice of a tab, the
+  down arrow goes to the next tab. With nothing ticked under **Eval what**, the other tabs
+  and **Send** are struck through, and the down arrow goes to **Skip**. The panel needs Claude Code v2.1.287 or
+  later with mods on. Without a panel, Claude Code asks the default eval about the whole
+  session.
+- **Cursor CLI:** The agent asks the same questions in one question menu. The Cursor CLI
+  also accepts `/ratexp` in place of `/ratexp:rate`.
 - <strong style="color: #e23a2e">Oh yes, it is annoying to always be asked for a rating.</strong>
   <strong style="color: #0f9b67">We solved the problem 😉 with the `RATEXP_EVERY` parameter.</strong>
    See
@@ -160,8 +163,9 @@ Each rating answers one eval. See [Human evals](#feature-human-evals).
 ### Session: rate a whole session
 
 1. The user types one prompt in a new Claude Code session.
-2. The user types `/ratexp:rate human-satisfaction`.
-3. The user answers the eval with True, agrees to store the conversation and adds a comment.
+2. The user types `/ratexp:rate`.
+3. In the survey, the user selects the session, answers the `human-satisfaction` eval with
+   True, agrees to store the conversation and adds a comment.
 4. The dashboard shows the rating. The trajectory of the rating opens with the full
    conversation.
 
@@ -172,8 +176,8 @@ Each rating answers one eval. See [Human evals](#feature-human-evals).
 ### Skill: rate the run of one skill
 
 1. The user runs the skill `/poem-creator` and selects a mood.
-2. The user types `/ratexp:rate poem-creator human-satisfaction`. RateXp asks for a rating of only
-   the `poem-creator` skill run, on the `human-satisfaction` eval.
+2. The user types `/ratexp:rate`. In the survey, the user selects the last skill,
+   `poem-creator`, and answers the `human-satisfaction` eval.
 3. The dashboard shows a skill rating. The trajectory contains only the part of the
    conversation that the skill ran.
 
@@ -232,7 +236,7 @@ sequenceDiagram
     H->>C: GET /hook-settings
     C-->>H: The evals, the default eval, the number of turns and the newest plugin version
 
-    Note over H,D: On /ratexp:rate, on /ratexp:rate <skill>, and every 5th turn
+    Note over H,D: On /ratexp:rate and every 5th turn, for each rated eval
     H->>C: POST /feedback (eval, rating, optional comment)
     opt The user gives consent
         H->>C: POST /transcript (the skill run, or the session up to now)
@@ -248,16 +252,18 @@ sequenceDiagram
 1. <a id="feature-install"></a>**Install:** Install the RateXp plugin one time, in Claude Code
    or in the Cursor CLI, for all of your projects or for one project. See
    [Quick start](#quick-start-install-ratexp).
-2. <a id="feature-session-rating"></a>**Session rating:** RateXp asks about all the work in the
-   session up to now, when the user types `/ratexp:rate`. RateXp also asks every `RATEXP_EVERY`
-   turns, on the default eval. Without `RATEXP_EVERY`, the number of turns is the number that
+2. <a id="feature-session-rating"></a>**Session rating:** A session rating covers all the
+   work in the session up to now. RateXp asks when the user types `/ratexp:rate`, and also
+   every `RATEXP_EVERY` turns. Without `RATEXP_EVERY`, the number of turns is the number that
    core sets: 5. To change the number of turns, set `RATEXP_EVERY`. See
-   [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
-3. <a id="feature-skill-rating"></a>**Skill rating:** RateXp asks about only the most recent
-   run of the skill, when the user types `/ratexp:rate <skill>`. See
-   [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
+   [How to give a rating](#how-to-give-a-rating-the-command-and-the-survey).
+3. <a id="feature-skill-rating"></a>**Skill rating:** A skill rating covers only the most
+   recent run of the last skill that ran. The user selects the skill in the survey, alone or
+   with the session. See
+   [How to give a rating](#how-to-give-a-rating-the-command-and-the-survey).
 4. <a id="feature-human-evals"></a>**Human evals:** Each rating answers one eval, a survey with
-   its own question. Without an eval name, RateXp asks the default eval, `human-satisfaction`.
+   its own question. The user answers as many evals as the user wants in one survey. Where
+   Claude Code has no rating panel, RateXp asks the default eval, `human-satisfaction`.
    See [Available human evals](#available-human-evals-the-question-of-each-eval). To change an
    eval or to add a new eval, edit or add one short YAML file in [`core/evals/`](./core/evals/):
    the question and the two answers. See
@@ -267,8 +273,8 @@ sequenceDiagram
    change at the start of the next session, with no new install. Each user can still change
    two values: `RATEXP_EVERY` sets the number of turns, and `RATEXP_URL` sets the core that
    gets the ratings.
-6. <a id="feature-comments"></a>**Comments:** The user selects the eval value, and can add an
-   optional comment.
+6. <a id="feature-comments"></a>**Comments:** The user selects the eval values, and can add one
+   optional comment. RateXp stores the comment with each rating of the survey.
 7. <a id="feature-transcripts"></a>**Transcripts:** RateXp stores the conversation of the rated
    run only with the consent of the user. The conversation contains the messages, the
    reasoning, the tool calls and the tool results, in a standard format (ATIF). The hook script

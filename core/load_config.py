@@ -54,7 +54,7 @@ class Eval(NamedTuple):
     bad_description: str
 
 
-# What the user types after /ratexp:rate to pick an eval, so one word.
+# An eval's name. The Cursor agent hands it to the plugin's hook script as one word.
 _EVAL_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 # What every eval shares, in evals/<this>.yaml; never an eval itself, so the name is taken.
 _BASE_EVAL = "base"
@@ -80,7 +80,7 @@ def _laid_over(base, own):
 
 
 def load_evals(folder: Path) -> dict[str, Eval]:
-    """Every eval in `folder`, by name: its file's name, which users type after /ratexp:rate.
+    """Every eval in `folder`, by name: its file's name, which each rating carries.
 
     Each file is laid over the folder's base.yaml, when it has one, so an eval writes only
     what differs from the base; a value it does write wins over the base's.
@@ -126,7 +126,7 @@ def load_evals(folder: Path) -> dict[str, Eval]:
 
 # The surveys a rating can answer, sent to the plugin's hooks at /hook-settings.
 EVALS: dict[str, Eval] = load_evals(_HERE / "evals")
-# The one asked every Nth turn, and on a /ratexp:rate that names none.
+# The one the Claude Code picker asks, where Claude Code has no rating panel.
 DEFAULT_SURVEY_EVAL: str = _require("default_survey_eval")
 if DEFAULT_SURVEY_EVAL not in EVALS:
     raise RuntimeError(

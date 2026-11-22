@@ -152,9 +152,17 @@ _CURSOR_TIMESTAMP = re.compile(r"<timestamp>([^<]*)</timestamp>")
 _CURSOR_TAGS = re.compile(r"</?(?:user_query|timestamp)>")
 
 
-# The /ratexp:rate request as Claude Code logs it: the command's name, and the one line
-# the plugin's rate skill (plugins/claude-code/skills/rate/) tells the agent to answer with.
-CLAUDE_REQUEST_MARKS = ("<command-name>/ratexp", "Opening the RateXp survey.")
+# The /ratexp:rate request as Claude Code logs it: the command's name; the lines the plugin's
+# rating panel (plugins/claude-code/hooks/rating-panel.tsx) answers the command and a Send
+# with, which Claude Code logs under the plugin's name (each Send line is one of
+# ratexp-claude.sh's, all opening "RateXp: feedback"); and, where no panel runs, the one
+# line the plugin's rate skill (plugins/claude-code/skills/rate/) tells the agent to say.
+CLAUDE_REQUEST_MARKS = (
+    "<command-name>/ratexp",
+    "<local-command-stdout>ratexp: ",
+    "ratexp: feedback ",
+    "Opening the RateXp survey.",
+)
 
 
 def _is_survey_turn(content) -> bool:

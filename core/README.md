@@ -97,12 +97,13 @@ startup with an error.
 - `default_survey_every`: The number of turns between two session ratings (the N in "every Nth
   turn"). core sends the number to the plugin at `/hook-settings`. `RATEXP_EVERY` on the
   machine of the user overrides the number.
-- `default_survey_eval`: The eval that RateXp asks every Nth turn, and on a `/ratexp:rate`
-  command without an eval name. The value is the name of one file in [`evals/`](./evals/).
-  - **Eval file:** Each file in `evals/` is one eval. The file name is the word that users type
-    after `/ratexp:rate`.
-  - **`question`:** The question of the eval. core replaces `{subject}` with the session or
-    with the skill.
+- `default_survey_eval`: The eval that RateXp asks where Claude Code has no rating panel, on
+  `/ratexp:rate` and every Nth turn. The value is the name of one file in [`evals/`](./evals/).
+  - **Eval file:** Each file in `evals/` is one eval. The file name is the name of the eval.
+    The plugins send the name with each rating.
+  - **`question`:** The question of the eval. The plugin replaces `{subject}` with "this Claude
+    Code session" in the Claude Code picker, and with "it" in the rating panel and the Cursor
+    CLI survey, where one question is for the session and for the skill.
   - **`label` and `description`:** The label (with no commas) and the description of the `good`
     answer and of the `bad` answer.
   - **Base file:** core puts each eval file over [`evals/base.yaml`](./evals/base.yaml). The
@@ -183,6 +184,9 @@ uv sync --extra test --extra dynatrace-otlp && uv run pytest
 
 - **Mocked:** The tests use no network and no database. The tests also run the hook scripts,
   with a fake `curl`.
+- **Rating panel tests:** `test_rating_panel.py` runs `rating-panel.test.tsx` with
+  `claude plugin test`, the mod test kit of Claude Code. Without the `claude` CLI, pytest skips
+  the rating panel tests and shows no error.
 - **Dynatrace tests:** Without `dynatrace-otlp`, pytest skips the Dynatrace writer tests and
   shows no error.
 

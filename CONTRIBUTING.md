@@ -23,7 +23,7 @@ The repo has these components:
 
 | Component | What the component is |
 |---------|------------|
-| [plugins](./plugins/claude-code/README.md) | <ul><li>**Claude Code plugin:** `plugins/claude-code/` holds the manifest, the marketplace, the `/ratexp:rate` skill and `ratexp-claude.sh`.</li><li>**Cursor CLI plugin:** `plugins/cursor/` holds the manifest, the marketplace, the hooks, the `/ratexp:rate` skill and `ratexp-cursor.sh`.</li><li>**Own repos:** `infra/publish-plugins.sh` publishes each folder to its own repo. Users install from these repos, so they download only the plugin of their agent.</li><li>**Tests:** The tests of the hook scripts are in `core/tests/`.</li></ul> |
+| [plugins](./plugins/claude-code/README.md) | <ul><li>**Claude Code plugin:** `plugins/claude-code/` holds the manifest, the marketplace, the `/ratexp:rate` skill, the rating panel (`hooks/rating-panel.tsx`, a Claude Code mod) and `ratexp-claude.sh`.</li><li>**Cursor CLI plugin:** `plugins/cursor/` holds the manifest, the marketplace, the hooks, the `/ratexp:rate` skill and `ratexp-cursor.sh`.</li><li>**Own repos:** `infra/publish-plugins.sh` publishes each folder to its own repo. Users install from these repos, so they download only the plugin of their agent.</li><li>**Tests:** The tests of the hook scripts and of the rating panel are in `core/tests/`.</li></ul> |
 | [core](./core/README.md) | <ul><li>**Plugin settings:** Sends the evals, the default eval, the number of turns and the newest plugin version to the plugin at `/hook-settings`.</li><li>**Ratings and transcripts:** Receives the ratings and the transcripts that the hook scripts send.</li><li>**Redaction and labels:** Masks the personal data and labels each conversation.</li><li>**Destinations:** Writes the result to each destination that is on.</li><li>**Dynatrace dashboard:** `modules/dashboard/publish_to_dynatrace.py` publishes the Dynatrace dashboard.</li><li>**Retention Function:** `core/Dockerfile.retention` builds the retention Function from the same folder. The retention Function deletes old ratings one time each hour.</li></ul> |
 | [app/ratexp](./app/ratexp/README.md) | <ul><li>**RateXp app:** The dashboard web app.</li><li>**Data:** Reads the stored feedback from one source, and shows the feedback when the feedback arrives.</li><li>**Dashboard view:** Panels and filters.</li><li>**Query & table view:** The query box.</li></ul> |
 | [app/dynatrace](./app/dynatrace/README.md) | <ul><li>**RateXp Dynatrace app:** The same Dashboard view, as an app inside Dynatrace.</li><li>**Data:** Reads the logs that core wrote to Dynatrace.</li><li>**Not the Dynatrace dashboard:** core publishes the Dynatrace dashboard.</li><li>**Optional:** RateXp works without the RateXp Dynatrace app.</li></ul> |
@@ -88,7 +88,7 @@ in docs/custom-deploy.md.
 ```text
 .
 ├── plugins/                    The RateXp plugins: each folder is published to its own plugin repo
-│   ├── claude-code/            The Claude Code plugin: manifest, marketplace, /ratexp:rate skill, ratexp-claude.sh
+│   ├── claude-code/            The Claude Code plugin: manifest, marketplace, /ratexp:rate skill, rating panel, ratexp-claude.sh
 │   └── cursor/                 The Cursor CLI plugin: manifest, marketplace, hooks, /ratexp:rate skill, ratexp-cursor.sh
 ├── core/                       Public ingestion service: sends the plugins their settings, stores the feedback
 │   ├── evals/                  The surveys that users answer: one file for each eval, over a shared base
@@ -157,8 +157,8 @@ deployed systems: one against a deployed stack, and one with the real agents on 
       `/guide/` next to Swagger at `/docs`.
     - **`test_end_to_end.py`:** A rating and a consented trajectory that core receives come
       back out on the dashboard. The last tests run the real `ratexp-claude.sh` to rate a
-      skill, as the plugin runs the hook script. Thus, the tests check the bytes that a real
-      install sends.
+      skill, as the rating panel of the plugin runs the hook script. Thus, the tests check the
+      bytes that a real install sends.
     - **`test_azure_live.py`:** Read-only checks against a deployed stack. pytest skips
       `test_azure_live.py` unless you opt in (see below).
     - **`test_agents_production.py`:** The real `claude` and `cursor-agent` CLIs in a scratch

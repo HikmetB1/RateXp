@@ -1,10 +1,11 @@
-"""Black-box tests for plugins/claude-code/ratexp-claude.sh rating a skill, and the harness
-every hook test shares.
+"""Black-box tests for plugins/claude-code/ratexp-claude.sh asking through the picker,
+and the harness every hook test shares.
 
-The RateXp plugin runs the Claude Code hook for whoever uses Claude Code. It rates
-any skill's most recent run when they type /ratexp:rate <skill>, asking the eval
-typed after it or core's default one; the whole-session survey is tested in
-test_hook_session.py.
+The RateXp plugin runs the Claude Code hook for whoever uses Claude Code. Where
+Claude Code runs no rating panel, /ratexp:rate has the model draw a picker the hook
+supplies: core's default eval about the whole session. These tests hold that picker,
+its answer and its upload; the survey every Nth turn is in test_hook_session.py, and
+the rating panel's `panel` and `send` are in test_hook_panel.py.
 
 The hook has to run on a bare machine: Bash 3.2+, curl, and a short list of
 standard utilities - no Python, no jq, no node. Nothing here imports or reads
@@ -56,7 +57,8 @@ PLUGIN_VERSION = "1.4.0"
 CORE_EVERY = 5
 # The evals core sends, where a real core sends its evals/, each as its question,
 # then the label and description of the good answer and of the bad one. The
-# default stands in for core's human-satisfaction; the others are picked by name.
+# default stands in for core's human-satisfaction, the one the picker asks; a test
+# that needs the picker to ask another makes that one core's default.
 DEFAULT_EVAL = "human-satisfaction"
 EVALS = {
     DEFAULT_EVAL: ("Rate {subject}", "Good", "The result was helpful.", "Bad", "Not helpful."),
@@ -78,16 +80,17 @@ NEVER = "32768"
 # on this port - the fake curl means no socket is ever opened anyway.
 LOCAL_URL = "http://127.0.0.1:9999"
 
-# The skill being run and rated.
+# The skill being run, and rated through the panel.
 DEFAULT_SKILL = "poem-creator"
 
-# Private text planted inside the run being rated. It must never show up in the
+# Private text planted inside what is being rated. It must never show up in the
 # hook's stdout/stderr (checked on every single run) and must only reach the
 # curl log when the user explicitly consented.
 SENTINEL = "RATEXP-PRIVATE-SENTINEL-7f3a9c2e"
 
 # Text written before the run being rated - an earlier use of the skill, or plain
-# chat. A consented upload carries one run, so this must never be part of it.
+# chat. A skill's consented upload carries one run, so this is never part of it;
+# the whole session's upload carries it.
 EARLIER = "RATEXP-EARLIER-TURN-b41d8e60"
 
 TOOL_ID = "toolu_01ratexp"
@@ -99,15 +102,12 @@ CONSENT = "Good, Yes, store trajectory"
 # them. Tests rewrite them to play the part of a local process with write
 # access to the state directory.
 PENDING_FIELDS = (
-    "request",
     "born",
     "picker",
     "transcript",
     "size",
-    "start",
     "identity",
     "url",
-    "target",
     "eval_name",
 )
 
@@ -265,11 +265,11 @@ class Hook:
         done = subprocess.run(["cksum"], input=url.encode(), capture_output=True, check=True)
         return self.state / "ratexp" / f"settings-{done.stdout.split()[0].decode()}"
 
-    def keep_settings(self, url=LOCAL_URL, every=CORE_EVERY):
+    def keep_settings(self, url=LOCAL_URL, every=CORE_EVERY, default_eval=DEFAULT_EVAL):
         """Core's answer as the hook keeps it after a session start: each field ends
         in a NUL - the newest plugin version, the turns, the default eval, then six
         fields per eval."""
-        words = [PLUGIN_VERSION, str(every), DEFAULT_EVAL]
+        words = [PLUGIN_VERSION, str(every), default_eval]
         words += [word for name, survey in EVALS.items() for word in (name, *survey)]
         path = self.settings_kept(url)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -348,7 +348,7 @@ class Hook:
         return out
 
     def run_slice(self) -> bytes:
-        """The part of the transcript belonging to the run now being rated."""
+        """The part of the transcript belonging to the skill run arm() started last."""
         return self.transcript.read_bytes()[self.run_start :]
 
     def stop(self, env=None):
@@ -388,19 +388,15 @@ class Hook:
             tool_response=response,
         )
 
-    def request(self, target=None, env=None, eval_name=None):
-        """The user typing /ratexp:rate <skill> - this skill unless another is named -
-        with an eval's name typed after it, if one is given."""
-        words = target or self.skill
-        if eval_name is not None:
-            words += f" {eval_name}"
+    def request(self, words="", env=None):
+        """The user typing /ratexp:rate, with any words after it."""
         event = self.event("UserPromptExpansion", command_name="ratexp:rate", command_args=words)
         return self.run_hook(event, env)
 
-    def ask(self, env=None, tool_id=TOOL_ID, eval_name=None):
-        """arm -> /ratexp:rate -> Stop -> PreToolUse. Returns the picker ready to be answered."""
-        self.arm(env)
-        self.request(env=env, eval_name=eval_name)
+    def ask(self, env=None, tool_id=TOOL_ID):
+        """Work -> /ratexp:rate -> Stop -> PreToolUse. Returns the picker ready to be answered."""
+        self.append(type="assistant", text=SENTINEL)
+        self.request(env=env)
         picker = self.stop(env)
         assert picker is not None
         out, _, _ = self.pre(picker, tool_id=tool_id, env=env)
@@ -460,7 +456,8 @@ class Hook:
         """Backdate the stored picker so the 15-minute window can be tested."""
         path = self.pending_path()
         parts = path.read_bytes().split(b"\0")
-        parts[1] = str(int(parts[1]) - seconds).encode()
+        born = PENDING_FIELDS.index("born")
+        parts[born] = str(int(parts[born]) - seconds).encode()
         path.write_bytes(b"\0".join(parts))
 
     def patch_pending(self, **fields):
@@ -533,7 +530,7 @@ def test_full_round_trip_reaches_curl(hook):
     assert "feedback accepted" in out
     call = hook.calls()[0]
     assert call["endpoint"] == "feedback"
-    assert call["fields"]["skill_name"] == hook.skill
+    assert "skill_name" not in call["fields"], "the picker rates the whole session"
     assert call["fields"]["agent"] == "claude-code"
     assert call["fields"]["eval_name"] == DEFAULT_EVAL, "none named, so core's default"
     assert call["fields"]["session_id"] == hook.session
@@ -705,7 +702,7 @@ def _add_option(picker):
 
 
 def _alter_question(picker):
-    # Keeps the "Rate <skill> - " prefix, so the script reaches the real check.
+    # Keeps the question's start, so the script reaches the real check.
     picker["questions"][0]["question"] += " Please answer!"
 
 
@@ -812,24 +809,27 @@ def test_a_run_is_never_rated_without_ratexp(hook):
     assert hook.calls() == []
 
 
-def test_ratexp_rate_and_a_skill_asks_about_its_newest_run(hook):
-    """`/ratexp:rate poem-creator`: one word that names no eval is a skill."""
+def test_ratexp_rate_asks_about_the_whole_session(hook):
     hook.arm()
     hook.request()
     picker = hook.stop()
     assert picker is not None
-    assert picker["questions"][0]["question"].startswith(f"Rate {hook.skill} — ")
+    assert picker["questions"][0]["question"].startswith("Rate this Claude Code session — ")
     assert picker["questions"][0]["header"] == "RateXp"
 
 
-def test_one_word_that_is_neither_an_eval_nor_a_skill_that_ran_says_so(hook):
+def test_words_after_ratexp_rate_change_nothing(hook):
+    """`/ratexp:rate poem-creator code-quality` still asks core's default eval about the
+    whole session: what is rated and which evals are asked is the rating panel's."""
     hook.arm()
-    hook.request("nope")
-    out, _, _ = hook.run_hook(hook.event("Stop", stop_hook_active=False))
-    message = json.loads(out)["systemMessage"]
-    assert "nope is neither an eval nor a skill that ran in this session" in message
-    assert ", ".join(EVALS) in message, "every eval core offers is listed"
-    assert hook.calls() == []
+    hook.request(f"{hook.skill} code-quality")
+    picker = hook.stop()
+    assert picker["questions"][0]["question"].startswith("Rate this Claude Code session — ")
+    hook.pre(picker)
+    hook.run_hook(hook.answer(picker, "Good"))
+    fields = hook.calls()[0]["fields"]
+    assert fields["eval_name"] == DEFAULT_EVAL
+    assert "skill_name" not in fields
 
 
 @pytest.mark.parametrize("other", ["rate", "ratexp:other", "ratexpert"])
@@ -846,12 +846,13 @@ def test_another_command_is_a_skill_starting_not_a_request(hook, other):
 # --------------------------------------------------------------------------
 
 
-def test_an_eval_typed_after_the_skill_words_the_survey(hook):
-    """`/ratexp:rate poem-creator code-quality` asks code-quality's question and answers."""
-    picker = hook.ask(eval_name="code-quality")
+def test_core_s_default_eval_words_the_survey(hook):
+    """The picker asks core's default eval: its question, and its two answers."""
+    hook.keep_settings(default_eval="code-quality")
+    picker = hook.ask()
     question = picker["questions"][0]
     assert question["question"] == (
-        f"Was the code in {hook.skill} correct? — check all that apply or type a comment."
+        "Was the code in this Claude Code session correct? — check all that apply or type a comment."
     )
     assert [o["label"] for o in question["options"]] == [
         "Correct",
@@ -866,13 +867,11 @@ def test_an_eval_typed_after_the_skill_words_the_survey(hook):
     assert fields["score"] == "2", "the eval's second answer is the bad one"
 
 
-def test_an_eval_core_does_not_offer_asks_nothing(hook):
+def test_a_default_eval_core_does_not_offer_asks_nothing(hook):
+    hook.keep_settings(default_eval="nope")
     hook.arm()
-    hook.request(eval_name="nope")
-    out, _, _ = hook.run_hook(hook.event("Stop", stop_hook_active=False))
-    message = json.loads(out)["systemMessage"]
-    assert "no eval named nope" in message
-    assert ", ".join(EVALS) in message, "every eval core offers is listed"
+    hook.request()
+    assert hook.stop() is None
     assert hook.calls() == []
 
 
@@ -888,7 +887,8 @@ def test_an_eval_core_does_not_offer_asks_nothing(hook):
 )
 def test_a_label_that_opens_a_consent_label_is_told_apart(hook, answer, score, uploaded):
     """`yes-no` answers Yes or No, the first words of the two consent labels."""
-    picker = hook.ask(eval_name="yes-no")
+    hook.keep_settings(default_eval="yes-no")
+    picker = hook.ask()
     hook.run_hook(hook.answer(picker, answer))
     fields = hook.calls()[0]["fields"]
     assert fields.get("score") == score
@@ -913,20 +913,6 @@ def test_a_stored_eval_core_does_not_offer_sends_nothing(hook):
     out, _, _ = hook.run_hook(hook.answer(picker, CONSENT))
     assert out == ""
     assert hook.calls() == []
-
-
-def test_skill_tool_call_also_starts_a_run(hook):
-    """Skills can start as a Skill tool call instead of a slash-command expansion."""
-    hook.run_hook(
-        hook.event(
-            "PreToolUse",
-            tool_name="Skill",
-            tool_use_id="toolu_skill_1",
-            tool_input={"skill": hook.skill},
-        )
-    )
-    hook.request()
-    assert hook.stop() is not None
 
 
 # --------------------------------------------------------------------------
@@ -1167,13 +1153,13 @@ def test_picker_just_inside_the_window_is_accepted(hook):
 def test_transcript_is_uploaded_only_with_consent(hook):
     """The happy path: ticking the consent label sends the session file."""
     picker = hook.ask()
-    mine = hook.run_slice()
+    whole = hook.transcript.read_bytes()
     out, _, _ = hook.run_hook(hook.answer(picker, CONSENT))
     calls = hook.calls()
     assert [c["endpoint"] for c in calls] == ["feedback", "transcript"]
-    assert calls[1]["body"] == mine
-    assert SENTINEL.encode() in calls[1]["body"]  # this run did travel
-    assert EARLIER.encode() not in calls[1]["body"]  # what came before did not
+    assert calls[1]["body"] == whole
+    assert SENTINEL.encode() in calls[1]["body"]
+    assert EARLIER.encode() in calls[1]["body"], "the whole session, from byte zero"
     assert calls[1]["fields"]["request_id"] == calls[0]["fields"]["request_id"]
     assert "feedback and transcript accepted" in out
 
@@ -1245,85 +1231,6 @@ def test_transcript_over_four_mib_is_not_uploaded(hook):
     out, _, _ = hook.run_hook(hook.answer(picker, CONSENT))
     assert hook.endpoints() == ["feedback"]
     assert "Transcript could not be sent" in out
-
-
-def test_only_the_skills_own_turns_are_uploaded(hook):
-    """The run ends when the conversation moves on - not at /ratexp:rate.
-
-    Its question and the user's answer belong to it; the unrelated request the
-    user made afterwards, and the agent's work on that, do not.
-    """
-    hook.arm()  # `/poem-creator`
-    hook.append(type="assistant", text="Which mood would you like?")
-    hook.append(type="user", text="SAD-PLEASE")
-    hook.append(type="assistant", text="THE-POEM-BEING-RATED")
-    hook.append(type="user", text="UNRELATED-REQUEST")
-    hook.append(type="assistant", text="UNRELATED-WORK")
-    hook.append(type="user", text="/ratexp:rate poem-creator")
-    hook.request()
-    picker = hook.stop()
-    hook.pre(picker)
-    hook.run_hook(hook.answer(picker, CONSENT))
-
-    body = hook.calls()[1]["body"]
-    for kept in (b"SAD-PLEASE", b"THE-POEM-BEING-RATED"):
-        assert kept in body
-    for dropped in (
-        b"UNRELATED-REQUEST",
-        b"UNRELATED-WORK",
-        b"/ratexp:rate poem-creator",
-        EARLIER.encode(),
-    ):
-        assert dropped not in body, f"not part of the run: {dropped!r}"
-
-
-def test_a_skill_that_asks_through_the_picker_keeps_its_answer(hook):
-    """AskUserQuestion answers come back as tool results, not the user speaking."""
-    hook.arm()
-    hook.append(
-        type="assistant", message={"content": [{"type": "tool_use", "name": "AskUserQuestion"}]}
-    )
-    hook.append(
-        type="user",
-        message={"content": [{"type": "tool_result", "content": "ANSWERED-VIA-PICKER"}]},
-    )
-    hook.append(type="assistant", text="THE-POEM")
-    hook.append(type="user", text="NEXT-TASK")
-    hook.request()
-    picker = hook.stop()
-    hook.pre(picker)
-    hook.run_hook(hook.answer(picker, CONSENT))
-    body = hook.calls()[1]["body"]
-    assert b"ANSWERED-VIA-PICKER" in body and b"THE-POEM" in body
-    assert b"NEXT-TASK" not in body
-
-
-def test_a_later_run_does_not_resend_the_earlier_ones(hook):
-    """Rating the third use of a skill must send the third run, not the session.
-
-    One session can hold many runs of the same skill plus unrelated chat. Each
-    upload is bounded at both ends - it starts where its own run started, so the
-    user consents to this run rather than to everything they have done today.
-    """
-    marks = [f"RUN-{i}-CONTENT" for i in range(3)]
-    for i, mark in enumerate(marks):
-        tool_id = f"toolu_run{i}"
-        hook.arm()  # a fresh `/poem-creator`; this run starts here
-        hook.request()
-        hook.append(type="assistant", text=mark)  # the work it did
-        picker = hook.stop()
-        assert picker is not None, f"run {i} should have been surveyed"
-        hook.pre(picker, tool_id=tool_id)
-        hook.run_hook(hook.answer(picker, CONSENT, tool_id=tool_id))
-
-    bodies = [c["body"] for c in hook.calls() if c["endpoint"] == "transcript"]
-    assert len(bodies) == 3
-    for i, body in enumerate(bodies):
-        assert marks[i].encode() in body, f"run {i} must carry its own turns"
-        others = [m for j, m in enumerate(marks) if j != i]
-        for other in others:
-            assert other.encode() not in body, f"run {i} also carried {other}"
-        assert EARLIER.encode() not in body  # nor the chat before it
 
 
 def test_symlinked_transcript_is_not_uploaded(hook):

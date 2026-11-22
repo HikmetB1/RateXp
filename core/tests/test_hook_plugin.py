@@ -97,19 +97,13 @@ def test_without_ratexp_url_the_plugin_talks_to_the_hosted_core(p):
     assert HOSTED_URL in json.dumps(picker), "consent names the hosted core"
 
 
-def test_the_survey_asks_an_eval_that_only_core_sent(p):
-    p.session_start()
-    picker = p.ask(eval_name=ONLY_IN_SETTINGS)
-    question = picker["questions"][0]
-    assert question["question"].startswith("Did this Claude Code session help?")
-    assert [o["label"] for o in question["options"]][:2] == ["Helped", "Useless"]
-
-
-def test_a_ratexp_without_an_eval_asks_the_default_eval_core_sent(p):
+def test_the_survey_asks_the_default_eval_core_sent(p):
     p.answer_settings(core_answer(default_eval=ONLY_IN_SETTINGS))
     p.session_start()
     picker = p.ask()
-    assert picker["questions"][0]["options"][0]["label"] == "Helped"
+    question = picker["questions"][0]
+    assert question["question"].startswith("Did this Claude Code session help?")
+    assert [o["label"] for o in question["options"]][:2] == ["Helped", "Useless"]
     p.pre(picker)
     p.run_hook(p.answer(picker, "Helped, No, do not store"))
     assert p.calls()[-1]["fields"]["eval_name"] == ONLY_IN_SETTINGS
@@ -129,17 +123,18 @@ def test_ratexp_every_still_wins_over_core(p):
 
 
 def test_the_kept_settings_serve_when_core_is_out_of_reach(p):
+    p.answer_settings(core_answer(default_eval=ONLY_IN_SETTINGS))
     p.session_start()
     p.answer_settings(None)
     assert p.session_start() == ""
-    assert p.ask(eval_name=ONLY_IN_SETTINGS) is not None
+    assert p.ask()["questions"][0]["options"][0]["label"] == "Helped"
 
 
 def test_a_turn_asks_core_again_when_session_start_could_not(p):
     p.answer_settings(None)
     p.session_start()
-    p.answer_settings(core_answer())
-    assert p.ask(eval_name=ONLY_IN_SETTINGS) is not None
+    p.answer_settings(core_answer(default_eval=ONLY_IN_SETTINGS))
+    assert p.ask()["questions"][0]["options"][0]["label"] == "Helped"
     assert len(p.settings_calls()) == 2
 
 
@@ -257,7 +252,7 @@ def test_cursor_session_start_asks_core_for_the_settings(cp):
 def test_cursor_without_ratexp_url_the_plugin_talks_to_the_hosted_core(cp):
     cp.use()
     cp.request()
-    out, rc = cp.ask("/ratexp:rate", env={"RATEXP_URL": None})
+    out, rc = cp.ask(env={"RATEXP_URL": None})
     assert rc == 0
     assert [c["url"] for c in cp.settings_calls()] == [f"{HOSTED_URL}/hook-settings"]
     assert f"to {HOSTED_URL}?" in out, "consent names the hosted core"
@@ -265,11 +260,11 @@ def test_cursor_without_ratexp_url_the_plugin_talks_to_the_hosted_core(cp):
 
 def test_cursor_ask_offers_an_eval_that_only_core_sent(cp):
     cp.use()
-    cp.request(f"/ratexp:rate {ONLY_IN_SETTINGS}")
-    out, rc = cp.ask(f"/ratexp:rate {ONLY_IN_SETTINGS}")
+    cp.request()
+    out, rc = cp.ask()
     assert rc == 0
-    assert '"Did this session help?"' in out
-    assert "Helped (It helped.)" in out
+    assert '"Did it help? — Helped: It helped."' in out
+    assert f'"Did it help?" is {ONLY_IN_SETTINGS}' in out
 
 
 def test_cursor_ask_uses_the_kept_settings_when_core_is_out_of_reach(cp):
@@ -277,16 +272,16 @@ def test_cursor_ask_uses_the_kept_settings_when_core_is_out_of_reach(cp):
     cp.answer_settings(None)
     cp.use()
     cp.request()
-    out, rc = cp.ask("/ratexp:rate")
+    out, rc = cp.ask()
     assert rc == 0
-    assert "RateXp survey for this whole chat" in out
+    assert "RateXp survey for this chat" in out
 
 
 def test_cursor_ask_says_so_when_no_survey_can_be_loaded(cp):
     cp.answer_settings(None)
     cp.use()
     cp.request()
-    out, rc = cp.ask("/ratexp:rate")
+    out, rc = cp.ask()
     assert rc == 1
     assert f"the surveys could not be loaded from {LOCAL_URL}" in out
 
@@ -295,7 +290,7 @@ def test_cursor_ask_tells_the_user_first_about_a_newer_plugin(cp):
     cp.answer_settings(core_answer(version="2.0.0"))
     cp.use()
     cp.request()
-    out, rc = cp.ask("/ratexp:rate")
+    out, rc = cp.ask()
     assert rc == 0
     assert out.startswith(
         f"First tell the user: RateXp 2.0.0 is out, and they have {PLUGIN_VERSION}."
@@ -305,7 +300,7 @@ def test_cursor_ask_tells_the_user_first_about_a_newer_plugin(cp):
 def test_cursor_ask_says_nothing_about_the_same_version(cp):
     cp.use()
     cp.request()
-    out, _ = cp.ask("/ratexp:rate")
+    out, _ = cp.ask()
     assert "is out" not in out
 
 
@@ -435,6 +430,14 @@ def test_the_claude_code_plugin_hooks_up_the_events_its_hook_reads():
         "PostToolUse": [{"matcher": "AskUserQuestion", "hooks": [{**hook, "timeout": 60}]}],
         "PostToolUseFailure": [{"matcher": "AskUserQuestion", "hooks": [hook]}],
     }
+
+
+def test_the_claude_code_plugin_loads_its_rating_panel():
+    """The panel is the plugin's hooks module; Claude Code reads it from hooks/hooks.json."""
+    hooks = read_json(CLAUDE_PLUGIN / "hooks/hooks.json")
+    assert hooks["modules"] == ["./rating-panel.tsx"]
+    assert (CLAUDE_PLUGIN / "hooks/rating-panel.tsx").is_file()
+    assert "hooks" not in hooks, "the command hooks stay in plugin.json, in one place"
 
 
 def test_the_cursor_plugin_hooks_up_session_start_and_stop():

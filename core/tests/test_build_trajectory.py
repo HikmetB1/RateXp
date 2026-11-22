@@ -425,8 +425,8 @@ def test_cursor_token_totals_are_unknown_because_cursor_records_none():
 @pytest.mark.parametrize(
     "ask",
     [
-        "# RateXp survey\n\nRun `bash ... ask '<request>'`, where ...",  # /ratexp:rate
-        "RateXp survey for this whole chat: run `bash ... ask` ...",  # the stop hook's followup
+        "# RateXp survey\n\nRun `bash ... ask`, where ...",  # /ratexp:rate
+        "RateXp survey: run `bash ... ask` ...",  # the stop hook's followup
     ],
 )
 def test_the_survey_itself_is_not_part_of_the_run_it_rates(ask):
@@ -442,11 +442,17 @@ def test_the_survey_itself_is_not_part_of_the_run_it_rates(ask):
         # of the user's message.
         ("plugins/cursor/ratexp-cursor.sh", CURSOR_SURVEY_MARKS),
         ("plugins/cursor/skills/ratexp/SKILL.md", [CURSOR_SURVEY_MARK]),
-        # Claude Code writes the command's name itself; the one line the agent says
-        # comes from the plugin's rate skill.
+        # Claude Code writes the command's name itself, and logs the panel's lines under
+        # the plugin's name: each Send line is one the hook script prints. The one line the
+        # agent says where no panel runs comes from the plugin's rate skill.
+        ("plugins/claude-code/ratexp-claude.sh", ["RateXp: feedback "]),
+        (
+            "plugins/claude-code/hooks/rating-panel.tsx",
+            ["RateXp: feedback ", "replace(/^RateXp: /"],
+        ),
         (
             "plugins/claude-code/skills/rate/SKILL.md",
-            [m for m in CLAUDE_REQUEST_MARKS if "<command-name>" not in m],
+            [m for m in CLAUDE_REQUEST_MARKS if not m.startswith(("<", "ratexp: "))],
         ),
     ],
 )
@@ -558,6 +564,8 @@ def test_the_agent_running_the_ratexp_script_is_not_part_of_the_run():
     "content",
     [
         "<command-name>/ratexp:rate</command-name>",
+        "<local-command-stdout>ratexp: the rating panel is open.</local-command-stdout>",
+        "ratexp: feedback and transcripts accepted by https://c.test for 2 ratings.",
         [{"type": "text", "text": "Opening the RateXp survey."}],
     ],
 )

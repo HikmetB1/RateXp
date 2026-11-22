@@ -1,9 +1,10 @@
-"""Black-box tests for plugins/claude-code/ratexp-claude.sh across a whole session.
+"""Black-box tests for plugins/claude-code/ratexp-claude.sh across a whole session,
+where Claude Code runs no rating panel.
 
 The whole session is rated every Nth turn on its own and whenever the user types
-`/ratexp:rate`, always from byte zero; `/ratexp:rate <skill>` picks one skill's
-newest run out of it; and an eval's name picks the survey. The sandbox, fake curl
-and event helpers come from test_hook.py.
+`/ratexp:rate`, always from byte zero, on core's default eval. Where the rating panel
+runs, the same Stop hook counts the turns and leaves the survey to the panel: see
+test_hook_panel.py. The sandbox, fake curl and event helpers come from test_hook.py.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ import json
 import pytest
 from test_hook import CONSENT, DEFAULT_EVAL, EARLIER, SENTINEL, Hook
 
-# What the session survey asks. The skill survey says "Rate <skill> - ..." instead.
+# What the session survey asks.
 SESSION_QUESTION = "Rate this Claude Code session — check all that apply or type a comment."
 
 
@@ -27,16 +28,14 @@ class SessionHook(Hook):
         self.append(type="assistant", text=text)
         return self.stop(env)
 
-    def ratexp_command(self, env=None, eval_name=None):
-        """The user typing /ratexp:rate, and an eval's name after it if one is given."""
+    def ratexp_command(self, env=None):
+        """The user typing /ratexp:rate."""
         event = self.event("UserPromptExpansion", command_name="ratexp:rate", command_args="")
-        if eval_name is not None:
-            event["command_args"] = eval_name
         return self.run_hook(event, env)
 
-    def ask(self, text=SENTINEL, env=None, eval_name=None):
+    def ask(self, text=SENTINEL, env=None):
         """The user typing /ratexp:rate, and the turn that follows. Returns its picker."""
-        self.ratexp_command(env, eval_name)
+        self.ratexp_command(env)
         return self.turn(text, env)
 
 
@@ -165,22 +164,8 @@ def test_a_typed_comment_is_sent_with_the_session_rating(s):
 # --------------------------------------------------------------------------
 
 
-def test_one_word_that_names_an_eval_asks_it_about_the_session(s):
-    """`/ratexp:rate code-quality`: core offers an eval by that name, so it is no skill."""
-    picker = s.ask(eval_name="code-quality")
-    assert picker["questions"][0]["question"] == (
-        "Was the code in this Claude Code session correct? — check all that apply or type a comment."
-    )
-    s.pre(picker)
-    s.run_hook(s.answer(picker, "Correct"))
-    fields = s.calls()[0]["fields"]
-    assert fields["eval_name"] == "code-quality"
-    assert fields["score"] == "1"
-    assert "skill_name" not in fields
-
-
 def test_every_nth_turn_asks_the_default_eval(s):
-    """No one typed an eval, so the survey asked on its own is core's default one."""
+    """The survey asked on its own is core's default eval, as /ratexp:rate's is."""
     env = {"RATEXP_EVERY": "1"}
     picker = s.turn(env=env)
     assert picker["questions"][0]["question"] == SESSION_QUESTION
@@ -205,102 +190,6 @@ def test_an_edited_session_picker_is_denied(s):
     assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
     s.run_hook(s.answer(edited, "Good"), env)
     assert s.calls() == []
-
-
-# --------------------------------------------------------------------------
-# /ratexp:rate <skill>: one skill's newest run
-# --------------------------------------------------------------------------
-
-SKILL = "handoff"  # any skill; nothing inside it knows about RateXp
-
-
-def start_skill(s, name=SKILL, via="command"):
-    """The user typing /<skill>, or Claude calling the Skill tool."""
-    if via == "command":
-        s.run_hook(s.event("UserPromptExpansion", command_name=name))
-    else:
-        s.run_hook(
-            s.event(
-                "PreToolUse", tool_name="Skill", tool_use_id="toolu_s1", tool_input={"skill": name}
-            )
-        )
-
-
-def rate(s, name=SKILL):
-    """/ratexp:rate <skill>, then the turn ends."""
-    s.run_hook(s.event("UserPromptExpansion", command_name="ratexp:rate", command_args=name))
-    return s.turn("THE-RATING-TURN")
-
-
-@pytest.mark.parametrize("via", ["command", "tool"])
-def test_a_skill_is_rated_on_its_newest_run_only(s, via):
-    s.turn("BEFORE-THE-SKILL")
-    start_skill(s, via=via)
-    s.append(type="assistant", text="FIRST-RUN")
-    start_skill(s, via=via)
-    s.append(type="assistant", text="SECOND-RUN")
-    picker = rate(s)
-    assert picker["questions"][0]["question"].startswith(f"Rate {SKILL} — ")
-    consent = picker["questions"][0]["options"][2]["description"]
-    assert consent.startswith(f"Upload this run of {SKILL},"), "only the run is uploaded"
-    s.pre(picker)
-    s.run_hook(s.answer(picker, CONSENT))
-
-    fields = s.calls()[0]["fields"]
-    assert fields["skill_name"] == SKILL
-    assert fields["agent"] == "claude-code"
-    body = s.calls()[1]["body"]
-    assert b"SECOND-RUN" in body
-    for other in (b"FIRST-RUN", b"BEFORE-THE-SKILL", EARLIER.encode()):
-        assert other not in body, f"an earlier part of the session leaked: {other!r}"
-
-
-def test_a_skill_that_opens_the_session_can_be_rated(s):
-    """The session's first prompt comes before Claude Code writes its transcript."""
-    s.transcript.unlink()
-    start_skill(s)
-    s.append(type="assistant", text="THE-RUN")
-    picker = rate(s)
-    assert picker["questions"][0]["question"].startswith(f"Rate {SKILL} — ")
-    s.pre(picker)
-    s.run_hook(s.answer(picker, CONSENT))
-    assert b"THE-RUN" in s.calls()[1]["body"]
-
-
-def test_the_newest_ratexp_request_decides(s):
-    """An interrupted turn fires no Stop, so its /ratexp:rate request is still waiting
-    when the user asks again - and the new request decides what is rated, and
-    which eval is asked."""
-    start_skill(s)
-    s.append(type="assistant", text="THE-RUN")
-    s.ratexp_command(eval_name="code-quality")  # then interrupted
-    picker = rate(s)
-    assert picker["questions"][0]["question"].startswith(f"Rate {SKILL} — ")
-
-
-@pytest.mark.parametrize(
-    ("words", "told"),
-    [
-        # A skill and an eval: the first word can only be a skill.
-        (f"{SKILL} {DEFAULT_EVAL}", f"there is no run of {SKILL} in this session"),
-        # One word that names no eval: a skill that never ran, or a mistyped eval.
-        (SKILL, f"{SKILL} is neither an eval nor a skill that ran in this session"),
-    ],
-)
-def test_a_skill_that_never_ran_cannot_be_rated(s, words, told):
-    s.run_hook(s.event("UserPromptExpansion", command_name="ratexp:rate", command_args=words))
-    out, _, _ = s.run_hook(s.event("Stop", stop_hook_active=False))
-    assert told in json.loads(out)["systemMessage"]
-    assert s.calls() == []
-
-
-def test_the_ratexp_request_is_not_taken_for_a_skill_run(s):
-    start_skill(s)
-    s.append(type="assistant", text="THE-RUN")
-    picker = rate(s)
-    s.pre(picker)
-    s.run_hook(s.answer(picker, CONSENT))
-    assert b"THE-RUN" in s.calls()[1]["body"], "the run started at /handoff, not at /ratexp:rate"
 
 
 def test_a_quoted_consent_label_still_uploads_the_session(s):

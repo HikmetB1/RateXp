@@ -1,0 +1,4 @@
+{
+  "description": "The RateXp rating panel; the command hooks are in .claude-plugin/plugin.json",
+  "modules": ["./rating-panel.tsx"]
+}

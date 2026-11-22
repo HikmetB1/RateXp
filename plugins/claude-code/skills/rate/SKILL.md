@@ -1,6 +1,5 @@
 ---
-description: Rate this session with RateXp, or your most recent run of a skill. Add a skill's name, an eval's name, or both.
-argument-hint: "[skill] [eval]"
+description: Rate this session, your most recent run of a skill, or both, with RateXp, on the evals you pick in one panel.
 disable-model-invocation: true
 ---
 

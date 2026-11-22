@@ -185,8 +185,9 @@ def test_dashboard_view_round_trip(app_url, http, post_feedback, post_transcript
 
 # --- the real hook, driven the way Claude Code drives it -----------------------
 # Everything above posts to core from Python. The test below instead runs the real
-# ratexp-claude.sh rating a skill: it does its own answer parsing and its own
-# curl calls, so this checks the wire itself - hook event in, row on the dashboard out.
+# ratexp-claude.sh rating a skill, as the plugin's rating panel has it send: it makes
+# its own curl calls, so this checks the wire itself - answers in, row on the
+# dashboard out.
 
 
 @pytest.fixture
@@ -247,18 +248,22 @@ def _run_hook(script: Path, env: dict, payload: dict) -> str:
     return done.stdout
 
 
-def _rate_with_hook(
-    script: Path, env: dict, session_id: str, transcript: Path, run: str, skill: str, answer: str
+def _rate_with_panel(
+    script: Path,
+    env: dict,
+    session_id: str,
+    transcript: Path,
+    run: str,
+    skill: str,
+    eval_name: str,
+    share: bool,
 ) -> str:
-    """Replay the hook events Claude Code fires around a skill's run and its rating.
+    """Replay what a real install does around a skill's run and its rating.
 
-    /<skill> starts the run, its turns land in the transcript, /ratexp:rate <skill>
-    asks for the survey, Stop hands the model a picker to draw, PreToolUse checks the
-    model drew that exact picker, and PostToolUse carries the user's answer - the
-    one event that posts anything. Returns the hook's delivery report.
+    /<skill> starts the run and its turns land in the transcript; then the rating
+    panel's Send hands the answers to the script's `send` - the one call that posts
+    anything. Returns the line the script prints for the user.
     """
-    # session_id, transcript_path and cwd ride on every hook event, so send them on
-    # all of them - the upload reads the file to send from the event that consents.
     common = {
         "session_id": session_id,
         "transcript_path": str(transcript),
@@ -269,52 +274,24 @@ def _rate_with_hook(
         script, env, {"hook_event_name": "UserPromptExpansion", "command_name": skill, **common}
     )
     transcript.write_text(run, encoding="utf-8")
-    request = {
-        "hook_event_name": "UserPromptExpansion",
-        "command_name": "ratexp:rate",
-        "command_args": skill,
-    }
-    _run_hook(script, env, {**request, **common})
-    stop = _run_hook(script, env, {"hook_event_name": "Stop", **common})
-    blocked = json.loads(stop)
-    assert blocked["decision"] == "block", stop
-    # The reason is one line of instruction, then the picker the model must draw.
-    picker = json.loads(blocked["reason"].split("\n", 1)[1])
-    question = picker["questions"][0]["question"]
-    tool_use_id = f"toolu_{uuid.uuid4().hex[:16]}"
-
-    pre = _run_hook(
-        script,
-        env,
-        {
-            "hook_event_name": "PreToolUse",
-            "tool_name": "AskUserQuestion",
-            "tool_use_id": tool_use_id,
-            "tool_input": picker,
-            **common,
-        },
+    fields = [str(transcript), "yes" if share else "no", skill, eval_name, "good", ""]
+    done = subprocess.run(
+        ["bash", str(script), "send", session_id],
+        input=b"".join(field.encode() + b"\0" for field in fields),
+        capture_output=True,
+        env=env,
+        timeout=120,
+        check=False,
     )
-    assert "deny" not in pre, pre  # the picker came from the hook; it must be accepted
-
-    return _run_hook(
-        script,
-        env,
-        {
-            "hook_event_name": "PostToolUse",
-            "tool_name": "AskUserQuestion",
-            "tool_use_id": tool_use_id,
-            "tool_input": picker,
-            "tool_response": {"answers": {question: answer}},
-            **common,
-        },
-    )
+    assert done.returncode == 0, done.stderr
+    return done.stdout.decode()
 
 
 @needs_shell
 @pytest.mark.parametrize("oversized", [False, True], ids=["normal", "oversized"])
 @pytest.mark.parametrize("share", [True, False], ids=["share", "no-share"])
 def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
-    """The real hook script, rating a skill as Claude Code runs it, lands on the dashboard.
+    """The real hook script, rating a skill as the rating panel has it, lands on the dashboard.
 
     The rating always goes; the transcript goes only when the user ticked consent.
     An oversized transcript still uploads, but core stores it as the meta-only stub.
@@ -322,20 +299,17 @@ def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
     script, env, default = hook
     session_id = str(uuid.uuid4())
     skill = f"e2e-skill-{uuid.uuid4().hex[:8]}"  # the name the rating lands under
-    consent = "Yes, store trajectory" if share else "No, do not store"
-    answer = f"{default['good_label']}, {consent}"
-
-    report = _rate_with_hook(
+    message = _rate_with_panel(
         script,
         env,
         session_id,
         tmp_path / "session.jsonl",
         _session_jsonl("x" * OVERSIZE_PAD_BYTES if oversized else ""),
         skill,
-        answer,
+        default["name"],
+        share,
     )
     # The hook reports only what it actually got a 201 for.
-    message = json.loads(report)["systemMessage"]
     if share:
         assert "feedback and transcript accepted" in message, message
     else:
@@ -345,7 +319,7 @@ def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
     row = _poll(lambda: _find(_get(http, f"{app_url}/feedback", full="true"), skill))
     assert row is not None, f"{skill} never appeared on the dashboard"
     assert row["score"] == 1  # the good answer
-    assert row["eval_name"] == default["name"], "no eval named, so core's default"
+    assert row["eval_name"] == default["name"]
     assert row["session_id"] == session_id
 
     # 2. The transcript is stored only when consent was given. The hook finished

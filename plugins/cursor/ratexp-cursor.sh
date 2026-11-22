@@ -1,19 +1,17 @@
 #!/bin/bash
 # RateXp for Cursor: Bash 3.2+, curl, and standard macOS/Linux utilities.
 #
-# The RateXp plugin runs it for whoever uses Cursor. It asks about the whole chat
-# every Nth turn on its own, and whenever the user types /ratexp:rate.
-# /ratexp:rate <skill> rates only that skill's most recent run - a skill is never
-# asked about on its own. An eval's name picks which of core's surveys is asked.
+# The RateXp plugin runs it for whoever uses Cursor. It asks every Nth turn on its
+# own, and whenever the user types /ratexp:rate: what to rate - the whole chat, the
+# most recent run of a skill, or both - True or False for each eval the user picks,
+# whether to store the conversation, and one comment for every rating.
 #
-#   ask ['/ratexp:rate [skill] [eval]']
-#                            what the plugin's ratexp skill runs, with the request
-#                            as the user typed it: finds this chat's transcript,
-#                            notes what is being rated, and prints the two
+#   ask                      what the plugin's ratexp skill runs: finds this chat's
+#                            transcript, notes what can be rated, and prints the
 #                            questions for the agent to ask
-#   report <good|bad> <share|private> [comment]
-#                            what the agent runs with the user's answer; owns the
-#                            feedback post and the consented transcript upload
+#   report <chat|skill|both> <share|private> <comment> [<eval> <good|bad>]...
+#                            what the agent runs with the user's answers; owns the
+#                            feedback posts and the consented transcript uploads
 #   (no arguments)           a Cursor hook. sessionStart asks core for the surveys
 #                            and makes sure ~/.cursor/hooks.json has a stop hook;
 #                            stop asks for the survey every Nth turn
@@ -32,15 +30,15 @@ export LC_ALL=C
 DEFAULT_URL=https://ratexp-core.azurewebsites.net
 DEFAULT_EVERY=''
 DEFAULT_EVAL=''
-# The evals core offers, six fields each: the name typed after /ratexp:rate, the
-# question - where {subject}, if used, becomes what is rated - then the label and
-# description of the good answer, and of the bad one.
+# The evals core offers, six fields each: the eval's name, its question - where
+# {subject}, if used, becomes what is rated - then the label and description of the
+# good answer, and of the bad one.
 EVALS=()
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.
-# The reader, quote, good_url, post, file_info, open_file_info, ratexp_request,
-# request_target, find_eval, evals_offered, unknown_eval_line, fetch_hook_settings,
+# The reader, quote, good_url, post, file_info, open_file_info, new_request_id,
+# upload_slice, send_ratings, sent_line, find_eval, fetch_hook_settings,
 # load_hook_settings, manifest_version and is_newer are the same in
 # ratexp-claude.sh: a test holds the two copies identical, so change them together.
 fail() { exit 0; }
@@ -166,23 +164,6 @@ quote() {
 consent_line() {  # consent_line <url> <what>
     consent="Upload $2, including messages and tool results, to $1?"
 }
-# A /ratexp:rate request as the user typed it, such as /ratexp:rate poem-creator
-# human-time-saved: sets the first and the second word after the command, if any.
-# The Cursor CLI also takes plain /ratexp for it. Fails for any other command.
-ratexp_request() {  # ratexp_request <request>: sets first, second
-    local pattern='^/ratexp(:rate)?([[:space:]]+([^[:space:]]+))?([[:space:]]+([^[:space:]]+))?([[:space:]]|$)'
-    first=''; second=''
-    [[ $1 =~ $pattern ]] || return 1
-    first=${BASH_REMATCH[3]}; second=${BASH_REMATCH[5]}
-}
-# What a request rates. Two words are a skill, then an eval. One word is an eval
-# when core offers an eval by that name, and a skill otherwise. No word is the
-# whole session. An empty eval_name means core's default eval.
-request_target() {  # request_target <first> <second>: sets target, eval_name
-    target=$1; eval_name=$2
-    [[ -z $2 ]] && find_eval "$1" && { target=''; eval_name=$1; }
-    return 0
-}
 # One of the evals in EVALS, by name: sets its question, and the label and
 # description of each answer. Fails for a name core does not offer.
 find_eval() {  # find_eval <name>
@@ -302,6 +283,69 @@ file_info() {
 open_file_info() {
     stat -L -c '%d:%i:%s' - 2>/dev/null || stat -f '%d:%i:%z' 2>/dev/null ||
         stat -L -c '%d:%i:%s' /dev/stdin 2>/dev/null
+}
+# A random UUID for a rating: sets request. Core stores each rating once by it.
+new_request_id() {
+    request=$(od -An -N16 -tx1 /dev/urandom) || return 1
+    request=${request//[[:space:]]/}
+    [[ ${#request} == 32 ]] || return 1
+    request=${request:0:8}-${request:8:4}-${request:12:4}-${request:16:4}-${request:20:12}
+}
+# Uploads bytes <start> to <end> of transcript with the rating in fields. Opens the
+# file after consent and matches the device and inode noted in identity, so a
+# swapped file is refused, as is one now shorter than <end>.
+upload_slice() {  # upload_slice <start> <end>
+    local current status
+    (( $1 < $2 && $2 - $1 <= 4194304 )) || return 1
+    [[ -f $transcript && ! -L $transcript ]] || return 1
+    exec 3< "$transcript" || return 1
+    current=$(open_file_info <&3) && [[ ${current%:*} == "$identity" ]] && (( ${current##*:} >= $2 )) ||
+        { exec 3<&-; return 1; }
+    # tail uses 1-based offsets; head bounds the slice at <end>.
+    tail -c "+$(($1+1))" <&3 | head -c "$(($2-$1))" | post transcript --form 'transcript=<-'
+    status=$?
+    exec 3<&-
+    return $status
+}
+# Sends rating i of rate_skill (empty for the whole session), rate_eval, rate_score
+# (empty for none) and rate_comment, each under a request of its own, and, when share
+# is 1, bytes rate_start[i] to rate_end[i] of transcript with it. Sets sent, the
+# ratings core stored, and stored, the transcripts it stored with them.
+send_ratings() {  # send_ratings <agent>
+    local i request
+    sent=0; stored=0
+    for ((i=0; i<${#rate_eval[@]}; i++)); do
+        new_request_id || return 1
+        fields=(--form-string "agent=$1" --form-string "eval_name=${rate_eval[i]}"
+            --form-string "session_id=$session" --form-string "request_id=$request")
+        [[ -n ${rate_skill[i]} ]] && fields+=(--form-string "skill_name=${rate_skill[i]}")
+        [[ -n ${rate_score[i]} ]] && fields+=(--form-string "score=${rate_score[i]}")
+        [[ -n ${rate_comment[i]} ]] && fields+=(--form-string "comment=${rate_comment[i]}")
+        post feedback || continue
+        sent=$((sent+1))
+        (( share )) && upload_slice "${rate_start[i]}" "${rate_end[i]}" && stored=$((stored+1))
+    done
+    return 0
+}
+# The one line that tells the user what core stored of what send_ratings sent: sets
+# line. Several ratings also say how many.
+sent_line() {
+    local n=${#rate_eval[@]} count='' s=''
+    if (( n > 1 )); then
+        s=s; count=" for $sent of $n ratings"
+        (( sent == n )) && count=" for $n ratings"
+    fi
+    if (( !sent )); then
+        line="RateXp: feedback could not be sent to $url."
+    elif (( !share )); then
+        line="RateXp: feedback accepted by $url$count. Transcript$s kept private."
+    elif (( stored == sent )); then
+        line="RateXp: feedback and transcript$s accepted by $url$count."
+    elif (( n == 1 )); then
+        line="RateXp: feedback accepted by $url. Transcript could not be sent."
+    else
+        line="RateXp: feedback accepted by $url$count. $((sent-stored)) of the transcripts could not be sent."
+    fi
 }
 file_mtime() {
     stat -L -c '%Y' -- "$1" 2>/dev/null || stat -L -f '%m' -- "$1" 2>/dev/null
@@ -496,22 +540,28 @@ hook() {
     [[ $every =~ ^[1-9][0-9]{0,4}$ ]] && (( every <= 32768 )) || return
     turn_is_due "$base" "$generation" || return
     # The same survey /ratexp:rate starts, so the agent is sent down the same path.
-    quote "RateXp survey for this whole chat: run \`bash \"$self\" ask\` and follow what it prints, word for word. Do nothing else, and do not summarise the session."
+    quote "RateXp survey: run \`bash \"$self\" ask\` and follow what it prints, word for word. Do nothing else, and do not summarise the session."
     printf '{"followup_message":%s}\n' "$quoted"
 }
 
+# The newest skill that ran in the first <end> bytes of a transcript, and where the
+# line that started its newest run begins: sets skill and skill_start, both empty for
+# none. Cursor attaches a skill's SKILL.md when the user types /<skill>, and the agent
+# reads it when it picks the skill itself: either way a line names
+# `/skills/<name>/SKILL.md`. The plugin's own ratexp skill is the survey, not a run.
+newest_skill() {  # newest_skill <transcript> <end>
+    local hit pattern='/skills/([a-zA-Z0-9][a-zA-Z0-9_.-]{0,127})/SKILL\.md'
+    skill=''; skill_start=''
+    hit=$(head -c "$2" -- "$1" | grep -b -E -e "$pattern" | grep -v -F -e '/skills/ratexp/SKILL.md' | tail -n 1)
+    [[ $hit =~ $pattern ]] || return 0
+    skill=${BASH_REMATCH[1]}; skill_start=${hit%%:*}
+}
+
 ask() {
-    local url session identity size start request dir what subject question token end unknown
-    local first second target eval_name eval_question good_label good_description bad_label bad_description
-    local latest mine offered
+    local session identity size request dir skill skill_start end token latest mine i n
+    local question options names first
     for token in cksum date mkdir od stat head tail grep; do command -v "$token" >/dev/null || return 1; done
     where_am_i || return 1
-    # No request at all is the stop hook's survey of the whole chat.
-    ratexp_request "${*:-/ratexp:rate}" || {
-        printf 'RateXp: pass ask the /ratexp:rate request as the user typed it, such as %s\n' \
-            "'/ratexp:rate <skill> <eval>'" >&2
-        return 1
-    }
     good_url "$url" || return 1
     # It asks core for the evals each time, as the user waits for a survey anyway,
     # and uses the answer it kept when core is out of reach.
@@ -523,80 +573,90 @@ ask() {
     mine=$(manifest_version "$here/.cursor-plugin/plugin.json")
     is_newer "$latest" "$mine" &&
         printf '%s\n' "First tell the user: RateXp $latest is out, and they have $mine. To update RateXp, type /plugin in the Cursor CLI, and update the ratexp plugin there."
-    request_target "$first" "$second"
-    [[ -z $target || $target =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$ ]] ||
-        { printf 'RateXp: %s is not a skill name.\n' "$target" >&2; return 1; }
-    # A request that names no eval asks core's default one.
-    find_eval "${eval_name:=$DEFAULT_EVAL}" ||
-        { unknown_eval_line "$eval_name"; printf '%s\n' "$unknown" >&2; return 1; }
     find_transcript ||
         { printf 'RateXp: could not find this chat'"'"'s transcript, so nothing can be rated.\n' >&2; return 1; }
     session=${transcript##*/}; session=${session%.jsonl}
     [[ $session =~ ^[a-zA-Z0-9_-]{1,128}$ ]] || return 1
     identity=$(file_info "$transcript") || return 1
     size=${identity##*:}; identity=${identity%:*}
-    # The whole chat starts at byte zero. A skill starts at its newest run: the
-    # last line naming its SKILL.md - attached by /<skill>, or read by the agent.
-    start=0
-    if [[ -n $target ]]; then
-        start=$(grep -b -F -- "/skills/$target/SKILL.md" "$transcript" | tail -n 1)
-        start=${start%%:*}
-        if [[ ! $start =~ ^[0-9]{1,10}$ ]] || (( start >= size )); then
-            # One word that names no eval was read as a skill; it may be either.
-            if [[ -z $second ]]; then
-                evals_offered
-                printf 'RateXp: %s is neither an eval nor a skill that ran in this chat. The evals are: %s.\n' \
-                    "$target" "$offered" >&2
-            else
-                printf 'RateXp: there is no run of %s in this chat to rate yet.\n' "$target" >&2
-            fi
-            return 1
-        fi
-        # Only the skill's own turns: the rest of the chat is not what is rated.
-        run_end "$transcript" "$start" "$size"; size=$end
-    fi
-    request=$(od -An -N16 -tx1 /dev/urandom) || return 1
-    request=${request//[[:space:]]/}
-    [[ ${#request} == 32 ]] || return 1
-    request=${request:0:8}-${request:8:4}-${request:12:4}-${request:16:4}-${request:20:12}
+    # The whole chat is everything until now; a skill only its newest run's own turns.
+    newest_skill "$transcript" "$size"
+    end=$size
+    [[ -n $skill ]] && run_end "$transcript" "$skill_start" "$size"
+    new_request_id || return 1
     dir=$root/$project-$session/runs/$request
     [[ ! -L $root/$project-$session ]] || return 1
     mkdir -p -- "$dir" || return 1
-    printf '%s\0' "$request" "$(date +%s)" "$session" "$transcript" "$size" "$start" \
-        "$identity" "$url" "$target" "$eval_name" > "$dir/pending"
-    what='this whole chat'; subject='this session'
-    [[ -n $target ]] && { what="this run of $target"; subject=$target; }
-    consent_line "$url" "$what"
-    question=${eval_question//"{subject}"/$subject}
+    printf '%s\0' "$(date +%s)" "$session" "$transcript" "$size" "$identity" "$url" \
+        "$skill" "$skill_start" "$end" > "$dir/pending"
+    consent_line "$url" 'each rated conversation'
+    n=1; options=''; names=''
+    for ((i=0; i+5<${#EVALS[@]}; i+=6)); do
+        # One question serves the chat and the skill alike.
+        question=${EVALS[i+1]//"{subject}"/it}
+        options=$options$'\n'"   \"$question — ${EVALS[i+2]}: ${EVALS[i+3]}\""
+        options=$options$'\n'"   \"$question — ${EVALS[i+4]}: ${EVALS[i+5]}\""
+        names=$names${names:+, }"\"$question\" is ${EVALS[i]}"
+    done
     printf '%s\n' \
-        "RateXp survey for $what. Ask the user these two questions - with AskQuestion if it" \
-        'is available, titled RateXp, otherwise both in one message - and wait for the answer:' \
-        "1. verdict: \"$question\" - options $good_label ($good_description), $bad_label ($bad_description)" \
-        "2. transcript: \"$consent\" - options share, private" \
-        "Then run this once, with exactly what the user chose - good for $good_label, bad for $bad_label:" \
-        "bash \"$self\" report <good|bad> <share|private> '<comment>'" \
-        'The transcript stays private unless the user chose share. The comment is only what' \
-        "the user typed, if anything, in single quotes with each ' written as '\\''. Print" \
-        'what that command prints, word for word, and nothing else. Never rate it yourself.'
+        'RateXp survey for this chat. Ask the user these questions with AskQuestion, titled RateXp -' \
+        'or, if it is not available, as numbered questions in one message - and wait for the answers:'
+    first='chat'
+    if [[ -n $skill ]]; then
+        printf '%s\n' "$n. eval what (multiple choice): \"Eval what?\" - options \"This chat\", \"Last skill: $skill\""
+        first='chat, skill or both: what the user ticked in question 1'
+        n=$((n+1))
+    fi
+    printf '%s\n' \
+        "$n. evals (multiple choice): \"Tick True or False for each eval you rate\" - these options, in this order:$options" \
+        "$((n+1)). store (one choice): \"Store the trajectory: $consent\" - options \"yes\", then \"no\"" \
+        "$((n+2)). comment (one choice): \"Any comment?\" - options \"No comment\", then \"Other\", where the user types the comment" \
+        'Then run this once:' \
+        "bash \"$self\" report <chat|skill|both> <share|private> '<comment>' [<eval> <good|bad>]..." \
+        "- First $first." \
+        '- Then share for yes, or private for no.' \
+        "- Then the comment typed under Other, in single quotes ('' for No comment) with each '" \
+        "  written as '\\''. The comment goes with every rating." \
+        '- Then two words for each eval that has exactly one of its two options ticked: its name' \
+        "  ($names)," \
+        '  then good for its first option or bad for its second. Leave out an eval with both or' \
+        '  neither option ticked.' \
+        'If the user skips the questions or answers none of them, say only that the survey was' \
+        'skipped, and run nothing. Otherwise print what that command prints, word for word, and' \
+        'nothing else. Never rate it yourself.'
 }
 
 report() {
-    local verdict=${1-} sharing=${2-} comment=${3-} score share token candidate newest newest_born chat
-    local now dir pending request born session transcript size start identity url target current
-    local fields reason model eval_name
-    for token in curl cksum mkdir date stat head tail; do command -v "$token" >/dev/null || return 1; done
-    case $verdict in
-        good) score=1 ;;
-        bad) score=2 ;;
-        *) printf 'RateXp: first argument must be good or bad\n' >&2; return 1 ;;
+    local what=${1-} sharing=${2-} comment=${3-} token candidate newest newest_born chat now dir pending born
+    local session size identity skill skill_start skill_end model target i share sent stored line
+    local request fields transcript unknown
+    local eval_question good_label good_description bad_label bad_description
+    local -a args targets rate_skill rate_eval rate_score rate_comment rate_start rate_end
+    for token in curl cksum mkdir date od stat head tail; do command -v "$token" >/dev/null || return 1; done
+    case $what in
+        chat | skill | both) ;;
+        *) printf 'RateXp: first argument must be chat, skill or both\n' >&2; return 1 ;;
     esac
     case $sharing in
         share) share=1 ;;
         private) share=0 ;;
         *) printf 'RateXp: second argument must be share or private\n' >&2; return 1 ;;
     esac
-    (( ${#comment} <= 4096 )) || comment=${comment:0:4096}
+    # The comment is a required word, '' for none, so an agent that drops it fails here
+    # rather than have an eval's name read as the comment.
+    (( $# >= 3 )) || { printf 'RateXp: third argument must be the comment, '"''"' for none\n' >&2; return 1; }
+    shift 3
+    args=("$@")
+    (( ${#args[@]} % 2 == 0 )) ||
+        { printf 'RateXp: each rated eval takes two words: its name, then good or bad\n' >&2; return 1; }
     where_am_i || return 1
+    load_hook_settings "$settings" ||
+        { printf 'RateXp: feedback not sent: the surveys could not be loaded from %s.\n' "$url" >&2; return 1; }
+    for ((i=0; i<${#args[@]}; i+=2)); do
+        find_eval "${args[i]}" || { unknown_eval_line "${args[i]}"; printf '%s\n' "$unknown" >&2; return 1; }
+        [[ ${args[i+1]} == good || ${args[i+1]} == bad ]] ||
+            { printf 'RateXp: %s needs good or bad, not %s\n' "${args[i]}" "${args[i+1]}" >&2; return 1; }
+    done
     now=$(date +%s)
     # The newest survey this copy handed out, if it is still fresh and unanswered -
     # from this chat when Cursor names it, so an answer given in one chat never
@@ -607,7 +667,7 @@ report() {
     for candidate in "$root/$project"-$chat/runs/*/pending; do
         [[ -f $candidate && ! -L $candidate ]] || continue
         [[ -e ${candidate%/pending}/done ]] && continue
-        { IFS= read -r -d '' request; IFS= read -r -d '' born; } < "$candidate" || continue
+        { IFS= read -r -d '' born; } < "$candidate" || continue
         [[ $born =~ ^[0-9]+$ ]] || continue
         (( now >= born && now-born < 900 && born >= newest_born )) || continue
         newest_born=$born; newest=$candidate
@@ -616,15 +676,16 @@ report() {
     [[ -n $newest ]] || { printf 'RateXp: no survey is waiting for an answer\n' >&2; return 1; }
     pending=$newest; dir=${pending%/pending}
     {
-        IFS= read -r -d '' request; IFS= read -r -d '' born; IFS= read -r -d '' session
-        IFS= read -r -d '' transcript; IFS= read -r -d '' size; IFS= read -r -d '' start
-        IFS= read -r -d '' identity; IFS= read -r -d '' url; IFS= read -r -d '' target
-        IFS= read -r -d '' eval_name
+        IFS= read -r -d '' born; IFS= read -r -d '' session; IFS= read -r -d '' transcript
+        IFS= read -r -d '' size; IFS= read -r -d '' identity; IFS= read -r -d '' url
+        IFS= read -r -d '' skill; IFS= read -r -d '' skill_start; IFS= read -r -d '' skill_end
     } < "$pending" || return 1
     good_url "$url" || return 1
     [[ $session =~ ^[a-zA-Z0-9_-]{1,128}$ ]] || return 1
-    [[ -z $target || $target =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$ ]] || return 1
-    # Consume before sending: a retried command cannot upload the same run twice.
+    [[ -z $skill || $skill =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$ ]] || return 1
+    [[ $what == chat || -n $skill ]] ||
+        { printf 'RateXp: no skill has run in this chat, so only chat can be rated\n' >&2; return 1; }
+    # Consume before sending: a retried command cannot upload the same survey twice.
     mkdir -- "$dir/done" 2>/dev/null || { printf 'RateXp: already answered\n' >&2; return 1; }
     [[ ! -L $pending ]] || return 1
     : > "$pending"
@@ -634,42 +695,36 @@ report() {
     model=''
     [[ -f ${dir%/runs/*}/model && ! -L ${dir%/runs/*}/model ]] && model=$(< "${dir%/runs/*}/model")
     [[ $model =~ ^[a-zA-Z0-9._/-]{1,64}$ ]] || model=''
-    # A session rating names no skill; a skill's rating names the skill.
-    fields=(--form-string "agent=cursor${model:+ $model}" --form-string "eval_name=$eval_name"
-        --form-string "session_id=$session" --form-string "request_id=$request"
-        --form-string "score=$score")
-    [[ -n $target ]] && fields+=(--form-string "skill_name=$target")
-    [[ -n $comment ]] && fields+=(--form-string "comment=$comment")
+    case $what in
+        chat) targets=('') ;;
+        skill) targets=("$skill") ;;
+        both) targets=('' "$skill") ;;
+    esac
+    for target in "${targets[@]}"; do
+        for ((i=0; i<${#args[@]}; i+=2)); do
+            rate_skill+=("$target"); rate_eval+=("${args[i]}"); rate_comment+=("${comment:0:4096}")
+            if [[ ${args[i+1]} == good ]]; then rate_score+=(1); else rate_score+=(2); fi
+            # What is rated ends where the request was made; the survey is not part of it.
+            if [[ -n $target ]]; then
+                rate_start+=("$skill_start"); rate_end+=("$skill_end")
+            else
+                rate_start+=(0); rate_end+=("$size")
+            fi
+        done
+    done
+    (( ${#rate_eval[@]} )) || { printf 'RateXp: feedback not sent: no eval was rated.\n'; return 0; }
     # The survey is spent either way. Exit 0 so a network blip does not read as a
     # bad command the agent should try again - the retry would find nothing.
-    post feedback || { printf 'RateXp: feedback could not be sent to %s.\n' "$url"; return 0; }
-    if (( !share )); then
-        printf 'RateXp: feedback accepted by %s. Transcript kept private.\n' "$url"
-        return 0
-    fi
-    reason="RateXp: feedback accepted by $url. Transcript could not be sent."
-    [[ $size =~ ^[0-9]{1,10}$ && $start =~ ^[0-9]{1,10}$ && -n $identity ]] ||
-        { printf '%s\n' "$reason"; return 0; }
-    [[ -f $transcript && ! -L $transcript ]] || { printf '%s\n' "$reason"; return 0; }
-    exec 3< "$transcript" || { printf '%s\n' "$reason"; return 0; }
-    current=$(open_file_info <&3) || { printf '%s\n' "$reason"; return 0; }
-    # Match the device and inode noted when asking, so a swapped file is refused.
-    [[ ${current%:*} == "$identity" ]] || { printf '%s\n' "$reason"; return 0; }
-    # What is rated ends where the request was made; the survey is not part of it.
-    (( ${current##*:} >= size )) || { printf '%s\n' "$reason"; return 0; }
-    (( start < size && size-start <= 4194304 )) || { printf '%s\n' "$reason"; return 0; }
-    # tail uses 1-based offsets; head bounds the slice at the noted end.
-    tail -c "+$((start+1))" <&3 | head -c "$((size-start))" | post transcript --form 'transcript=<-' &&
-        reason="RateXp: feedback and transcript accepted by $url."
-    exec 3<&-
-    printf '%s\n' "$reason"
+    send_ratings "cursor${model:+ $model}" || return 0
+    sent_line
+    printf '%s\n' "$line"
 }
 
 case ${1-} in
-    ask) shift; ask "$@"; exit $? ;;
+    ask) ask; exit $? ;;
     report) shift; report "$@"; exit $? ;;
     '') ;;
-    *) printf 'usage: %s ask [request] | report <good|bad> <share|private> [comment]\n' "$0" >&2; exit 1 ;;
+    *) printf 'usage: %s ask | report <chat|skill|both> <share|private> <comment> [<eval> <good|bad>]...\n' "$0" >&2; exit 1 ;;
 esac
 # Cursor may read an empty reply as a malformed one, so every event gets an
 # answer - `{}` when there is nothing to say.

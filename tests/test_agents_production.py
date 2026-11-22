@@ -12,8 +12,10 @@ means dev.
 
 Each test loads the RateXp plugin into the agent for the session (`--plugin-dir`), as an
 install loads it, runs the agent in a scratch project with `-p`, types /ratexp:rate,
-answers the survey the way a click would - good, and store the conversation - and finds
-the rating and its trajectory on the production dashboard. Your own ~/.claude is never
+answers the survey the way a click would - the whole session, good on core's default
+eval, and store the conversation - and finds the rating and its trajectory on the
+production dashboard. A `-p` run has no screen for Claude Code's rating panel, so there
+the plugin asks through the picker the hook hands the model. Your own ~/.claude is never
 changed. The plugin's Cursor hook adds a stop hook that does nothing to
 ~/.cursor/hooks.json when that file has none; the Cursor test puts the file back as it
 was.
@@ -196,7 +198,7 @@ def test_claude_code_plugin_survey_and_rating(project, agent_cli):
     ]
     assert pending, "the Stop hook asked for no survey"
     fields = Path(pending[0]).read_bytes().split(b"\0")
-    picker, transcript = json.loads(fields[2]), fields[3].decode()
+    picker, transcript = json.loads(fields[1]), fields[2].decode()
     assert f"to {CORE_URL}" in json.dumps(picker), "the plugin sends to another core"
 
     # The click, through the plugin's own PostToolUse hook.
@@ -281,9 +283,12 @@ def test_cursor_plugin_survey_and_rating(project, agent_cli, cursor_hooks_file):
     ]
     assert pending, "the agent's /ratexp:rate left no survey for this core"
 
-    # The click: what the agent runs with the user's answer.
+    # The click: what the agent runs with the user's answers - this chat, stored, the
+    # comment, and good on core's default eval.
     comment = ratexp_comment("cursor plugin")
-    sent = run(["bash", str(script), "report", "good", "share", comment], folder, env)
+    default_eval = httpx.get(f"{CORE_URL}/hook-settings", timeout=30).json()["default_eval"]
+    report = ["report", "chat", "share", comment, default_eval, "good"]
+    sent = run(["bash", str(script), *report], folder, env)
     assert f"accepted by {CORE_URL}" in sent.stdout, sent.stdout + sent.stderr
 
     row = rating_on_dashboard(comment)
