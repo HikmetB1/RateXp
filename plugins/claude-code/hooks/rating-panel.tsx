@@ -16,9 +16,10 @@ const TABS = ['Eval what', 'Evals', 'Store', 'Comment']
 // From this many columns Claude Code's fullscreen layout docks a pane beside the transcript.
 const DOCK_COLUMNS = 110
 const PANE_HINT = '↑↓ move · Enter ticks or presses · 1-4 tabs · click works · Esc skips'
-// Claude Code gives the band the keyboard only on the person's ctrl+x tab or click, and Esc
-// there hands it back to the prompt without closing anything.
-const BAND_HINT = 'ctrl+x tab or click to use · ↑↓ move · Enter ticks or presses · 1-4 tabs · Skip closes'
+// Claude Code gives the band the keyboard only on the person's click or ctrl+x tab (the hint
+// names the click alone, to stay short), and Esc there hands it back to the prompt without
+// closing anything.
+const BAND_HINT = 'click to use · ↑↓ move · Enter ticks or presses · 1-4 tabs · Skip closes'
 
 type Eval = {
   name: string
@@ -28,7 +29,7 @@ type Eval = {
   bad: string
   bad_description: string
 }
-type Survey = { due: boolean; consent: string; skill: string | null; evals: Eval[] }
+type Survey = { due: boolean; skill: string | null; evals: Eval[] }
 type Verdict = 'good' | 'bad'
 type Site = 'pane' | 'band'
 
@@ -406,17 +407,14 @@ function drawPanel($: EngineInterface, e: ResolveInput, shown: Survey, hint: str
     )
   } else if (tab === 2) {
     body = (
-      <Box flexDirection="column">
-        <Box gap={2}>
-          <Text>Store trajectory?</Text>
-          <Button key="store-yes" plain onPress={() => ((isStored = true), redraw($))}>
-            {`${box(isStored)} yes`}
-          </Button>
-          <Button key="store-no" plain onPress={() => ((isStored = false), redraw($))}>
-            {`${box(!isStored)} no`}
-          </Button>
-        </Box>
-        <Text dimColor>{`yes: ${shown.consent}`}</Text>
+      <Box gap={2}>
+        <Text>Store trajectory?</Text>
+        <Button key="store-yes" plain onPress={() => ((isStored = true), redraw($))}>
+          {`${box(isStored)} yes`}
+        </Button>
+        <Button key="store-no" plain onPress={() => ((isStored = false), redraw($))}>
+          {`${box(!isStored)} no`}
+        </Button>
       </Box>
     )
   } else {

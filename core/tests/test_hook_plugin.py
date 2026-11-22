@@ -252,10 +252,9 @@ def test_cursor_session_start_asks_core_for_the_settings(cp):
 def test_cursor_without_ratexp_url_the_plugin_talks_to_the_hosted_core(cp):
     cp.use()
     cp.request()
-    out, rc = cp.ask(env={"RATEXP_URL": None})
+    _, rc = cp.ask(env={"RATEXP_URL": None})
     assert rc == 0
     assert [c["url"] for c in cp.settings_calls()] == [f"{HOSTED_URL}/hook-settings"]
-    assert f"to {HOSTED_URL}?" in out, "consent names the hosted core"
 
 
 def test_cursor_ask_offers_an_eval_that_only_core_sent(cp):

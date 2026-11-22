@@ -466,11 +466,11 @@ def test_an_earlier_survey_is_left_out_of_a_later_upload():
     """A chat is surveyed every few turns, so a whole-chat upload carries the earlier
     surveys: the questions the agent asked - with AskQuestion or in plain text - and
     the result it relayed. None of that is the work being rated."""
-    consent = "Upload this whole chat, including messages and tool results, to https://c.test?"
+    store = "Store the trajectory?"
     ask = {
         "type": "tool_use",
         "name": "AskQuestion",
-        "input": {"title": "RateXp", "prompt": consent},
+        "input": {"title": "RateXp", "prompt": store},
     }
     raw = "\n".join(
         json.dumps({"role": role, "message": {"content": content}})
@@ -478,7 +478,7 @@ def test_an_earlier_survey_is_left_out_of_a_later_upload():
             ("user", "<user_query>fix the test</user_query>"),
             ("assistant", "Fixed it."),
             ("assistant", [ask]),
-            ("assistant", f"Rate this session: good or bad? {consent} share or private?"),
+            ("assistant", f"Rate this session: good or bad? {store} yes or no?"),
             ("assistant", "RateXp: feedback accepted by https://c.test. Transcript kept private."),
             ("user", "<user_query>now the docs</user_query>"),
         ]

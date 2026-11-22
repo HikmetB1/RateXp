@@ -439,9 +439,9 @@ evals_loaded() {
     load_hook_settings "$settings" || { fetch_hook_settings "$settings" && load_hook_settings "$settings"; }
 }
 # What the panel shows, as one JSON object: whether the every-Nth-turn survey is due
-# (the call consumes that), the consent to show, the newest skill that ran in the
-# session (null for none), and each eval's name, question, and the label and meaning
-# of its good and its bad answer. An object with only `error` when the evals cannot
+# (the call consumes that), the newest skill that ran in the session (null for none),
+# and each eval's name, question, and the label and meaning of its good and its bad
+# answer. An object with only `error` when the evals cannot
 # be loaded.
 panel() {  # panel <session>
     local due=false skill='' out i
@@ -456,8 +456,7 @@ panel() {  # panel <session>
         skill=$(< "$base/last-skill")
         [[ -f $base/skills/${skill//:/--} && ! -L $base/skills/${skill//:/--} ]] || skill=''
     fi
-    consent_line "$url" 'each rated conversation'; quote "$consent"
-    out='{"due":'$due',"consent":'$quoted',"skill":'
+    out='{"due":'$due',"skill":'
     if [[ -n $skill ]]; then quote "$skill"; out=$out$quoted; else out=${out}null; fi
     out=$out',"evals":['
     for ((i=0; i+5<${#EVALS[@]}; i+=6)); do

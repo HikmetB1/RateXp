@@ -138,11 +138,11 @@ SURVEY_MARK = "check all that apply or type a comment."
 # which Cursor sends along, and the stop hook's followup open with this phrase; keep
 # them in step.
 CURSOR_SURVEY_MARK = "RateXp survey"
-# The rest of the survey is worded by ratexp-cursor.sh as well: the consent question
+# The rest of the survey is worded by ratexp-cursor.sh as well: the store question
 # `ask` has the agent put to the user, and the result `report` prints. Keep in step.
 CURSOR_SURVEY_MARKS = (
     CURSOR_SURVEY_MARK,
-    "including messages and tool results, to",
+    "Store the trajectory",
     "RateXp: feedback",
 )
 # The agent calling ratexp-cursor.sh to ask and report is the survey at work.

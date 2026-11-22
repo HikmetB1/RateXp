@@ -160,10 +160,6 @@ quote() {
     done
     quoted=$out'"'
 }
-# Consent names what would be uploaded and where.
-consent_line() {  # consent_line <url> <what>
-    consent="Upload $2, including messages and tool results, to $1?"
-}
 # One of the evals in EVALS, by name: sets its question, and the label and
 # description of each answer. Fails for a name core does not offer.
 find_eval() {  # find_eval <name>
@@ -589,7 +585,6 @@ ask() {
     mkdir -p -- "$dir" || return 1
     printf '%s\0' "$(date +%s)" "$session" "$transcript" "$size" "$identity" "$url" \
         "$skill" "$skill_start" "$end" > "$dir/pending"
-    consent_line "$url" 'each rated conversation'
     n=1; options=''; names=''
     for ((i=0; i+5<${#EVALS[@]}; i+=6)); do
         # One question serves the chat and the skill alike.
@@ -609,7 +604,7 @@ ask() {
     fi
     printf '%s\n' \
         "$n. evals (multiple choice): \"Tick True or False for each eval you rate\" - these options, in this order:$options" \
-        "$((n+1)). store (one choice): \"Store the trajectory: $consent\" - options \"yes\", then \"no\"" \
+        "$((n+1)). store (one choice): \"Store the trajectory?\" - options \"yes\", then \"no\"" \
         "$((n+2)). comment (one choice): \"Any comment?\" - options \"No comment\", then \"Other\", where the user types the comment" \
         'Then run this once:' \
         "bash \"$self\" report <chat|skill|both> <share|private> '<comment>' [<eval> <good|bad>]..." \

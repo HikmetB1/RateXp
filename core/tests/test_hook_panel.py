@@ -88,7 +88,7 @@ SESSION_GOOD = ("", DEFAULT_EVAL, "good", "")
 # --------------------------------------------------------------------------
 
 
-def test_the_panel_shows_every_eval_core_sent_and_the_consent(h):
+def test_the_panel_shows_every_eval_core_sent(h):
     shown = h.panel()
     assert [e["name"] for e in shown["evals"]] == list(EVALS)
     first = shown["evals"][0]
@@ -100,9 +100,6 @@ def test_the_panel_shows_every_eval_core_sent_and_the_consent(h):
         "bad": "Bad",
         "bad_description": "Not helpful.",
     }, "each answer comes with what it means"
-    assert shown["consent"] == (
-        f"Upload each rated conversation, including messages and tool results, to {LOCAL_URL}."
-    )
     assert shown["skill"] is None, "no skill has run yet"
     assert shown["due"] is False
 

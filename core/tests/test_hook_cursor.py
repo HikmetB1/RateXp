@@ -26,7 +26,6 @@ from test_hook import (
     DEFAULT_EVAL,
     EARLIER,
     EVALS,
-    LOCAL_URL,
     SENTINEL,
     Hook,
 )
@@ -153,7 +152,7 @@ def test_ratexp_rate_asks_what_to_rate_the_evals_and_consent(c):
         assert f'"{question} — {good}: {good_meaning}"' in out, "each row says what it means"
         assert f'"{question} — {bad}: {bad_meaning}"' in out
         assert f'"{question}" is {name}' in out, "the agent maps each question to its eval"
-    assert f"to {LOCAL_URL}?" in out, "consent names the destination"
+    assert '"Store the trajectory?" - options "yes", then "no"' in out
     assert '"Any comment?" - options "No comment"' in out
     assert "one more AskQuestion" not in out, "one menu asks everything"
     assert f'bash "{c.script}" report' in out, "the agent is told exactly what to run"

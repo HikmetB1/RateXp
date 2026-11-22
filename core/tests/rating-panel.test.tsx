@@ -38,7 +38,6 @@ const BAND = {
 
 const SURVEY = {
   due: false,
-  consent: 'Upload each rated conversation, including messages and tool results, to https://core.test.',
   skill: 'poem-creator',
   evals: [
     {
@@ -255,7 +254,7 @@ test('the band shows how to use it, sends, and then draws nothing of RateXp', as
   on('classic.Stop', () => ({}))
   await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /^ctrl\+x tab or click to use/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^click to use/ })).toBeDefined()
   await ui.press({ key: 'tab-1' })
   await ui.press({ key: 'good-human-satisfaction' })
   await ui.press({ key: 'send' })
