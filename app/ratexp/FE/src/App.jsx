@@ -20,7 +20,7 @@ const WS_BASE =
 // point the plugin at it.
 const HOSTED_CORE_URL = 'https://ratexp-core.azurewebsites.net'
 // Both plugins install from this repo on GitHub, whose root holds a marketplace file for
-// each agent (see docs/adr/0004-the-plugins-install-from-the-ratexp-repo.md). Claude Code
+// each agent (see docs/adr/0003-the-plugins-install-from-the-ratexp-repo.md). Claude Code
 // adds its marketplace by the file's web address, so it downloads only plugins/claude-code.
 const RATEXP_REPO = 'HikmetB1/RateXp'
 const CLAUDE_MARKETPLACE_URL =
