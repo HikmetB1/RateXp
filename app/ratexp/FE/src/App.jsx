@@ -15,10 +15,6 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// The plugin sends to the hosted core unless RATEXP_URL names another (see
-// plugins/claude-code/ratexp-claude.sh), so a dashboard that reads another core tells plugin users how to
-// point the plugin at it.
-const HOSTED_CORE_URL = 'https://ratexp-core.azurewebsites.net'
 // Both plugins install from this repo on GitHub, whose root holds a marketplace file for
 // each agent (see docs/adr/0003-the-plugins-install-from-the-ratexp-repo.md). Claude Code
 // adds its marketplace by the file's web address, so it downloads only plugins/claude-code.
@@ -32,15 +28,16 @@ const CLAUDE_MARKETPLACE_URL =
 const INSTALL_GUIDES = {
   claude: {
     name: 'Claude Code',
-    plugin: `1. Type one of these commands in the terminal.
-
-   **For you, in all of your projects:**
+    plugin: {
+      all: `1. Type this command in the terminal.
 
    \`\`\`bash
    claude plugin install ratexp --marketplace ${CLAUDE_MARKETPLACE_URL}
    \`\`\`
 
-   **For you, only in one repository** (type it in the repository's folder):
+2. Start Claude Code: \`/ratexp:rate\` works. If Claude Code is open, type
+   \`/reload-plugins\` in it.`,
+      repo: `1. Type this command in the terminal, in the folder of the repository.
 
    \`\`\`bash
    claude plugin install ratexp --marketplace ${CLAUDE_MARKETPLACE_URL} --scope local
@@ -48,6 +45,7 @@ const INSTALL_GUIDES = {
 
 2. Start Claude Code: \`/ratexp:rate\` works. If Claude Code is open, type
    \`/reload-plugins\` in it.`,
+    },
     run: `1. Start a Claude Code session and work as usual.
 2. Type \`/ratexp:rate\`. A panel opens: pick what to rate (this session, the last skill or
    both), the evals, whether to store the conversation, and a comment. It also opens on its
@@ -55,18 +53,29 @@ const INSTALL_GUIDES = {
   },
   cursor: {
     name: 'the Cursor CLI',
-    plugin: `1. Add the RateXp marketplace in the terminal:
+    plugin: {
+      all: `1. Add the RateXp marketplace in the terminal:
 
    \`\`\`bash
    agent plugin marketplace add https://github.com/${RATEXP_REPO}
    \`\`\`
 
 2. Start the Cursor CLI with \`agent\` and type \`/plugin\`. Press → to open Marketplace,
-   type \`ratexp\`, press Enter, then pick "Install for you" (all of your projects) or
-   "Install for all collaborators on this repository" (shared with everyone on the
-   repository).
+   type \`ratexp\`, press Enter, then pick "Install for you".
 3. Restart the Cursor CLI. Then \`/ratexp:rate\` works, and the survey every 5 turns starts
    from your next Cursor CLI session.`,
+      repo: `1. Add the RateXp marketplace in the terminal:
+
+   \`\`\`bash
+   agent plugin marketplace add https://github.com/${RATEXP_REPO}
+   \`\`\`
+
+2. Start the Cursor CLI with \`agent\` and type \`/plugin\`. Press → to open Marketplace,
+   type \`ratexp\`, press Enter, then pick "Install for all collaborators on this repository"
+   (shared with everyone on the repository).
+3. Restart the Cursor CLI. Then \`/ratexp:rate\` works, and the survey every 5 turns starts
+   from your next Cursor CLI session.`,
+    },
     run: `1. Start the Cursor CLI and work as usual.
 2. Type \`/ratexp:rate\`. The agent asks in one menu: what to rate, the evals, whether to
    store the chat, and a comment. It also asks on its own every 5th turn (set
@@ -80,20 +89,10 @@ function runGuideMd(agent) {
    Your rating then shows up on this dashboard.`
 }
 
-function installGuideMd(agent, coreUrl) {
-  const guide = INSTALL_GUIDES[agent]
-  const otherCore = coreUrl && coreUrl !== HOSTED_CORE_URL
-    ? `\n\nThe plugin sends the ratings to the hosted RateXp core. To send them to this
-dashboard's core instead, add this line to your shell profile (such as \`~/.bashrc\` or
-\`~/.zshrc\`), then start ${guide.name} again:
-
-\`\`\`bash
-export RATEXP_URL=${coreUrl}
-\`\`\``
-    : ''
+function installGuideMd(agent, scope) {
   return `Install the RateXp plugin, once:
 
-${guide.plugin}${otherCore}
+${INSTALL_GUIDES[agent].plugin[scope]}
 
 Congratulations - your agentic experience is live at RateXp! 🎉`
 }
@@ -400,7 +399,7 @@ export default function App() {
         </a>
       </footer>
       <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
-      <InstallGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} coreUrl={meta.core_url} />
+      <InstallGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
       <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} viewLimit={meta.list_view_limit} maxLimit={meta.list_max_limit} />
     </div>
   )
@@ -787,10 +786,17 @@ const GUIDE_AGENTS = [
   { key: 'claude', label: 'Claude Code' },
   { key: 'cursor', label: 'Cursor CLI' },
 ]
+// Where the plugin is installed: for you in every project, or in one repository (for
+// Cursor, shared with the collaborators of that repository).
+const GUIDE_SCOPES = [
+  { key: 'all', label: 'All your projects' },
+  { key: 'repo', label: 'One repository' },
+]
 
 // Closes on the backdrop, the X, or Escape.
-function InstallGuideModal({ open, onClose, coreUrl }) {
+function InstallGuideModal({ open, onClose }) {
   const [agent, setAgent] = useState(GUIDE_AGENTS[0].key)
+  const [scope, setScope] = useState(GUIDE_SCOPES[0].key)
   useBodyScrollLock(open)
   useEffect(() => {
     if (!open) return
@@ -827,7 +833,33 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
               </button>
             ))}
           </div>
-          <Md className="md modal-md">{installGuideMd(agent, coreUrl)}</Md>
+          <div role="tablist" aria-label="Install scope" style={{ display: 'flex', gap: 18, marginBottom: 16, flexWrap: 'wrap' }}>
+            {GUIDE_SCOPES.map((s) => (
+              <button
+                key={s.key}
+                role="tab"
+                aria-selected={s.key === scope}
+                onClick={() => setScope(s.key)}
+                style={{
+                  padding: '6px 0',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: `3px solid ${s.key === scope ? 'var(--accent)' : 'transparent'}`,
+                  borderRadius: 0,
+                  boxShadow: 'none',
+                  color: 'inherit',
+                  fontFamily: "'Nunito', system-ui, sans-serif",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  opacity: s.key === scope ? 1 : 0.55,
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+          <Md className="md modal-md">{installGuideMd(agent, scope)}</Md>
           <details className="md-fold md-run">
             <summary>How to run RateXp in your coding agent session</summary>
             <Md className="md modal-md">{runGuideMd(agent)}</Md>

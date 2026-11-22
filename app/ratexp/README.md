@@ -47,8 +47,7 @@ startup with an error.
 
 - `schema_version`: The ATIF version that the app expects on stored transcripts. The value is
   the same as in core.
-- `core_url`: The core of this deployment. For a core other than the hosted core, the install
-  popup tells users to set `RATEXP_URL` to that core.
+- `core_url`: The core of this deployment.
 - `list_view_limit` / `list_max_limit`: The default number of rows that the list endpoints
   return, and the maximum number of rows in one response. Thus, the **Feedback** table of the
   Dashboard view and of the Query & table view shows the newest `list_view_limit` ratings, and
