@@ -1,10 +1,9 @@
 """Black-box tests for core/ratexp-claude.sh across a whole session.
 
 The whole session is rated every Nth turn on its own and whenever the user types
-`/ratexp`, always from byte zero; `/ratexp:<skill>` picks one skill's newest run
-out of it; an eval's name after either picks the survey; and the hook writes
-`/ratexp` itself, plus a `/ratexp:<skill>` menu entry for every installed skill.
-The sandbox, fake curl and event helpers come from test_hook.py.
+`/ratexp:rate`, always from byte zero; `/ratexp:rate <skill>` picks one skill's
+newest run out of it; and an eval's name picks the survey. The sandbox, fake curl
+and event helpers come from test_hook.py.
 """
 
 from __future__ import annotations
@@ -29,14 +28,14 @@ class SessionHook(Hook):
         return self.stop(env)
 
     def ratexp_command(self, env=None, eval_name=None):
-        """The user typing /ratexp, and an eval's name after it if one is given."""
-        event = self.event("UserPromptExpansion", command_name="ratexp")
+        """The user typing /ratexp:rate, and an eval's name after it if one is given."""
+        event = self.event("UserPromptExpansion", command_name="ratexp:rate", command_args="")
         if eval_name is not None:
             event["command_args"] = eval_name
         return self.run_hook(event, env)
 
     def ask(self, text=SENTINEL, env=None, eval_name=None):
-        """The user typing /ratexp, and the turn that follows. Returns its picker."""
+        """The user typing /ratexp:rate, and the turn that follows. Returns its picker."""
         self.ratexp_command(env, eval_name)
         return self.turn(text, env)
 
@@ -47,7 +46,7 @@ def s(tmp_path):
 
 
 # --------------------------------------------------------------------------
-# Every Nth turn, and on /ratexp
+# Every Nth turn, and on /ratexp:rate
 # --------------------------------------------------------------------------
 
 
@@ -57,8 +56,8 @@ def test_the_session_is_asked_about_every_nth_turn(s):
     assert asked == [False, False, True, False, False, True]
 
 
-def test_the_baked_in_frequency_applies_when_nothing_overrides_it(s):
-    """core stamps `default_survey_every` into the hook it serves; the harness bakes 5."""
+def test_the_turns_core_sent_apply_when_nothing_overrides_them(s):
+    """core sends its `default_survey_every`; the harness keeps 5."""
     env = {"RATEXP_EVERY": None}
     assert [s.turn(env=env) is not None for _ in range(5)] == [False] * 4 + [True]
 
@@ -76,7 +75,7 @@ def test_the_ratexp_turn_is_not_counted(s):
     assert s.turn(env=env) is None
     s.ratexp_command(env)
     picker = s.turn(env=env)
-    assert picker is not None, "/ratexp asks at once"
+    assert picker is not None, "/ratexp:rate asks at once"
     assert s.turn(env=env) is not None, "and the count carries on where it was"
 
 
@@ -90,7 +89,7 @@ def test_a_skill_is_never_asked_about_on_its_own(s):
 def test_ratexp_asks_at_the_end_of_that_turn(s):
     assert s.turn() is None
     picker = s.ask()
-    assert picker is not None, "/ratexp must ask"
+    assert picker is not None, "/ratexp:rate must ask"
     assert picker["questions"][0]["question"] == SESSION_QUESTION
     assert picker["questions"][0]["header"] == "RateXp"
 
@@ -98,11 +97,11 @@ def test_ratexp_asks_at_the_end_of_that_turn(s):
 def test_ratexp_arms_exactly_one_survey(s):
     """Asking once must not leave every later turn asking too."""
     assert s.ask() is not None
-    assert s.turn() is None, "the turn after /ratexp must be quiet again"
+    assert s.turn() is None, "the turn after /ratexp:rate must be quiet again"
 
 
 def test_another_command_does_not_arm_a_survey(s):
-    """Only /ratexp asks; every other slash command is none of this hook's business."""
+    """Only /ratexp:rate asks; every other slash command is none of this hook's business."""
     s.run_hook(s.event("UserPromptExpansion", command_name="clear"))
     assert s.turn() is None
     assert s.calls() == []
@@ -166,7 +165,8 @@ def test_a_typed_comment_is_sent_with_the_session_rating(s):
 # --------------------------------------------------------------------------
 
 
-def test_an_eval_typed_after_ratexp_is_asked_about_the_session(s):
+def test_one_word_that_names_an_eval_asks_it_about_the_session(s):
+    """`/ratexp:rate code-quality`: core offers an eval by that name, so it is no skill."""
     picker = s.ask(eval_name="code-quality")
     assert picker["questions"][0]["question"] == (
         "Was the code in this Claude Code session correct? — check all that apply or type a comment."
@@ -208,7 +208,7 @@ def test_an_edited_session_picker_is_denied(s):
 
 
 # --------------------------------------------------------------------------
-# /ratexp:<skill>: one skill's newest run
+# /ratexp:rate <skill>: one skill's newest run
 # --------------------------------------------------------------------------
 
 SKILL = "handoff"  # any skill; nothing inside it knows about RateXp
@@ -227,8 +227,8 @@ def start_skill(s, name=SKILL, via="command"):
 
 
 def rate(s, name=SKILL):
-    """/ratexp:<skill>, then the turn ends."""
-    s.run_hook(s.event("UserPromptExpansion", command_name=f"ratexp:{name}"))
+    """/ratexp:rate <skill>, then the turn ends."""
+    s.run_hook(s.event("UserPromptExpansion", command_name="ratexp:rate", command_args=name))
     return s.turn("THE-RATING-TURN")
 
 
@@ -268,7 +268,7 @@ def test_a_skill_that_opens_the_session_can_be_rated(s):
 
 
 def test_the_newest_ratexp_request_decides(s):
-    """An interrupted turn fires no Stop, so its /ratexp request is still waiting
+    """An interrupted turn fires no Stop, so its /ratexp:rate request is still waiting
     when the user asks again - and the new request decides what is rated, and
     which eval is asked."""
     start_skill(s)
@@ -278,10 +278,19 @@ def test_the_newest_ratexp_request_decides(s):
     assert picker["questions"][0]["question"].startswith(f"Rate {SKILL} — ")
 
 
-def test_a_skill_that_never_ran_cannot_be_rated(s):
-    s.run_hook(s.event("UserPromptExpansion", command_name=f"ratexp:{SKILL}"))
+@pytest.mark.parametrize(
+    ("words", "told"),
+    [
+        # A skill and an eval: the first word can only be a skill.
+        (f"{SKILL} {DEFAULT_EVAL}", f"there is no run of {SKILL} in this session"),
+        # One word that names no eval: a skill that never ran, or a mistyped eval.
+        (SKILL, f"{SKILL} is neither an eval nor a skill that ran in this session"),
+    ],
+)
+def test_a_skill_that_never_ran_cannot_be_rated(s, words, told):
+    s.run_hook(s.event("UserPromptExpansion", command_name="ratexp:rate", command_args=words))
     out, _, _ = s.run_hook(s.event("Stop", stop_hook_active=False))
-    assert f"no run of {SKILL}" in json.loads(out)["systemMessage"]
+    assert told in json.loads(out)["systemMessage"]
     assert s.calls() == []
 
 
@@ -291,68 +300,7 @@ def test_the_ratexp_request_is_not_taken_for_a_skill_run(s):
     picker = rate(s)
     s.pre(picker)
     s.run_hook(s.answer(picker, CONSENT))
-    assert b"THE-RUN" in s.calls()[1]["body"], "the run started at /handoff, not at /ratexp"
-
-
-# --------------------------------------------------------------------------
-# Menu entries: skill names autocomplete after /ratexp
-# --------------------------------------------------------------------------
-
-
-def test_session_start_writes_ratexp_itself(s):
-    s.run_hook(s.event("SessionStart", source="startup"))
-    text = (s.script.parent / "commands" / "ratexp.md").read_text(encoding="utf-8")
-    assert "RateXp target: this session" in text
-    assert 'argument-hint: "[eval]"' in text, "an eval's name is what may follow /ratexp"
-
-
-def test_session_start_adds_one_entry_per_installed_skill(s):
-    for root in (s.cwd, s.home):
-        for name in ("in-project", "in-home") if root is s.cwd else ("in-home",):
-            folder = root / ".claude" / "skills" / name
-            folder.mkdir(parents=True, exist_ok=True)
-            (folder / "SKILL.md").write_text("---\nname: x\n---\n", encoding="utf-8")
-    s.run_hook(s.event("SessionStart", source="startup"))
-    entries = s.script.parent / "commands" / "ratexp"
-    assert sorted(p.name for p in entries.iterdir()) == ["in-home.md", "in-project.md"]
-    text = (entries / "in-project.md").read_text(encoding="utf-8")
-    assert "RateXp target: in-project" in text
-    assert 'argument-hint: "[eval]"' in text
-
-
-def test_an_existing_command_is_left_alone(s):
-    commands = s.script.parent / "commands"
-    commands.mkdir()
-    (commands / "ratexp.md").write_text("MINE\n", encoding="utf-8")
-    s.run_hook(s.event("SessionStart", source="startup"))
-    assert (commands / "ratexp.md").read_text(encoding="utf-8") == "MINE\n"
-
-
-def test_a_skill_from_another_project_is_listed_but_not_rated(s):
-    """Entries are global, so a skill seen in one project is listed in the next;
-    it never ran in this session, so asking to rate it is refused."""
-    other = s.tmp / "other-project"
-    folder = other / ".claude" / "skills" / "elsewhere"
-    folder.mkdir(parents=True)
-    (folder / "SKILL.md").write_text("---\nname: x\n---\n", encoding="utf-8")
-    s.run_hook(s.event("SessionStart", source="startup", cwd=str(other)))
-    assert (s.script.parent / "commands" / "ratexp" / "elsewhere.md").exists()
-    s.run_hook(s.event("UserPromptExpansion", command_name="ratexp:elsewhere"))
-    out, _, _ = s.run_hook(s.event("Stop", stop_hook_active=False))
-    assert "no run of elsewhere" in json.loads(out)["systemMessage"]
-    assert s.calls() == []
-
-
-def test_only_the_user_can_run_ratexp(s):
-    """The hook hears only the commands the user types, so a /ratexp the model ran
-    itself would promise a survey that never comes."""
-    folder = s.cwd / ".claude" / "skills" / SKILL
-    folder.mkdir(parents=True)
-    (folder / "SKILL.md").write_text("---\nname: x\n---\n", encoding="utf-8")
-    s.run_hook(s.event("SessionStart", source="startup"))
-    commands = s.script.parent / "commands"
-    for command in (commands / "ratexp.md", commands / "ratexp" / f"{SKILL}.md"):
-        assert "disable-model-invocation: true" in command.read_text(encoding="utf-8")
+    assert b"THE-RUN" in s.calls()[1]["body"], "the run started at /handoff, not at /ratexp:rate"
 
 
 def test_a_quoted_consent_label_still_uploads_the_session(s):

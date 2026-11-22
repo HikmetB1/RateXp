@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 from api.build_trajectory import (
     CLAUDE_REQUEST_MARKS,
+    CURSOR_SURVEY_MARK,
     CURSOR_SURVEY_MARKS,
     claude_jsonl_to_atif,
     cursor_jsonl_to_atif,
@@ -424,7 +425,7 @@ def test_cursor_token_totals_are_unknown_because_cursor_records_none():
 @pytest.mark.parametrize(
     "ask",
     [
-        "# RateXp survey\n\nRun `bash ... ask '<request>'`, where ...",  # /ratexp
+        "# RateXp survey\n\nRun `bash ... ask '<request>'`, where ...",  # /ratexp:rate
         "RateXp survey for this whole chat: run `bash ... ask` ...",  # the stop hook's followup
     ],
 )
@@ -436,20 +437,22 @@ def test_the_survey_itself_is_not_part_of_the_run_it_rates(ask):
 @pytest.mark.parametrize(
     ("source", "marks"),
     [
-        # Cursor's whole survey is worded here: the /ratexp command it writes, which
-        # Cursor logs as the user's message, and its questions and its result.
-        ("ratexp-cursor.sh", CURSOR_SURVEY_MARKS),
-        # Claude Code writes the command's name itself; the body, and the one line it
-        # has the agent say, come from the /ratexp commands the hook writes.
+        # Cursor's survey is worded by the hook - the stop hook's followup, the questions
+        # and the result - and by the plugin's ratexp skill, which Cursor logs as part
+        # of the user's message.
+        ("core/ratexp-cursor.sh", CURSOR_SURVEY_MARKS),
+        (".cursor-plugin/skills/ratexp/SKILL.md", [CURSOR_SURVEY_MARK]),
+        # Claude Code writes the command's name itself; the one line the agent says
+        # comes from the plugin's rate skill.
         (
-            "ratexp-claude.sh",
+            ".claude-plugin/skills/rate/SKILL.md",
             [m for m in CLAUDE_REQUEST_MARKS if "<command-name>" not in m],
         ),
     ],
 )
 def test_the_real_survey_carries_the_marks_that_drop_it(source, marks):
     """Worded any other way, the survey would land in every rated trajectory."""
-    text = (Path(__file__).resolve().parents[1] / source).read_text(encoding="utf-8")
+    text = (Path(__file__).resolve().parents[2] / source).read_text(encoding="utf-8")
     assert all(mark in text for mark in marks)
 
 
@@ -543,7 +546,7 @@ def test_the_agent_running_the_ratexp_script_is_not_part_of_the_run():
                         "type": "tool_use",
                         "name": "Shell",
                         "input": {
-                            "command": 'bash "/x/.cursor/ratexp-cursor.sh" report good share'
+                            "command": 'bash "/x/ratexp/core/ratexp-cursor.sh" report good share'
                         },
                     }
                 ]
@@ -556,9 +559,7 @@ def test_the_agent_running_the_ratexp_script_is_not_part_of_the_run():
 @pytest.mark.parametrize(
     "content",
     [
-        "<command-name>/ratexp</command-name>",
-        "<command-name>/ratexp:poem-creator</command-name>",
-        "RateXp target: poem-creator\n\nSay only: ...",
+        "<command-name>/ratexp:rate</command-name>",
         [{"type": "text", "text": "Opening the RateXp survey."}],
     ],
 )

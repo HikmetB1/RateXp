@@ -2,6 +2,8 @@
 # the docs site from. That build checks that every repo path a page links to exists, so
 # every top-level entry git tracks comes in whole; anything else at the root stays out.
 *
+!.claude-plugin
+!.cursor-plugin
 !.github
 !CITATION.cff
 !CLA.md

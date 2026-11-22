@@ -93,13 +93,16 @@ not keep a database password anywhere.
    az functionapp start --resource-group "$(terraform output -raw resource_group)" --name "$(terraform output -raw retention_name)"
    ```
 
-5. **Install RateXp from your own core.** Run the install command from
-   [Quick start](../README.md#quick-start-install-ratexp), with the URL of your core in place of
-   `https://ratexp-core.azurewebsites.net`:
+5. **Send the ratings to your own core.** Install the RateXp plugin as
+   [Quick start](../README.md#quick-start-install-ratexp) tells. The plugin sends to the hosted
+   core. To send to your own core, add this line to your shell profile, such as `~/.bashrc` or
+   `~/.zshrc`. Then start the coding agent again:
 
    ```bash
-   curl -fsSL "$(terraform output -raw core_url)/install.sh" | bash -s -- install claude
+   export RATEXP_URL=<the URL of your core>
    ```
+
+   - **The URL of your core:** `terraform output -raw core_url` shows the URL.
 
 ### Optional extras: set in terraform.tfvars
 
@@ -249,9 +252,9 @@ After the check on dev, the same images go to prod.
 3. **Deploy a Dynatrace change to dev.** For a change to `dashboard_for_dynatrace.yaml`, do
    step 5 of "Create dev". For a change to `app/dynatrace/`, do step 6 of "Create dev".
 4. **Check the change on dev.** Open the RateXp app of dev at
-   <https://ratexp-dev-app.azurewebsites.net>. For a change to `core/ratexp-*.sh` or
-   `core/install.sh`, also run the agent test on dev. The **Dev** item of
-   [Tests](../CONTRIBUTING.md#tests-per-component-and-whole-app) tells how.
+   <https://ratexp-dev-app.azurewebsites.net>. For a change to `core/ratexp-*.sh` or to the
+   plugin files (`.claude-plugin/`, `.cursor-plugin/`), also run the agent test on dev. The **Dev**
+   item of [Tests](../CONTRIBUTING.md#tests-per-component-and-whole-app) tells how.
 5. **Copy the tested images to prod.** Name each changed image (`core`, `app`, `seeder`,
    `retention`). The copy script copies each image to the registry of prod, with no new
    build. Then the copy script stops and starts each prod web app or Function. For another

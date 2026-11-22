@@ -1,10 +1,9 @@
-"""Serve the hook scripts, their installer and the docs site; take feedback and consented
+"""Serve the plugin's hook settings and the docs site; take feedback and consented
 transcripts."""
 
 from __future__ import annotations
 
-import os
-import shlex
+import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -30,17 +29,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # core/, one level up from this package. Resolved from __file__ so the working
 # directory doesn't matter.
 CORE_DIR = Path(__file__).resolve().parent.parent
-# One hook script per coding agent. Each is installed once by the person using
-# the agent, and rates the whole session or any skill's most recent run in it.
-CLAUDE_SH = CORE_DIR / "ratexp-claude.sh"
-CURSOR_SH = CORE_DIR / "ratexp-cursor.sh"
-# Saves either hook and adds it to that agent's settings, in one line.
-INSTALL_SH = CORE_DIR / "install.sh"
-URL_PLACEHOLDER = "'__RATEXP_URL__'"
-EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
-EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
-EVALS_PLACEHOLDER = "'__RATEXP_EVALS__'"
-PUBLIC_URL = os.environ.get("RATEXP_PUBLIC_URL", "http://localhost:8000").rstrip("/")
+# The plugin's manifest sits beside core/ in the repo. The Dockerfile copies it to the
+# same place beside /app, so this path holds in the image too.
+PLUGIN_MANIFEST = CORE_DIR.parent / ".claude-plugin" / "plugin.json"
+# The newest plugin version. A hook from an older plugin shows the user how to update.
+PLUGIN_VERSION: str = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))["version"]
 
 _limiter = RateLimiter(RATE_LIMIT_PER_MINUTE)
 BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -126,43 +119,16 @@ def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def _evals_as_shell_words() -> str:
-    """Every eval as one line of shell words: its name, then its fields in order."""
-    lines = (
-        " ".join(shlex.quote(word) for word in (name, *survey)) for name, survey in EVALS.items()
-    )
-    return "".join(f"\n    {line}" for line in lines) + "\n"
-
-
-def _serve_script(path: Path) -> str:
-    """Render deployment settings as shell literals in a downloadable script."""
-    return (
-        path.read_text(encoding="utf-8")
-        .replace(URL_PLACEHOLDER, shlex.quote(PUBLIC_URL))
-        .replace(EVERY_PLACEHOLDER, shlex.quote(str(DEFAULT_SURVEY_EVERY)))
-        .replace(EVAL_PLACEHOLDER, shlex.quote(DEFAULT_SURVEY_EVAL))
-        .replace(EVALS_PLACEHOLDER, _evals_as_shell_words())
-    )
-
-
-# A route each, rather than one `/{hook}.sh`: a path parameter would make the name
-# a path the request picks rather than a fixed route.
-@app.get("/ratexp-claude.sh", response_class=PlainTextResponse)
-def get_claude_hook() -> str:
-    """The Claude Code hook: rates the session, or any skill's most recent run in it."""
-    return _serve_script(CLAUDE_SH)
-
-
-@app.get("/ratexp-cursor.sh", response_class=PlainTextResponse)
-def get_cursor_hook() -> str:
-    """The Cursor hook: rates the session, or any skill's most recent run in it."""
-    return _serve_script(CURSOR_SH)
-
-
-@app.get("/install.sh", response_class=PlainTextResponse)
-def get_installer() -> str:
-    """The installer: saves a hook and adds it to its agent's settings."""
-    return _serve_script(INSTALL_SH)
+@app.get("/hook-settings")
+def get_hook_settings() -> dict:
+    """What the plugin's hooks ask for at session start: the evals, the default eval,
+    how many turns pass between surveys, and the newest plugin version."""
+    return {
+        "plugin_version": PLUGIN_VERSION,
+        "every": DEFAULT_SURVEY_EVERY,
+        "default_eval": DEFAULT_SURVEY_EVAL,
+        "evals": [{"name": name, **survey._asdict()} for name, survey in EVALS.items()],
+    }
 
 
 @app.post("/feedback", status_code=status.HTTP_201_CREATED)

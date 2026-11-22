@@ -3,11 +3,9 @@
 #
 #   docker compose up --build -d
 #   open http://localhost:8001                    # dashboard
-#   http://localhost:8000/ratexp-claude.sh        # the hook Claude Code users install
-#   http://localhost:8000/ratexp-cursor.sh        # the one Cursor users install
-#   http://localhost:8000/install.sh              # saves either one and adds it to the agent's settings
+#   http://localhost:8000/hook-settings           # the surveys the plugin's hooks ask for
 #   http://localhost:8000/guide/                  # the docs site, built from the repo's markdown
-#   http://localhost:8000/feedback                # where installed hooks post ratings
+#   http://localhost:8000/feedback                # where the plugin's hooks post ratings
 #   http://localhost:8000/transcript              # where they post consented transcripts
 #
 # Values default to a working local setup; to override one, put it in a root .env
@@ -53,12 +51,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
-      # Base URL baked into the hook scripts core serves at /ratexp-claude.sh
-      # and /ratexp-cursor.sh; installed hooks post back here. Must be reachable
-      # from the machine running the coding agent.
-      # Stays here because it follows the port compose publishes.
-      RATEXP_PUBLIC_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
-    # Live-reload the API on source edits; the hook scripts are read per request.
+    # Live-reload the API on source edits.
     # --proxy-headers keeps parity with the deployed image (honors X-Forwarded-Proto).
     command: uvicorn api.serve_http:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips "*"
     volumes:
@@ -88,8 +81,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgresql://ratexp:ratexp@db:5432/ratexp}
       RATEXP_DB_AUTH: password
       RATEXP_ENV: local
-      # The core the install popup names: the address installed hooks reach, so it
-      # follows core's RATEXP_PUBLIC_URL.
+      # The core the install popup names: the address where the coding agent reaches core.
+      # It follows the port compose publishes, unless .env sets RATEXP_PUBLIC_URL.
       RATEXP_CORE_URL: ${RATEXP_PUBLIC_URL:-http://localhost:${CORE_HOST_PORT:-8000}}
     depends_on:
       db:

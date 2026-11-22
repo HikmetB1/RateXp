@@ -1,15 +1,13 @@
 """The parts of the HTTP surface that are not the two POST routes.
 
-The security middleware, the health check, and the hook script core hands out.
+The security middleware, the health check, and the settings the plugin's hooks ask for.
 `client` and `captured_writes` come from conftest.py.
 """
 
 from __future__ import annotations
 
-import re
-import subprocess
+import json
 
-import pytest
 from api import serve_http
 from api.limit_request_rate import RateLimiter
 from load_config import Eval
@@ -117,75 +115,35 @@ def test_a_caller_over_its_budget_gets_429(client, monkeypatch):
     assert client.get("/healthz").status_code == 429
 
 
-# One hook per coding agent, installed by the person using it.
-HOOKS = ("ratexp-claude.sh", "ratexp-cursor.sh")
+def test_core_serves_no_hook_script_and_no_installer(client):
+    # The plugin brings the hooks, so nothing here hands out a script to run.
+    for path in ("/ratexp-claude.sh", "/ratexp-cursor.sh", "/install.sh"):
+        assert client.get(path).status_code == 404
 
 
-@pytest.mark.parametrize("hook", HOOKS)
-def test_every_served_hook_has_this_deployments_url_baked_in(client, hook):
-    # A hook works as soon as it is copied into place, with nothing to configure.
-    response = client.get(f"/{hook}")
-    assert response.status_code == 200
-    assert response.text.startswith("#!/bin/bash")
-    assert "__RATEXP_URL__" not in response.text
-    assert serve_http.PUBLIC_URL in response.text
+def test_hook_settings_carry_the_configured_surveys_and_turns(client):
+    # The plugin's hooks ask for these at session start.
+    from load_config import DEFAULT_SURVEY_EVAL, DEFAULT_SURVEY_EVERY, EVALS
+
+    body = client.get("/hook-settings").json()
+    assert body["every"] == DEFAULT_SURVEY_EVERY
+    assert body["default_eval"] == DEFAULT_SURVEY_EVAL
+    assert body["evals"] == [{"name": name, **survey._asdict()} for name, survey in EVALS.items()]
 
 
-def test_the_served_installer_downloads_hooks_from_this_deployment(client):
-    # One line installs from the core it came from, so the installer carries its URL.
-    response = client.get("/install.sh")
-    assert response.status_code == 200
-    assert response.text.startswith("#!/bin/bash")
-    assert "__RATEXP_URL__" not in response.text
-    assert serve_http.PUBLIC_URL in response.text
-
-
-@pytest.mark.parametrize("hook", HOOKS)
-def test_every_served_hook_has_the_configured_survey_frequency_baked_in(client, hook):
-    # How often the whole session is asked about is a deployment setting, stamped
-    # in as the script's own default. A user's RATEXP_EVERY still wins at run time.
-    from load_config import DEFAULT_SURVEY_EVERY
-
-    text = client.get(f"/{hook}").text
-    assert "__RATEXP_EVERY__" not in text
-    assert f"DEFAULT_EVERY={DEFAULT_SURVEY_EVERY}" in text
-
-
-@pytest.mark.parametrize("hook", HOOKS)
-def test_every_served_hook_carries_the_evals_exactly_as_written(
-    client, hook, monkeypatch, tmp_path
-):
-    # An admin writes the wording, so quotes, $(...) and backticks in it have to
-    # reach the hook as plain text - read back by bash itself, never run by it.
+def test_hook_settings_carry_the_evals_exactly_as_written(client, monkeypatch):
+    # An admin writes the wording, so quotes, $(...) and backticks in it reach the
+    # hooks as plain text.
     tricky = Eval(
         'It\'s {subject} "done"? $(touch ran) `touch ran` \\o/', "Up", "Yes.", "Down", "$HOME"
     )
-    plain = Eval("Rate {subject}", "Good", "Helpful.", "Bad", "Not helpful.")
-    monkeypatch.setattr(serve_http, "EVALS", {"tricky": tricky, "plain": plain})
-    monkeypatch.setattr(serve_http, "DEFAULT_SURVEY_EVAL", "plain")
-
-    text = client.get(f"/{hook}").text
-    assert "__RATEXP_EVAL" not in text
-    baked = re.search(r"^DEFAULT_EVAL=.*?^\)$", text, re.S | re.M).group(0)
-    read_back = subprocess.run(
-        ["/bin/bash", "-c", baked + '\nprintf "%s\\0" "$DEFAULT_EVAL" "${EVALS[@]}"'],
-        capture_output=True,
-        check=True,
-        cwd=tmp_path,
-    )
-    words = read_back.stdout.decode().split("\0")[:-1]
-    assert words == ["plain", "tricky", *tricky, "plain", *plain]
-    assert not (tmp_path / "ran").exists()
+    monkeypatch.setattr(serve_http, "EVALS", {"tricky": tricky})
+    monkeypatch.setattr(serve_http, "DEFAULT_SURVEY_EVAL", "tricky")
+    body = client.get("/hook-settings").json()
+    assert body["default_eval"] == "tricky"
+    assert body["evals"] == [{"name": "tricky", **tricky._asdict()}]
 
 
-@pytest.mark.parametrize("hook", HOOKS)
-def test_every_served_hook_has_the_configured_default_eval_baked_in(client, hook):
-    from load_config import DEFAULT_SURVEY_EVAL
-
-    assert f"DEFAULT_EVAL={DEFAULT_SURVEY_EVAL}" in client.get(f"/{hook}").text
-
-
-def test_only_the_hooks_themselves_are_served(client):
-    # Each hook has a fixed route, so no other name or path reaches the disk.
-    assert client.get("/ratexp.sh").status_code == 404
-    assert client.get("/../etc/passwd.sh").status_code == 404
+def test_hook_settings_name_the_version_in_the_plugin_manifest(client):
+    manifest = json.loads(serve_http.PLUGIN_MANIFEST.read_text(encoding="utf-8"))
+    assert client.get("/hook-settings").json()["plugin_version"] == manifest["version"]

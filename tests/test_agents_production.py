@@ -1,7 +1,7 @@
 """Opt-in check of the production RateXp with the real Claude Code and Cursor CLIs.
 
-Never runs by default. Turn it on after deploying a change to core/ratexp-*.sh or
-core/install.sh:
+Never runs by default. Turn it on after deploying a change to core/ratexp-*.sh or to
+the plugin's files (.claude-plugin/, .cursor-plugin/):
 
     RATEXP_PROD_AGENTS=1 uv run --no-project --with-requirements tests/requirements.txt \\
         pytest tests/test_agents_production.py -v
@@ -10,10 +10,13 @@ RATEXP_AGENTS_ENVIRONMENT=dev runs the same checks on dev (ratexp-dev-core and
 ratexp-dev-app), before the tested images are copied to prod; "production" below then
 means dev.
 
-Each test installs RateXp into a scratch project with the one-line installer from the
-production core, runs the agent there with `-p`, answers the survey the way a click
-would - good, and store the conversation - finds the rating and its trajectory on the
-production dashboard, and uninstalls. Your own ~/.claude and ~/.cursor are never changed.
+Each test loads the RateXp plugin into the agent for the session (`--plugin-dir`), as an
+install loads it, runs the agent in a scratch project with `-p`, types /ratexp:rate,
+answers the survey the way a click would - good, and store the conversation - and finds
+the rating and its trajectory on the production dashboard. Your own ~/.claude is never
+changed. The plugin's Cursor hook adds a stop hook that does nothing to
+~/.cursor/hooks.json when that file has none; the Cursor test puts the file back as it
+was.
 
 Needs a logged-in `claude` and `cursor-agent`, and a few cents of model use. Every run
 leaves its ratings and their short, masked test conversations in production - on the
@@ -75,18 +78,6 @@ def run(args, cwd, env=None, stdin=None, timeout=120) -> subprocess.CompletedPro
     )
 
 
-# Each agent's settings file inside the scratch project: the install under test.
-PROJECT_SETTINGS = {"claude": ".claude/settings.json", "cursor": ".cursor/hooks.json"}
-
-
-def installer(project, action, agent) -> subprocess.CompletedProcess:
-    """The one-line installer, exactly as the README gives it, aimed at the project."""
-    words = f"{action} {agent} --settings {PROJECT_SETTINGS[agent]}"
-    # pipefail: a failed download hands bash an empty script, which still exits 0.
-    line = f"curl -fsSL {CORE_URL}/install.sh | bash -s -- {words}"
-    return run(["bash", "-o", "pipefail", "-c", line], project)
-
-
 def dashboard_rows(path) -> list[dict]:
     """The production dashboard's newest rows at `path`, or none while it is unreachable.
 
@@ -127,14 +118,6 @@ def trajectory_on_dashboard(row) -> dict:
     pytest.fail(f"no trajectory for request {row['request_id']} reached the dashboard")
 
 
-def ratexp_files_left(folder: Path) -> list[str]:
-    """Anything of RateXp's still in an agent folder after uninstall."""
-    left = [p.name for p in folder.glob("ratexp-*.sh")]
-    left += [str(p.relative_to(folder)) for p in folder.glob("commands/ratexp*")]
-    settings = next(folder.glob("*.json")).read_text()
-    return left + (["hooks"] if "ratexp-" in settings else [])
-
-
 @pytest.fixture
 def project(tmp_path):
     """A scratch project, and a state folder of its own for the hooks."""
@@ -154,21 +137,39 @@ def agent_cli():
     return _need
 
 
-def test_claude_code_install_survey_rating_and_uninstall(project, agent_cli):
+def plugin_env(state: Path) -> dict:
+    """The hooks' own state folder, and production's core: the plugin talks to the
+    hosted core unless RATEXP_URL names another."""
+    env = {"XDG_STATE_HOME": str(state)}
+    if ENVIRONMENT != "prod":
+        env["RATEXP_URL"] = CORE_URL
+    return env
+
+
+def plugin_copy(folder: Path) -> Path:
+    """The plugin as a marketplace install gets it: the files git tracks, nothing local."""
+    root = Path(__file__).resolve().parent.parent
+    listed = run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], root)
+    for name in filter(None, listed.stdout.split("\0")):
+        if (root / name).is_file():
+            (folder / name).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(root / name, folder / name)
+    return folder
+
+
+def test_claude_code_plugin_survey_and_rating(project, agent_cli):
+    """The RateXp plugin, loaded for the session as an install loads it, on production."""
     claude = agent_cli("claude")
     folder = project / "project"
     state = project / "state"
-    env = {"XDG_STATE_HOME": str(state)}
-    # Only the project's settings, so a global RateXp install stays out of it.
-    session = [claude, "-p", "--setting-sources", "project", "--model", CLAUDE_MODEL]
+    plugin = plugin_copy(project / "plugin")
+    env = plugin_env(state)
+    # Only the project's settings, so a RateXp you installed yourself stays out of it.
+    session = [claude, "-p", "--model", CLAUDE_MODEL, "--setting-sources", "project"]
+    session += ["--plugin-dir", str(plugin)]
 
-    assert installer(folder, "install", "claude").returncode == 0
-    status = installer(folder, "status", "claude")
-    assert status.returncode == 0, status.stdout
-
-    # The hooks run: a session start writes /ratexp into the project. Claude Code reads
-    # it at the next start, so the session is resumed to rate it - core leaves the
-    # survey out of a trajectory, so a session holding only /ratexp would rate nothing.
+    # A first turn, as core leaves the survey out of a trajectory: a session holding
+    # only /ratexp:rate would rate nothing. Its session start asks core for the surveys.
     session_id = str(uuid.uuid4())
     first = run(
         [*session, "--session-id", session_id, "Reply with just OK."],
@@ -177,13 +178,13 @@ def test_claude_code_install_survey_rating_and_uninstall(project, agent_cli):
         timeout=AGENT_TIMEOUT,
     )
     assert first.returncode == 0, first.stderr
-    assert "RateXp target:" in (folder / ".claude/commands/ratexp.md").read_text()
+    assert list((state / "ratexp").glob("settings-*")), "the plugin did not keep core's surveys"
 
-    # /ratexp makes the hook ask. The picker tool is off: with nobody to answer, a
+    # /ratexp:rate makes the hook ask. The picker tool is off: with nobody to answer, a
     # failed picker would spend the survey before the scripted click.
     second = run(
         # The prompt goes first: --disallowedTools takes every word after it as a tool.
-        [*session, "/ratexp", "--resume", session_id, "--disallowedTools", "AskUserQuestion"],
+        [*session, "/ratexp:rate", "--resume", session_id, "--disallowedTools", "AskUserQuestion"],
         folder,
         env,
         timeout=AGENT_TIMEOUT,
@@ -195,34 +196,33 @@ def test_claude_code_install_survey_rating_and_uninstall(project, agent_cli):
     assert pending, "the Stop hook asked for no survey"
     fields = Path(pending[0]).read_bytes().split(b"\0")
     picker, transcript = json.loads(fields[2]), fields[3].decode()
-    assert f"to {CORE_URL}" in json.dumps(picker), "the survey names another core"
+    assert f"to {CORE_URL}" in json.dumps(picker), "the plugin sends to another core"
 
-    # The click: the two events Claude Code sends when True and Yes, store trajectory
-    # are ticked.
-    comment = ratexp_comment("claude")
-    question = picker["questions"][0]["question"]
-    hook = json.loads((folder / ".claude/settings.json").read_text())["hooks"]["PostToolUse"]
-    hook_env = {**env, "CLAUDE_PROJECT_DIR": str(folder)}
+    # The click, through the plugin's own PostToolUse hook.
+    comment = ratexp_comment("claude plugin")
+    question = picker["questions"][0]
+    good = question["options"][0]["label"]
+    manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+    command = manifest["hooks"]["PostToolUse"][0]["hooks"][0]["command"]
+    hook_env = {**env, "CLAUDE_PROJECT_DIR": str(folder), "CLAUDE_PLUGIN_ROOT": str(plugin)}
     event = {
         "session_id": session_id,
         "transcript_path": transcript,
         "cwd": str(folder),
         "tool_name": "AskUserQuestion",
-        "tool_use_id": "toolu_ratexp_live_test",
+        "tool_use_id": "toolu_ratexp_live_plugin",
         "tool_input": picker,
     }
     answer = {
         "questions": picker["questions"],
-        "answers": {question: "True, Yes, store trajectory"},
-        "annotations": {question: {"notes": comment}},
+        "answers": {question["question"]: f"{good}, Yes, store trajectory"},
+        "annotations": {question["question"]: {"notes": comment}},
     }
     for payload in (
         {**event, "hook_event_name": "PreToolUse"},
         {**event, "hook_event_name": "PostToolUse", "tool_response": answer},
     ):
-        sent = run(
-            ["bash", "-c", hook[0]["hooks"][0]["command"]], folder, hook_env, json.dumps(payload)
-        )
+        sent = run(["bash", "-c", command], folder, hook_env, json.dumps(payload))
     assert f"accepted by {CORE_URL}" in sent.stdout, sent.stdout
 
     row = rating_on_dashboard(comment)
@@ -235,24 +235,32 @@ def test_claude_code_install_survey_rating_and_uninstall(project, agent_cli):
     assert trajectory["steps"], "the stored trajectory has no steps"
     assert trajectory["agent"].get("model_name"), "the trajectory names no model"
 
-    assert installer(folder, "uninstall", "claude").returncode == 0
-    assert ratexp_files_left(folder / ".claude") == []
+
+@pytest.fixture
+def cursor_hooks_file():
+    """~/.cursor/hooks.json and its backup put back as they were after the test."""
+    files = [Path.home() / ".cursor" / name for name in ("hooks.json", "hooks.json.ratexp-backup")]
+    kept = {f: f.read_bytes() if f.exists() else None for f in files}
+    yield
+    for f, data in kept.items():
+        if data is None:
+            f.unlink(missing_ok=True)
+        else:
+            f.write_bytes(data)
 
 
-def test_cursor_install_survey_rating_and_uninstall(project, agent_cli):
+def test_cursor_plugin_survey_and_rating(project, agent_cli, cursor_hooks_file):
+    """The RateXp plugin, loaded for the chat as an install loads it, on production."""
     cursor = agent_cli("cursor-agent")
     folder = project / "project"
     state = project / "state"
-    env = {"XDG_STATE_HOME": str(state)}
-    script = folder / ".cursor/ratexp-cursor.sh"
+    plugin = plugin_copy(project / "plugin")
+    script = plugin / "core/ratexp-cursor.sh"
+    env = plugin_env(state)
+    chat = [cursor, "-p", "--force", "--plugin-dir", str(plugin)]
 
-    assert installer(folder, "install", "cursor").returncode == 0
-    status = installer(folder, "status", "cursor")
-    assert status.returncode == 0, status.stdout
-
-    chat = [cursor, "-p", "--force"]
-
-    # The hooks run: a new chat's session start writes /ratexp into the project.
+    # A first turn, as core leaves the survey out of a trajectory: a chat holding only
+    # /ratexp:rate would rate nothing.
     first = run(
         [*chat, "--output-format", "json", "Reply with just OK."],
         folder,
@@ -260,30 +268,20 @@ def test_cursor_install_survey_rating_and_uninstall(project, agent_cli):
         timeout=AGENT_TIMEOUT,
     )
     assert first.returncode == 0, first.stderr
-    assert "# RateXp survey" in (folder / ".cursor/commands/ratexp.md").read_text()
-    # The same chat again for /ratexp: core leaves the survey out of a trajectory, so a
-    # chat holding only /ratexp would rate nothing.
     chat += ["--output-format", "text", "--resume", json.loads(first.stdout)["session_id"]]
 
-    # Cursor also reads ~/.cursor, and a global /ratexp wins over the project's - so
-    # with RateXp installed globally the agent is given the project command's own
-    # instruction instead, naming this project's script.
-    global_command = Path.home() / ".cursor/commands/ratexp.md"
-    if global_command.exists() and "RateXp" in global_command.read_text():
-        request = f"Run `bash \"{script}\" ask '/ratexp'` and print what it prints, word for word."
-    else:
-        request = "/ratexp"
-    second = run([*chat, request], folder, env, timeout=AGENT_TIMEOUT)
+    # Cursor attaches the plugin's ratexp skill, which has the agent run `ask`.
+    second = run([*chat, "/ratexp:rate"], folder, env, timeout=AGENT_TIMEOUT)
     assert second.returncode == 0, second.stderr
     pending = [
         p
         for p in glob.glob(f"{state}/ratexp/*/runs/*/pending")
         if CORE_URL.encode() in Path(p).read_bytes()
     ]
-    assert pending, "the agent's /ratexp left no survey for this project's core"
+    assert pending, "the agent's /ratexp:rate left no survey for this core"
 
     # The click: what the agent runs with the user's answer.
-    comment = ratexp_comment("cursor")
+    comment = ratexp_comment("cursor plugin")
     sent = run(["bash", str(script), "report", "good", "share", comment], folder, env)
     assert f"accepted by {CORE_URL}" in sent.stdout, sent.stdout + sent.stderr
 
@@ -295,6 +293,3 @@ def test_cursor_install_survey_rating_and_uninstall(project, agent_cli):
     # No model to check: the hook learns it from Cursor's stop hook, which
     # `cursor-agent -p` never fires, and Cursor's transcript does not name it - so a
     # CLI row reads just "cursor". Cursor's editor fires it and the model shows.
-
-    assert installer(folder, "uninstall", "cursor").returncode == 0
-    assert ratexp_files_left(folder / ".cursor") == []

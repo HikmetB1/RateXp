@@ -54,18 +54,19 @@ RUN python -m spacy download en_core_web_sm && \
     python -m spacy download pt_core_news_sm && \
     python -m spacy download ru_core_news_sm
 
-# One hook script per coding agent; core serves each at its own name, with the
-# evals baked in. modules/ carries the migration .sql files alongside the code
-# that applies them.
+# The evals core sends to the plugin's hooks at /hook-settings. modules/ carries the
+# migration .sql files alongside the code that applies them.
 COPY load_config.py config.yaml ./
 COPY evals/ ./evals/
-COPY ratexp-claude.sh ratexp-cursor.sh install.sh ./
 COPY api/ ./api/
 COPY modules/ ./modules/
 # The built docs site, served by api/serve_http.py at /guide/. It sits beside /app, as
 # docs-server/ sits beside core/ in the repo, so docker compose's live mount of core/
 # over /app leaves it in place.
 COPY --from=guide /repo/docs-server/site /docs-server/site
+# The plugin's manifest, for the newest plugin version at /hook-settings. It sits
+# beside /app as .claude-plugin/ sits beside core/ in the repo, for the same reason.
+COPY --from=repo .claude-plugin/plugin.json /.claude-plugin/plugin.json
 
 # Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv

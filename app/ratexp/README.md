@@ -47,7 +47,8 @@ startup with an error.
 
 - `schema_version`: The ATIF version that the app expects on stored transcripts. The value is
   the same as in core.
-- `core_url`: The core that the install popup tells users to install from.
+- `core_url`: The core of this deployment. For a core other than the hosted core, the install
+  popup tells users to set `RATEXP_URL` to that core.
 - `list_view_limit` / `list_max_limit`: The default number of rows that the list endpoints
   return, and the maximum number of rows in one response. Thus, the **Feedback** table of the
   Dashboard view and of the Query & table view shows the newest `list_view_limit` ratings, and
@@ -84,8 +85,8 @@ startup with an error.
 - `PHOENIX_COLLECTOR_ENDPOINT` / `PHOENIX_API_KEY` / `PHOENIX_PROJECT_NAME`: The same three
   variables that core uses to write to Phoenix, because the dashboard reads the same Phoenix
   project.
-- `RATEXP_CORE_URL`: Overrides `core_url`. Thus, the install popup of each deployment points
-  to the core of that deployment, and you do not edit `config.yaml`.
+- `RATEXP_CORE_URL`: Overrides `core_url`. Thus, the install popup of each deployment names
+  the core of that deployment, and you do not edit `config.yaml`.
 - `RATEXP_ENV` / `RATEXP_CORS_ORIGINS`: With `local` (the default), the app accepts requests
   from all origins. With a different value, `RATEXP_CORS_ORIGINS` is necessary, and the app
   does not start without `RATEXP_CORS_ORIGINS`.

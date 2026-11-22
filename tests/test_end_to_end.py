@@ -2,9 +2,9 @@
 
 These are the tests that prove the whole app works together - core takes a
 rating (and a consented trajectory) over plain HTTP and writes it, the dashboard
-reads the same data back out. The last test goes one step further and drives the
-hook script a user installs, so the exact bytes a real install puts on the wire
-are the ones being checked.
+reads the same data back out. The last tests go one step further and drive the
+hook script as the RateXp plugin runs it, so the exact bytes a real install puts on
+the wire are the ones being checked.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import shutil
 import subprocess
 import time
@@ -23,13 +22,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 CANONICAL_HOOK = ROOT / "core" / "ratexp-claude.sh"
-PLACEHOLDER = "'__RATEXP_URL__'"
-EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
-EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
-EVALS_PLACEHOLDER = "'__RATEXP_EVALS__'"
-# The one eval the hook copy below asks, as core bakes evals in: its name, its
-# question, then the label and description of the good answer and of the bad one.
-HOOK_EVAL = ("e2e-eval", "Rate {subject}", "Good", "Helpful.", "Bad", "Not helpful.")
 
 # The hook refuses to post anywhere but https or the loopback host.
 LOOPBACK_HTTP = re.compile(r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(/|$)")
@@ -197,23 +189,27 @@ def test_dashboard_view_round_trip(app_url, http, post_feedback, post_transcript
 
 
 @pytest.fixture
-def hook(tmp_path, core_url) -> Path:
-    """The canonical Claude Code hook in a throwaway .claude/, aimed at the live core."""
+def hook(tmp_path, core_url, http):
+    """The Claude Code hook as the RateXp plugin runs it, aimed at the live core, after a
+    session start: core has sent its surveys. Returns the script, the environment it
+    runs in, and the eval core asks by default."""
     if not (core_url.startswith("https://") or LOOPBACK_HTTP.match(core_url)):
         pytest.skip(f"the hook only posts to https or loopback - core is at {core_url}")
-    folder = tmp_path / ".claude"
-    folder.mkdir()
-    source = CANONICAL_HOOK.read_text(encoding="utf-8")
-    assert PLACEHOLDER in source, f"{CANONICAL_HOOK} no longer carries {PLACEHOLDER}"
-    script = folder / "ratexp-claude.sh"
-    script.write_text(
-        source.replace(PLACEHOLDER, shlex.quote(core_url))
-        .replace(EVERY_PLACEHOLDER, "5")
-        .replace(EVAL_PLACEHOLDER, HOOK_EVAL[0])
-        .replace(EVALS_PLACEHOLDER, "\n    " + " ".join(map(shlex.quote, HOOK_EVAL)) + "\n"),
-        encoding="utf-8",
+    plugin = tmp_path / "plugin"
+    (plugin / "core").mkdir(parents=True)
+    shutil.copytree(ROOT / ".claude-plugin", plugin / ".claude-plugin")
+    script = plugin / "core" / "ratexp-claude.sh"
+    shutil.copy(CANONICAL_HOOK, script)
+    env = {**os.environ, "XDG_STATE_HOME": str(tmp_path / "state"), "RATEXP_URL": core_url}
+    started = _run_hook(
+        script,
+        env,
+        {"hook_event_name": "SessionStart", "session_id": str(uuid.uuid4()), "cwd": str(plugin)},
     )
-    return script
+    assert started == "", "the plugin's version is the newest, so there is no update notice"
+    settings = _get(http, f"{core_url}/hook-settings")
+    default = next(e for e in settings["evals"] if e["name"] == settings["default_eval"])
+    return script, env, default
 
 
 def _session_jsonl(pad: str = "") -> str:
@@ -237,14 +233,6 @@ def _session_jsonl(pad: str = "") -> str:
     return "".join(json.dumps(line) + "\n" for line in lines)
 
 
-def _hook_env(state_dir: Path) -> dict:
-    """Environment for a hook run: its own state, and the URL baked into this copy."""
-    env = dict(os.environ)
-    env["XDG_STATE_HOME"] = str(state_dir)
-    env.pop("RATEXP_URL", None)  # use the URL baked into this copy
-    return env
-
-
 def _run_hook(script: Path, env: dict, payload: dict) -> str:
     """Feed one Claude Code hook event to the script on stdin; return its stdout."""
     done = subprocess.run(
@@ -265,8 +253,8 @@ def _rate_with_hook(
 ) -> str:
     """Replay the hook events Claude Code fires around a skill's run and its rating.
 
-    /<skill> starts the run, its turns land in the transcript, /ratexp:<skill> asks
-    for the survey, Stop hands the model a picker to draw, PreToolUse checks the
+    /<skill> starts the run, its turns land in the transcript, /ratexp:rate <skill>
+    asks for the survey, Stop hands the model a picker to draw, PreToolUse checks the
     model drew that exact picker, and PostToolUse carries the user's answer - the
     one event that posts anything. Returns the hook's delivery report.
     """
@@ -282,7 +270,11 @@ def _rate_with_hook(
         script, env, {"hook_event_name": "UserPromptExpansion", "command_name": skill, **common}
     )
     transcript.write_text(run, encoding="utf-8")
-    request = {"hook_event_name": "UserPromptExpansion", "command_name": f"ratexp:{skill}"}
+    request = {
+        "hook_event_name": "UserPromptExpansion",
+        "command_name": "ratexp:rate",
+        "command_args": skill,
+    }
     _run_hook(script, env, {**request, **common})
     stop = _run_hook(script, env, {"hook_event_name": "Stop", **common})
     blocked = json.loads(stop)
@@ -328,13 +320,15 @@ def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
     The rating always goes; the transcript goes only when the user ticked consent.
     An oversized transcript still uploads, but core stores it as the meta-only stub.
     """
+    script, env, default = hook
     session_id = str(uuid.uuid4())
     skill = f"e2e-skill-{uuid.uuid4().hex[:8]}"  # the name the rating lands under
-    answer = "Good, Yes, store trajectory" if share else "Good, No, do not store"
+    consent = "Yes, store trajectory" if share else "No, do not store"
+    answer = f"{default['good_label']}, {consent}"
 
     report = _rate_with_hook(
-        hook,
-        _hook_env(tmp_path / "state"),
+        script,
+        env,
         session_id,
         tmp_path / "session.jsonl",
         _session_jsonl("x" * OVERSIZE_PAD_BYTES if oversized else ""),
@@ -351,8 +345,8 @@ def test_hook_round_trip(app_url, http, tmp_path, hook, share, oversized):
     # 1. The rating is on the dashboard, under the skill's name and the eval asked.
     row = _poll(lambda: _find(_get(http, f"{app_url}/feedback", full="true"), skill))
     assert row is not None, f"{skill} never appeared on the dashboard"
-    assert row["score"] == 1  # "Good"
-    assert row["eval_name"] == HOOK_EVAL[0]
+    assert row["score"] == 1  # the good answer
+    assert row["eval_name"] == default["name"], "no eval named, so core's default"
     assert row["session_id"] == session_id
 
     # 2. The transcript is stored only when consent was given. The hook finished

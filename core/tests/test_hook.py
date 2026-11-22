@@ -1,10 +1,10 @@
 """Black-box tests for core/ratexp-claude.sh rating a skill, and the harness
 every hook test shares.
 
-The Claude Code hook is installed once, in ~/.claude, by the person using Claude
-Code. It rates any skill's most recent run when they type /ratexp:<skill>, asking
-the eval typed after it or core's default one; the whole-session survey is tested
-in test_hook_session.py.
+The RateXp plugin runs the Claude Code hook for whoever uses Claude Code. It rates
+any skill's most recent run when they type /ratexp:rate <skill>, asking the eval
+typed after it or core's default one; the whole-session survey is tested in
+test_hook_session.py.
 
 The hook has to run on a bare machine: Bash 3.2+, curl, and a short list of
 standard utilities - no Python, no jq, no node. Nothing here imports or reads
@@ -16,7 +16,8 @@ status the test chooses. If the script ever grew a Python/jq/node dependency,
 these tests would stop producing output instead of passing.
 
 Every run gets its own XDG_STATE_HOME and an explicit RATEXP_URL, so runs
-never share state and never touch the network.
+never share state and never touch the network. Each test starts as if core had
+already sent its surveys at session start; test_hook_plugin.py tests that exchange.
 """
 
 from __future__ import annotations
@@ -46,15 +47,13 @@ ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", 
 FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "grep", "cat")
 
 CORE = Path(__file__).resolve().parents[1]
-PLACEHOLDER = "'__RATEXP_URL__'"
-EVERY_PLACEHOLDER = "'__RATEXP_EVERY__'"
-EVAL_PLACEHOLDER = "'__RATEXP_EVAL__'"
-EVALS_PLACEHOLDER = "'__RATEXP_EVALS__'"
-# What the tests bake in where a real copy would carry config.yaml's value.
-BAKED_EVERY = 5
-# The evals the tests bake in where a real copy carries core's evals/, each as its
-# question, then the label and description of the good answer and of the bad one.
-# The default stands in for core's human-satisfaction; the others are picked by name.
+# The plugin version the tests install.
+PLUGIN_VERSION = "1.4.0"
+# The turns between surveys that core sends, where a real core sends config.yaml's.
+CORE_EVERY = 5
+# The evals core sends, where a real core sends its evals/, each as its question,
+# then the label and description of the good answer and of the bad one. The
+# default stands in for core's human-satisfaction; the others are picked by name.
 DEFAULT_EVAL = "human-satisfaction"
 EVALS = {
     DEFAULT_EVAL: ("Rate {subject}", "Good", "The result was helpful.", "Bad", "Not helpful."),
@@ -110,7 +109,9 @@ PENDING_FIELDS = (
 )
 
 # Stand-in for curl: records argv (NUL-separated, so newlines inside a comment
-# survive) plus the piped body, then prints the status the test asked for.
+# survive) plus the piped body, then prints the status the test asked for. The
+# plugin's copy asks for /hook-settings: the answer is the file the test names, and
+# with no file the connection fails, as when core is out of reach.
 FAKE_CURL = """#!/bin/bash
 dir=${RATEXP_CURL_LOG:?}
 id=$$-$RANDOM$RANDOM
@@ -120,6 +121,11 @@ for arg in "$@"; do printf '%s\\0' "$arg"; done > "$dir/argv-$id"
 if (( wants_body )); then
     IFS= read -r -d '' body
     printf '%s' "$body" > "$dir/body-$id"
+fi
+if [[ ${!#} == */hook-settings ]]; then
+    [[ -f ${RATEXP_CURL_SETTINGS-} ]] || exit 7
+    printf '%s\\n%s' "$(< "$RATEXP_CURL_SETTINGS")" "${RATEXP_CURL_SETTINGS_STATUS:-200}"
+    exit 0
 fi
 printf '%s' "${RATEXP_CURL_STATUS:-201}"
 """
@@ -149,12 +155,30 @@ printf '%s\\n' "$out"
 """
 
 
-def baked_evals() -> str:
-    """EVALS as core bakes them in: one line of shell words per eval."""
-    return "".join(
-        "\n    " + " ".join(shlex.quote(word) for word in (name, *survey))
-        for name, survey in EVALS.items()
-    )
+def settings_answer(version=PLUGIN_VERSION, every=32768, default_eval=DEFAULT_EVAL, evals=None):
+    """What core's /hook-settings returns."""
+    return {
+        "plugin_version": version,
+        "every": every,
+        "default_eval": default_eval,
+        "evals": [
+            {
+                "name": name,
+                "question": question,
+                "good_label": good_label,
+                "good_description": good_description,
+                "bad_label": bad_label,
+                "bad_description": bad_description,
+            }
+            for name, (
+                question,
+                good_label,
+                good_description,
+                bad_label,
+                bad_description,
+            ) in (evals or EVALS).items()
+        ],
+    }
 
 
 def reorder(obj):
@@ -167,31 +191,24 @@ def reorder(obj):
 
 
 class Hook:
-    """Runs the hook script, as core serves it, in a sandbox and reads back what curl saw."""
+    """Runs the hook script, as the plugin runs it, in a sandbox and reads back what curl saw."""
 
-    # Which script this harness runs; a subclass testing another one overrides it.
+    # Which script this harness runs, and the folder of its plugin manifest; a subclass
+    # testing the other agent overrides both.
     script_name = "ratexp-claude.sh"
+    manifest_dir = ".claude-plugin"
 
     def __init__(self, tmp_path: Path):
         self.tmp = tmp_path
         self.session = "sess-hook-1"
         self.skill = DEFAULT_SKILL
-
-        # The script as core serves it: the URL, the frequency and the evals baked in.
-        text = (CORE / self.script_name).read_text(encoding="utf-8")
-        for name in (PLACEHOLDER, EVERY_PLACEHOLDER, EVAL_PLACEHOLDER, EVALS_PLACEHOLDER):
-            assert name in text, f"canonical script lost its {name} placeholder"
-        text = text.replace(PLACEHOLDER, f"'{LOCAL_URL}'")
-        text = text.replace(EVERY_PLACEHOLDER, f"'{BAKED_EVERY}'")
-        text = text.replace(EVAL_PLACEHOLDER, f"'{DEFAULT_EVAL}'")
-        text = text.replace(EVALS_PLACEHOLDER, baked_evals() + "\n")
-        # Installed once for every project, in the home folder.
         self.home = tmp_path / "home"
-        self.agent_dir = self.home / ".claude"
-        self.agent_dir.mkdir(parents=True)
-        self.script = self.agent_dir / self.script_name
-        self.script.write_text(text, encoding="utf-8")
-        self.script.chmod(0o755)
+        self.home.mkdir()
+        self.plugin = tmp_path / "plugins" / "cache" / "ratexp" / "ratexp" / PLUGIN_VERSION
+        self.install_version(PLUGIN_VERSION)
+        # What core answers at /hook-settings, when the hook asks.
+        self.settings_file = tmp_path / "hook-settings.json"
+        self.answer_settings(settings_answer())
 
         # PATH holds nothing but the allowed utilities and the fake curl.
         self.bin = tmp_path / "bin"
@@ -206,6 +223,7 @@ class Hook:
         fake.chmod(0o755)
 
         self.state = tmp_path / "state"
+        self.keep_settings()
         self.curl_log = tmp_path / "curl-log"
         self.curl_log.mkdir()
         self.cwd = tmp_path / "cwd"
@@ -218,6 +236,42 @@ class Hook:
         # Byte offset where the run being rated starts; arm() keeps it current.
         self.run_start = 0
 
+    def install_version(self, version):
+        """Put a plugin version in place, the way the agent caches each version: the
+        script as the repo holds it, in core/ beside the plugin's manifest."""
+        self.plugin = self.plugin.parent / version
+        (self.plugin / "core").mkdir(parents=True)
+        (self.plugin / self.manifest_dir).mkdir()
+        (self.plugin / self.manifest_dir / "plugin.json").write_text(
+            json.dumps({"name": "ratexp", "version": version}), encoding="utf-8"
+        )
+        self.script = self.plugin / "core" / self.script_name
+        shutil.copy(CORE / self.script_name, self.script)
+
+    def answer_settings(self, answer):
+        """What core answers at /hook-settings from now on; None: out of reach."""
+        if answer is None:
+            self.settings_file.unlink(missing_ok=True)
+        elif isinstance(answer, str):
+            self.settings_file.write_text(answer, encoding="utf-8")
+        else:
+            self.settings_file.write_text(json.dumps(answer), encoding="utf-8")
+
+    def settings_kept(self, url=LOCAL_URL) -> Path:
+        """Where the hook keeps core's answer for the core at <url>."""
+        done = subprocess.run(["cksum"], input=url.encode(), capture_output=True, check=True)
+        return self.state / "ratexp" / f"settings-{done.stdout.split()[0].decode()}"
+
+    def keep_settings(self, url=LOCAL_URL, every=CORE_EVERY):
+        """Core's answer as the hook keeps it after a session start: each field ends
+        in a NUL - the newest plugin version, the turns, the default eval, then six
+        fields per eval."""
+        words = [PLUGIN_VERSION, str(every), DEFAULT_EVAL]
+        words += [word for name, survey in EVALS.items() for word in (name, *survey)]
+        path = self.settings_kept(url)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"".join(word.encode() + b"\0" for word in words))
+
     # ---------------------------------------------------------------- running
 
     def env(self, **overrides) -> dict:
@@ -229,6 +283,7 @@ class Hook:
             "RATEXP_EVERY": NEVER,
             "RATEXP_CURL_LOG": str(self.curl_log),
             "RATEXP_CURL_STATUS": "201",
+            "RATEXP_CURL_SETTINGS": str(self.settings_file),
         }
         # A None override unsets the variable, so a test can check what the copy
         # itself carries rather than what the environment says.
@@ -331,15 +386,16 @@ class Hook:
         )
 
     def request(self, target=None, env=None, eval_name=None):
-        """The user choosing /ratexp:<skill> - this skill unless another is named -
+        """The user typing /ratexp:rate <skill> - this skill unless another is named -
         with an eval's name typed after it, if one is given."""
-        event = self.event("UserPromptExpansion", command_name=f"ratexp:{target or self.skill}")
+        words = target or self.skill
         if eval_name is not None:
-            event["command_args"] = eval_name
+            words += f" {eval_name}"
+        event = self.event("UserPromptExpansion", command_name="ratexp:rate", command_args=words)
         return self.run_hook(event, env)
 
     def ask(self, env=None, tool_id=TOOL_ID, eval_name=None):
-        """arm -> /ratexp -> Stop -> PreToolUse. Returns the picker ready to be answered."""
+        """arm -> /ratexp:rate -> Stop -> PreToolUse. Returns the picker ready to be answered."""
         self.arm(env)
         self.request(env=env, eval_name=eval_name)
         picker = self.stop(env)
@@ -741,7 +797,7 @@ def test_another_skills_picker_passes_through_untouched(hook):
 
 
 # --------------------------------------------------------------------------
-# Asking only on /ratexp
+# Asking only on /ratexp:rate
 # --------------------------------------------------------------------------
 
 
@@ -753,7 +809,8 @@ def test_a_run_is_never_rated_without_ratexp(hook):
     assert hook.calls() == []
 
 
-def test_ratexp_colon_skill_asks_about_the_newest_run(hook):
+def test_ratexp_rate_and_a_skill_asks_about_its_newest_run(hook):
+    """`/ratexp:rate poem-creator`: one word that names no eval is a skill."""
     hook.arm()
     hook.request()
     picker = hook.stop()
@@ -762,15 +819,22 @@ def test_ratexp_colon_skill_asks_about_the_newest_run(hook):
     assert picker["questions"][0]["header"] == "RateXp"
 
 
-def test_a_skill_name_typed_after_ratexp_is_read_as_an_eval(hook):
-    """`/ratexp poem-creator`: the word after /ratexp names the eval, so this asks
-    nothing and says how a skill is rated instead."""
+def test_one_word_that_is_neither_an_eval_nor_a_skill_that_ran_says_so(hook):
     hook.arm()
-    hook.run_hook(hook.event("UserPromptExpansion", command_name="ratexp", command_args=hook.skill))
+    hook.request("nope")
     out, _, _ = hook.run_hook(hook.event("Stop", stop_hook_active=False))
     message = json.loads(out)["systemMessage"]
-    assert f"no eval named {hook.skill}" in message
-    assert "/ratexp:<skill>" in message
+    assert "nope is neither an eval nor a skill that ran in this session" in message
+    assert ", ".join(EVALS) in message, "every eval core offers is listed"
+    assert hook.calls() == []
+
+
+@pytest.mark.parametrize("other", ["rate", "ratexp:other", "ratexpert"])
+def test_another_command_is_a_skill_starting_not_a_request(hook, other):
+    """Only /ratexp:rate asks; any other command is a skill run starting."""
+    hook.run_hook(hook.event("UserPromptExpansion", command_name=other, command_args="x"))
+    hook.append(type="assistant", text="WORK")
+    assert hook.stop() is None
     assert hook.calls() == []
 
 
@@ -780,7 +844,7 @@ def test_a_skill_name_typed_after_ratexp_is_read_as_an_eval(hook):
 
 
 def test_an_eval_typed_after_the_skill_words_the_survey(hook):
-    """`/ratexp:poem-creator code-quality` asks code-quality's question and answers."""
+    """`/ratexp:rate poem-creator code-quality` asks code-quality's question and answers."""
     picker = hook.ask(eval_name="code-quality")
     question = picker["questions"][0]
     assert question["question"] == (
@@ -1066,6 +1130,8 @@ def test_destination_is_pinned_when_the_picker_is_shown(hook):
     """The consent text names one server; a later RATEXP_URL must not redirect it."""
     picker = hook.ask()
     assert LOCAL_URL in picker["questions"][0]["options"][2]["description"]
+    # The other core sent its surveys too, so only the pinned destination decides.
+    hook.keep_settings("https://elsewhere.example.com")
     hook.run_hook(hook.answer(picker, CONSENT), env={"RATEXP_URL": "https://elsewhere.example.com"})
     assert [c["url"] for c in hook.calls()] == [
         f"{LOCAL_URL}/feedback",
@@ -1179,7 +1245,7 @@ def test_transcript_over_four_mib_is_not_uploaded(hook):
 
 
 def test_only_the_skills_own_turns_are_uploaded(hook):
-    """The run ends when the conversation moves on - not at /ratexp.
+    """The run ends when the conversation moves on - not at /ratexp:rate.
 
     Its question and the user's answer belong to it; the unrelated request the
     user made afterwards, and the agent's work on that, do not.
@@ -1190,7 +1256,7 @@ def test_only_the_skills_own_turns_are_uploaded(hook):
     hook.append(type="assistant", text="THE-POEM-BEING-RATED")
     hook.append(type="user", text="UNRELATED-REQUEST")
     hook.append(type="assistant", text="UNRELATED-WORK")
-    hook.append(type="user", text="/ratexp:poem-creator")
+    hook.append(type="user", text="/ratexp:rate poem-creator")
     hook.request()
     picker = hook.stop()
     hook.pre(picker)
@@ -1202,7 +1268,7 @@ def test_only_the_skills_own_turns_are_uploaded(hook):
     for dropped in (
         b"UNRELATED-REQUEST",
         b"UNRELATED-WORK",
-        b"/ratexp:poem-creator",
+        b"/ratexp:rate poem-creator",
         EARLIER.encode(),
     ):
         assert dropped not in body, f"not part of the run: {dropped!r}"

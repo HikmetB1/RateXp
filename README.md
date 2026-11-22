@@ -60,47 +60,67 @@
   - The skill author sees how people rate the skill in real work, not only in the tests of
     the skill author.
 
-**Easy to adopt:** Run one install command, one time for each coding agent. See
+**Easy to adopt:** Install the RateXp plugin one time for each coding agent. See
 [Quick start](#quick-start-install-ratexp).
 
 <!-- shared:start quick-start -->
 ## Quick start: install RateXp
 
-**Install RateXp one time in your coding agent:**
+Install the RateXp plugin one time. Do the steps for your coding agent.
 
-<!-- tabs -->
 **Claude Code:**
 
-```bash
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install claude
-```
+1. **Install the plugin:** Type one of these commands in the terminal.
+
+   **For you, in all of your projects:**
+
+   ```bash
+   claude plugin install ratexp --marketplace HikmetB1/RateXp
+   ```
+
+   **For you, only in one repository:** Type the command in the folder of the repository.
+
+   ```bash
+   claude plugin install ratexp --marketplace HikmetB1/RateXp --scope local
+   ```
+
+2. **Start Claude Code:** `/ratexp:rate` works. If Claude Code is open, type
+   `/reload-plugins` in Claude Code.
 
 **Cursor CLI:**
 
-```bash
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- install cursor
-```
+If RateXp is installed in Claude Code on the same computer, the Cursor CLI already runs RateXp.
+You do not have to install RateXp again. Otherwise, do these steps:
 
-- <details><summary><strong>Coding agent settings</strong></summary>
+1. **Add the RateXp marketplace:** Type this command in the terminal:
 
-  - **Hook script and settings file:**
-    - **Claude Code:** The installer saves the hook script as `~/.claude/ratexp-claude.sh` and
-      adds the RateXp hooks to `~/.claude/settings.json`.
-    - **Cursor CLI:** The installer saves the hook script as `~/.cursor/ratexp-cursor.sh` and
-      adds the RateXp hooks to `~/.cursor/hooks.json`.
-  - **Your settings:** The installer does not change the other entries in the settings file.
-  - **Backup:** The installer saves a copy of the original settings file as
-    `<file>.ratexp-backup`.
+   ```bash
+   agent plugin marketplace add https://github.com/HikmetB1/RateXp
+   ```
 
-  </details>
-- **Your own core:** To use your own core in place of the hosted RateXp core, see
-  [Custom deploy](./docs/custom-deploy.md).
+2. **Install the plugin:** Start the Cursor CLI with `agent`. Type `/plugin`, select the
+   `ratexp` plugin, then select the user (all of your projects) or the project (this project
+   only).
+3. **Restart the Cursor CLI:** Exit the Cursor CLI and start the Cursor CLI again. Then
+   `/ratexp:rate` works. The survey every 5 turns starts from your next Cursor CLI session.
 
-**To uninstall, to see the status, or to install for one project only, read the installer help:**
+**After the install:**
 
-```bash
-curl -fsSL https://ratexp-core.azurewebsites.net/install.sh | bash -s -- --help
-```
+- **Rate:** Type `/ratexp:rate`. See
+  [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
+- **Cursor hooks file:** The plugin changes `~/.cursor/hooks.json` and keeps a copy of your
+  old file as `~/.cursor/hooks.json.ratexp-backup`.
+- **Where the ratings go:** The plugin sends the ratings to the hosted RateXp core. To send
+  the ratings to your own core, add this line to your shell profile, such as `~/.bashrc` or
+  `~/.zshrc`, with the URL of your core:
+
+  ```bash
+  export RATEXP_URL=https://core.example.com
+  ```
+
+  See [Custom deploy](./docs/custom-deploy.md).
+- **Updates:** When a newer version of the plugin is available, RateXp shows a message that
+  tells how to update.
 
 ### How to give a rating: the commands to type
 
@@ -108,25 +128,29 @@ Each rating answers one eval. See [Human evals](#feature-human-evals).
 
 **To rate the whole session, type:**
 
-```bash
-/ratexp
+```bash title="Coding agent session"
+/ratexp:rate
 ```
 
-**To rate the most recent run of one skill, type:**
+**To rate the most recent run of one skill, add the name of the skill:**
 
-```bash
-/ratexp:<skill>
+```bash title="Coding agent session"
+/ratexp:rate <skill>
 ```
 
-**To ask a different eval, add the name of the eval to the command:**
+**To ask a different eval, add the name of the eval:**
 
-```bash
-/ratexp <eval>
-/ratexp:<skill> <eval>
+```bash title="Coding agent session"
+/ratexp:rate <eval>
+/ratexp:rate <skill> <eval>
 ```
 
+- **One name:** When you add one name, and the name is the name of an eval, RateXp rates the
+  whole session on that eval. Each other name is the name of a skill.
+- **Cursor CLI:** The Cursor CLI also accepts `/ratexp` in place of `/ratexp:rate`.
 - <strong style="color: #e23a2e">Oh yes, it is annoying to always be asked for a rating.</strong>
-  We solved the problem with the `RATEXP_EVERY` parameter. See
+  <strong style="color: #0f9b67">We solved the problem 😉 with the `RATEXP_EVERY` parameter.</strong>
+   See
   [Session rating](#feature-session-rating).
 - **Consent:** RateXp stores a conversation only with consent, and redacts each stored
   conversation. See
@@ -139,7 +163,7 @@ Each rating answers one eval. See [Human evals](#feature-human-evals).
 ### Session: rate a whole session
 
 1. The user types one prompt in a new Claude Code session.
-2. The user types `/ratexp human-satisfaction`.
+2. The user types `/ratexp:rate human-satisfaction`.
 3. The user answers the eval with True, agrees to store the conversation and adds a comment.
 4. The dashboard shows the rating. The trajectory of the rating opens with the full
    conversation.
@@ -151,7 +175,7 @@ Each rating answers one eval. See [Human evals](#feature-human-evals).
 ### Skill: rate the run of one skill
 
 1. The user runs the skill `/poem-creator` and selects a mood.
-2. The user types `/ratexp:poem-creator human-satisfaction`. RateXp asks for a rating of only
+2. The user types `/ratexp:rate poem-creator human-satisfaction`. RateXp asks for a rating of only
    the `poem-creator` skill run, on the `human-satisfaction` eval.
 3. The dashboard shows a skill rating. The trajectory contains only the part of the
    conversation that the skill ran.
@@ -180,7 +204,7 @@ The answer to each eval is **True** or **False**.
 - RateXp core follows these steps to send a human eval value from the user to each destination
   (each write adapter that is on):
 
-  1. core serves the hook script for each coding agent.
+  1. core sends the evals and the number of turns to the hook script of the plugin.
   2. core receives the ratings and the conversations that the hook script sends.
   3. core masks the personal data. See [Redaction](#feature-redaction).
   4. core labels each conversation. See [Labels](#feature-labels).
@@ -189,6 +213,11 @@ The answer to each eval is **True** or **False**.
 
 - **Endpoints:** The hook script sends data only to the `/feedback` and `/transcript` endpoints
   of core. The hook script does not know which destinations core writes to.
+- **Settings from core:** At the start of each session, the hook script reads the evals, the
+  default eval, the number of turns and the newest plugin version from `/hook-settings`.
+- **Cursor hooks file:** Cursor runs the stop hook of a plugin only when `~/.cursor/hooks.json`
+  also has a stop hook. If that file has no stop hook, the plugin adds a stop hook that does
+  nothing, and keeps a copy of the old file as `hooks.json.ratexp-backup`.
 - **Skill or session:** core does the same steps for a skill rating and for a session rating.
   Only the part of the conversation is different: the skill run, or the whole session.
 
@@ -199,12 +228,14 @@ sequenceDiagram
     participant C as core
     participant D as Destinations
 
-    Note over A,C: One time, at installation
-    A->>C: GET /install.sh, which gets /ratexp-claude.sh or /ratexp-cursor.sh
-    C-->>A: The hook script for the coding agent, with the URL of the core that serves the hook script
-    A->>H: install.sh saves the hook script next to the settings file and adds the hooks
+    Note over A,H: One time, at installation
+    A->>H: Install the RateXp plugin
 
-    Note over H,D: On /ratexp, on /ratexp:<skill>, and every 5th turn
+    Note over H,C: At the start of each session
+    H->>C: GET /hook-settings
+    C-->>H: The evals, the default eval, the number of turns and the newest plugin version
+
+    Note over H,D: On /ratexp:rate, on /ratexp:rate <skill>, and every 5th turn
     H->>C: POST /feedback (eval, rating, optional comment)
     opt The user gives consent
         H->>C: POST /transcript (the skill run, or the session up to now)
@@ -217,15 +248,16 @@ sequenceDiagram
 <!-- shared:end how-ratexp-works -->
 
 ## Features: what you get
-1. <a id="feature-install"></a>**Install:** Run one install command one time in the terminal,
-   for Claude Code or for Cursor CLI. See [Quick start](#quick-start-install-ratexp).
+1. <a id="feature-install"></a>**Install:** Install the RateXp plugin one time, in Claude Code
+   or in the Cursor CLI, for all of your projects or for one project. See
+   [Quick start](#quick-start-install-ratexp).
 2. <a id="feature-session-rating"></a>**Session rating:** RateXp asks about all the work in the
-   session up to now, when the user types `/ratexp`. RateXp also asks every `RATEXP_EVERY`
-   turns, on the default eval. Without `RATEXP_EVERY`, the number of turns is 5. To change the
-   number of turns, set `RATEXP_EVERY`, or change `DEFAULT_EVERY` at the top of the saved hook
-   script. See [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
+   session up to now, when the user types `/ratexp:rate`. RateXp also asks every `RATEXP_EVERY`
+   turns, on the default eval. Without `RATEXP_EVERY`, the number of turns is the number that
+   core sets: 5. To change the number of turns, set `RATEXP_EVERY`. See
+   [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
 3. <a id="feature-skill-rating"></a>**Skill rating:** RateXp asks about only the most recent
-   run of the skill, when the user types `/ratexp:<skill>`. See
+   run of the skill, when the user types `/ratexp:rate <skill>`. See
    [How to give a rating](#how-to-give-a-rating-the-commands-to-type).
 4. <a id="feature-human-evals"></a>**Human evals:** Each rating answers one eval, a survey with
    its own question. Without an eval name, RateXp asks the default eval, `human-satisfaction`.
@@ -233,29 +265,34 @@ sequenceDiagram
    eval or to add a new eval, edit or add one short YAML file in [`core/evals/`](./core/evals/):
    the question and the two answers. See
    [Custom human evals](./docs/human-evals.md#custom-human-evals-copy-the-base-file).
-5. <a id="feature-comments"></a>**Comments:** The user selects the eval value, and can add an
+5. <a id="feature-central-settings"></a>**Central settings:** The admin of core sets the evals,
+   the default eval and the number of turns for all users of the plugin. Each user gets a
+   change at the start of the next session, with no new install. Each user can still change
+   two values: `RATEXP_EVERY` sets the number of turns, and `RATEXP_URL` sets the core that
+   gets the ratings.
+6. <a id="feature-comments"></a>**Comments:** The user selects the eval value, and can add an
    optional comment.
-6. <a id="feature-transcripts"></a>**Transcripts:** RateXp stores the conversation of the rated
+7. <a id="feature-transcripts"></a>**Transcripts:** RateXp stores the conversation of the rated
    run only with the consent of the user. The conversation contains the messages, the
    reasoning, the tool calls and the tool results, in a standard format (ATIF). The hook script
    uploads the conversation directly from the machine of the user. See
    [Redaction](#feature-redaction).
-7. <a id="feature-redaction"></a>**Redaction:** core masks the personal data before core stores
+8. <a id="feature-redaction"></a>**Redaction:** core masks the personal data before core stores
    the data. A pluggable adapter masks the data: self-hosted Presidio or Azure AI Language. If
    the adapter fails, core drops the data and does not store the data unmasked.
-8. <a id="feature-labels"></a>**Labels:** core gives each stored conversation a business case,
+9. <a id="feature-labels"></a>**Labels:** core gives each stored conversation a business case,
    a main language and a task type. Thus, the trajectories can be put in groups by label.
-9. <a id="feature-write-adapters"></a>**Write adapters:** core writes each submission to each
+10. <a id="feature-write-adapters"></a>**Write adapters:** core writes each submission to each
    write adapter that is on. The write adapters work independently: if one write adapter fails,
    the other write adapters continue. See
    [Destinations](#destinations-where-core-writes-the-feedback).
-10. <a id="feature-retention"></a>**Retention:** RateXp keeps only the newest ratings and
+11. <a id="feature-retention"></a>**Retention:** RateXp keeps only the newest ratings and
    their conversations, and deletes the older data automatically. Thus, the storage stays small.
    You set how many ratings stay.
-11. <a id="feature-dashboard"></a>**Dashboard:** The dashboard shows the feedback when the
+12. <a id="feature-dashboard"></a>**Dashboard:** The dashboard shows the feedback when the
    feedback arrives. The dashboard has panels, a query box and a JSON export. See
    [The RateXp app](#the-ratexp-app-read-and-export-the-feedback).
-12. <a id="feature-phone-view"></a>**Phone view:** The RateXp app has a dynamic UI that fits
+13. <a id="feature-phone-view"></a>**Phone view:** The RateXp app has a dynamic UI that fits
    the screen when you view the results.
 
 <!-- shared:start destinations -->
@@ -316,7 +353,7 @@ To contact me, send an [email](mailto:hikmet.beyoglu@hotmail.com) or a message o
 RateXp has the [RateXp Source Available License 1.0](./LICENSE). The license is
 source-available. RateXp is not open source.
 
-- **Hosted service, free, with no time limit:** Install the hook scripts, and send ratings and
+- **Hosted service, free, with no time limit:** Install RateXp, and send ratings and
   conversations to the [live dashboard](https://ratexp-app.azurewebsites.net/). One person or
   a full team can use the hosted service, with no data limit. The
   [Terms of Service](./TERMS.md) apply.

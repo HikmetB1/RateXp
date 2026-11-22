@@ -18,7 +18,6 @@ See [Quick start](../README.md#quick-start-install-ratexp) in the README.
 core/
 ├── ratexp-claude.sh     the Claude Code hook script: rates the session and each skill run in the session
 ├── ratexp-cursor.sh     the Cursor CLI hook script: does the same as ratexp-claude.sh
-├── install.sh           saves a hook script and adds the RateXp hooks to the settings of the agent
 ├── api/                 routes, record schemas, rate limits, the ATIF trajectory builder and the local hourly delete
 ├── modules/
 │   ├── dashboard/       the dashboards: a shared base, one file for each destination, the publish command
@@ -32,6 +31,11 @@ core/
 ├── Dockerfile           builds in the docs site and all optional adapters (config.yaml selects the adapters that run)
 └── Dockerfile.retention builds the image of the retention Function: the Azure Functions base, the code of core, the timer
 ```
+
+- **Plugin:** The RateXp plugin at the repo root runs `ratexp-claude.sh` and `ratexp-cursor.sh`
+  from this folder. Thus, a rename or a move of a hook script breaks the plugin. At the start
+  of each session, the hook scripts read the evals and the number of turns from
+  `/hook-settings`.
 
 ## Run locally: start core on your machine
 
@@ -93,12 +97,12 @@ startup with an error.
 - `rate_limit_per_minute`: The number of requests that one IP address can send in one minute.
   `0` switches the rate limit off.
 - `default_survey_every`: The number of turns between two session ratings (the N in "every Nth
-  turn"). core writes the number into the hook scripts that core serves. `RATEXP_EVERY` on the
+  turn"). core sends the number to the plugin at `/hook-settings`. `RATEXP_EVERY` on the
   machine of the user overrides the number.
-- `default_survey_eval`: The eval that RateXp asks every Nth turn, and on a `/ratexp` command
-  without an eval name. The value is the name of one file in [`evals/`](./evals/).
+- `default_survey_eval`: The eval that RateXp asks every Nth turn, and on a `/ratexp:rate`
+  command without an eval name. The value is the name of one file in [`evals/`](./evals/).
   - **Eval file:** Each file in `evals/` is one eval. The file name is the word that users type
-    after `/ratexp`.
+    after `/ratexp:rate`.
   - **`question`:** The question of the eval. core replaces `{subject}` with the session or
     with the skill.
   - **`label` and `description`:** The label (with no commas) and the description of the `good`
@@ -110,8 +114,8 @@ startup with an error.
   - **New eval:** To start a new eval, copy the base file. `base` itself is never an eval.
   - **New question:** A rating keeps only the name of the eval. Thus, a survey with a new
     question needs a new name.
-  - **Hook update:** core writes the evals into the hook scripts that core serves. Thus, users
-    must download the hook script again to get a new or a changed eval.
+  - **Hook update:** core sends the evals to the plugin at `/hook-settings`. Thus, users get a
+    new or a changed eval at the start of their next session, with no new install.
 - `redaction`: Switches the masks for personal data on or off, and selects the adapter:
   `presidio` (in-process, free) or `azure` (AI Language, billed for each 1,000 records). The
   image contains both adapters. To change the adapter, change one value and restart core. You
@@ -154,9 +158,6 @@ startup with an error.
 
 - `DATABASE_URL` / `RATEXP_DB_AUTH`: The PostgreSQL database that `app_be_psql` writes to, and
   how core authenticates: `password` on your machine, `entra` (Managed Identity) on Azure.
-- `RATEXP_PUBLIC_URL`: The base URL that core writes into the hook scripts that core serves.
-  With the base URL, the hook scripts send the data back to the correct core. A hook script
-  that you copy directly from the `core/` folder has no URL and sends no data.
 - `RATEXP_REDACTION_PROVIDER`: Overrides `redaction.provider` for one deployment.
 - `AZURE_OPENAI_ENDPOINT`: The Azure OpenAI account that `labeling` calls. `config.yaml` names
   `AZURE_OPENAI_ENDPOINT`. If `AZURE_OPENAI_ENDPOINT` is not set, core does not label conversations. Do not set
@@ -182,8 +183,8 @@ startup with an error.
 uv sync --extra test --extra dynatrace-otlp && uv run pytest
 ```
 
-- **Mocked:** The tests use no network and no database. The tests also run the hook scripts
-  and the installer, with a fake `curl`.
+- **Mocked:** The tests use no network and no database. The tests also run the hook scripts,
+  with a fake `curl`.
 - **Dynatrace tests:** Without `dynatrace-otlp`, pytest skips the Dynatrace writer tests and
   shows no error.
 

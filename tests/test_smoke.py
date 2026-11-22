@@ -19,14 +19,13 @@ def test_dashboard_healthz(app_url, http):
     assert r.json() == {"status": "ok"}
 
 
-@pytest.mark.parametrize("hook", ["ratexp-claude.sh", "ratexp-cursor.sh"])
-def test_core_serves_the_hook_scripts(core_url, http, hook):
-    # Each hook is fetched from here, so it must arrive ready to run: a bash
-    # script with core's own URL, survey frequency and evals already baked in.
-    r = http.get(f"{core_url}/{hook}")
+def test_core_sends_the_plugin_its_surveys(core_url, http):
+    # The plugin's hooks ask for these at session start; without them no survey is asked.
+    r = http.get(f"{core_url}/hook-settings")
     assert r.status_code == 200
-    assert r.text.startswith("#!/bin/bash")
-    assert "__RATEXP_" not in r.text
+    body = r.json()
+    assert body["every"] >= 1
+    assert body["default_eval"] in {e["name"] for e in body["evals"]}
 
 
 def test_core_accepts_a_feedback_post(core_url, post_feedback):

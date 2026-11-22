@@ -19,7 +19,6 @@ from __future__ import annotations
 import os
 
 import pytest
-from conftest import baked_url
 
 AZURE_LIVE = os.environ.get("RATEXP_AZURE_LIVE") == "1"
 AZURE_CORE_URL = os.environ.get("RATEXP_AZURE_CORE_URL", "").rstrip("/")
@@ -32,16 +31,15 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_azure_core_serves_the_hook_script(http):
-    """The deployed core must hand out a runnable hook that points back at itself.
+def test_azure_core_sends_the_plugin_its_surveys(http):
+    """The deployed core must answer the plugin's hooks at session start.
 
-    A coding agent installs its hook from here, so a leftover placeholder - or a
-    stale RATEXP_PUBLIC_URL - would send every rating to the wrong place, or nowhere.
+    Without this answer the plugin's hooks ask no survey at all.
     """
-    r = http.get(f"{AZURE_CORE_URL}/ratexp-claude.sh")
+    r = http.get(f"{AZURE_CORE_URL}/hook-settings")
     assert r.status_code == 200
-    assert "__RATEXP_URL__" not in r.text
-    assert baked_url(r.text).rstrip("/") == AZURE_CORE_URL
+    body = r.json()
+    assert body["default_eval"] in {e["name"] for e in body["evals"]}
 
 
 def test_azure_dashboard_links_feedback_to_its_trajectory(http):

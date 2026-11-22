@@ -1,29 +1,32 @@
 #!/bin/bash
 # RateXp: Bash 3.2+, curl, and standard macOS/Linux utilities. No packages.
 # The model draws the supplied picker; this file owns its text and all I/O.
-# Installed once, for every project, as ~/.claude/ratexp-claude.sh by whoever uses
-# Claude Code. It asks about the whole session every Nth turn on its own, and
-# whenever the user types /ratexp. /ratexp:<skill> rates only that skill's most
-# recent run - a skill is never asked about on its own. A word after either picks
-# the eval: which of core's surveys is asked. It notes where every skill run
-# starts so it can do this, and writes /ratexp itself.
+# The RateXp plugin runs it for whoever uses Claude Code. It asks about the whole
+# session every Nth turn on its own, and whenever the user types /ratexp:rate.
+# /ratexp:rate <skill> rates only that skill's most recent run - a skill is never
+# asked about on its own. An eval's name picks which of core's surveys is asked.
+# It notes where every skill run starts so it can do this.
 set -f
 set -o pipefail
 umask 077
 export LC_ALL=C
-DEFAULT_URL='__RATEXP_URL__'
-DEFAULT_EVERY='__RATEXP_EVERY__'
-DEFAULT_EVAL='__RATEXP_EVAL__'
-# The evals core offers, one per line: the name typed after /ratexp, the question -
-# where {subject}, if used, becomes what is rated - then the label and description
-# of the good answer, and of the bad one.
-EVALS=('__RATEXP_EVALS__')
+# Ratings go to the hosted core unless RATEXP_URL names another. That core sends the
+# turns between surveys, the default eval and the evals (see fetch_hook_settings);
+# RATEXP_EVERY overrides the turns.
+DEFAULT_URL=https://ratexp-core.azurewebsites.net
+DEFAULT_EVERY=''
+DEFAULT_EVAL=''
+# The evals core offers, six fields each: the name typed after /ratexp:rate, the
+# question - where {subject}, if used, becomes what is rated - then the label and
+# description of the good answer, and of the bad one.
+EVALS=()
 
 # Strict JSON reader using indexed arrays (also supported by macOS Bash 3.2).
 # No eval, menu scanning, or third-party JSON runtime.
 # The reader, quote, good_url, post, file_info, open_file_info, ratexp_request,
-# find_eval and unknown_eval_line are the same in ratexp-cursor.sh: a test holds
-# the two copies identical, so change them together.
+# request_target, find_eval, evals_offered, unknown_eval_line, fetch_hook_settings,
+# load_hook_settings, manifest_version and is_newer are the same in
+# ratexp-cursor.sh: a test holds the two copies identical, so change them together.
 fail() { exit 0; }
 white() { while [[ ${json:pos:1} == [$' \t\r\n'] ]]; do pos=$((pos+1)); done; }
 hex4() {
@@ -231,8 +234,8 @@ report() {
     # the stopReason, not the systemMessage, so both hold the report.
     printf '{"systemMessage":%s,"continue":false,"stopReason":%s}\n' "$quoted" "$quoted"
 }
-# Skip unrelated or oversized tool payloads before parsing. The dashboard's install
-# popup (app/ratexp/FE/src/App.jsx) has users hook up exactly these events; keep in step.
+# Skip unrelated or oversized tool payloads before parsing. The plugin
+# (.claude-plugin/plugin.json) hooks up exactly these events; keep in step.
 triage() {
     case $json in
         *'"AskUserQuestion"'*)
@@ -243,13 +246,22 @@ triage() {
         *) return 1 ;;
     esac
 }
-# A /ratexp request as the user typed it: /ratexp:<skill> rates that skill's newest
-# run, and a word after the command names the eval. Fails for any other command.
-ratexp_request() {  # ratexp_request <request>: sets target, eval_name
-    local pattern='^/ratexp(:([^[:space:]]+))?([[:space:]]+([^[:space:]]+))?([[:space:]]|$)'
-    target=''; eval_name=''
+# A /ratexp:rate request as the user typed it, such as /ratexp:rate poem-creator
+# human-time-saved: sets the first and the second word after the command, if any.
+# The Cursor CLI also takes plain /ratexp for it. Fails for any other command.
+ratexp_request() {  # ratexp_request <request>: sets first, second
+    local pattern='^/ratexp(:rate)?([[:space:]]+([^[:space:]]+))?([[:space:]]+([^[:space:]]+))?([[:space:]]|$)'
+    first=''; second=''
     [[ $1 =~ $pattern ]] || return 1
-    target=${BASH_REMATCH[2]}; eval_name=${BASH_REMATCH[4]}
+    first=${BASH_REMATCH[3]}; second=${BASH_REMATCH[5]}
+}
+# What a request rates. Two words are a skill, then an eval. One word is an eval
+# when core offers an eval by that name, and a skill otherwise. No word is the
+# whole session. An empty eval_name means core's default eval.
+request_target() {  # request_target <first> <second>: sets target, eval_name
+    target=$1; eval_name=$2
+    [[ -z $2 ]] && find_eval "$1" && { target=''; eval_name=$1; }
+    return 0
 }
 # One of the evals in EVALS, by name: sets its question, and the label and
 # description of each answer. Fails for a name core does not offer.
@@ -264,25 +276,87 @@ find_eval() {  # find_eval <name>
     done
     return 1
 }
+# The names of the evals core offers, comma-separated.
+evals_offered() {  # evals_offered: sets offered
+    local i
+    offered=''
+    for ((i=0; i+5<${#EVALS[@]}; i+=6)); do offered=$offered${offered:+, }${EVALS[i]}; done
+}
 # What a user who names an eval core does not offer is told instead.
 unknown_eval_line() {  # unknown_eval_line <name>: sets unknown
-    local i offered=''
-    for ((i=0; i+5<${#EVALS[@]}; i+=6)); do offered=$offered${offered:+, }${EVALS[i]}; done
-    unknown="RateXp: there is no eval named $1. Choose one of: $offered. To rate a skill, type /ratexp:<skill>."
+    local offered
+    evals_offered
+    unknown="RateXp: there is no eval named $1. Choose one of: $offered."
 }
-# A command file: /ratexp itself, or the /ratexp:<skill> menu entry that makes a
-# skill's name autocomplete after /ratexp; an eval's name may follow either.
-# Written once and never overwritten: the file is the user's to edit or delete.
-# The model may not run it: the hook only hears commands the user typed, so a
-# model-run /ratexp would promise a survey that never comes.
-ratexp_command() {  # ratexp_command <file> <description> <target>
-    local file=$1 dir=${1%/*}
-    [[ -e $file || -L $file || -L $dir ]] && return
-    mkdir -p -- "$dir" || return
-    printf '%s\n' '---' "description: $2" 'argument-hint: "[eval]"' 'disable-model-invocation: true' \
-        '---' '' "RateXp target: $3" '' \
-        'Say only: "Opening the RateXp survey." Do not summarise the session, do not draw' \
-        'any picker yourself - the hook supplies one as soon as this turn ends.' > "$file"
+# Asks core for the surveys and the turns between them, and keeps the answer in
+# <file> for the times core cannot be reached. Each field ends in a NUL:
+# the newest plugin version, the turns between surveys, the default eval, then the
+# six fields of each eval in the order EVALS holds them.
+fetch_hook_settings() {  # fetch_hook_settings <file>
+    local response
+    [[ ! -L $1 && ! -L $1.tmp ]] && mkdir -p -- "${1%/*}" || return 1
+    response=$(curl -q --silent --connect-timeout 5 --max-time 10 --max-filesize 65536 \
+        --proto '=https,http' --write-out '\n%{http_code}' --url "$url/hook-settings") || return 1
+    [[ ${response##*$'\n'} == 200 ]] || return 1
+    (
+        # The reader's fail ends the hook with success; here it must fail the fetch.
+        fail() { exit 1; }
+        json=${response%$'\n'*}; kind=(); name=(); up=(); val=(); last=(); pos=0
+        (( ${#json} <= 65536 )) || fail
+        value -1 '' 0; white
+        (( pos == ${#json} )) && [[ ${kind[0]} == '{' ]] || fail
+        get 0 plugin_version
+        [[ $type == string && $found =~ ^[0-9]{1,9}(\.[0-9]{1,9}){0,3}$ ]] || fail
+        printf '%s\0' "$found"
+        get 0 every; [[ $type == number && $found =~ ^[1-9][0-9]{0,4}$ ]] || fail
+        printf '%s\0' "$found"
+        get 0 default_eval; [[ $type == string && -n $found ]] || fail
+        printf '%s\0' "$found"
+        get 0 evals; list=$node; [[ $type == '[' ]] || fail
+        for ((i=0; ; i++)); do
+            get "$list" "$i"; (( node >= 0 )) || break
+            entry=$node
+            for key in name question good_label good_description bad_label bad_description; do
+                get "$entry" "$key"; [[ $type == string ]] || fail
+                printf '%s\0' "$found"
+            done
+        done
+    ) > "$1.tmp" && mv -- "$1.tmp" "$1"
+}
+# What fetch_hook_settings kept: sets latest, DEFAULT_EVERY, DEFAULT_EVAL and EVALS.
+load_hook_settings() {  # load_hook_settings <file>
+    local field
+    local -a fields
+    [[ -f $1 && ! -L $1 ]] || return 1
+    while IFS= read -r -d '' field; do fields+=("$field"); done < "$1"
+    (( ${#fields[@]} >= 9 && (${#fields[@]} - 3) % 6 == 0 )) || return 1
+    latest=${fields[0]}; DEFAULT_EVERY=${fields[1]}; DEFAULT_EVAL=${fields[2]}
+    EVALS=("${fields[@]:3}")
+}
+# The version a plugin manifest names, printed; nothing for a manifest it cannot read.
+manifest_version() {  # manifest_version <plugin.json>
+    [[ -f $1 && ! -L $1 ]] || return 1
+    (
+        fail() { exit 1; }
+        json=''; IFS= read -r -d '' -n 65537 json < "$1" && fail
+        (( ${#json} <= 65536 )) || fail
+        kind=(); name=(); up=(); val=(); last=(); pos=0
+        value -1 '' 0; white
+        (( pos == ${#json} )) && [[ ${kind[0]} == '{' ]] || fail
+        get 0 version; [[ $type == string ]] || fail
+        printf '%s' "$found"
+    )
+}
+# Whether the first dotted version is newer than the second, such as 1.10.0 and 1.9.2.
+is_newer() {  # is_newer <version> <than version>
+    local a=$1. b=$2. x y pattern='^[0-9]{1,9}(\.[0-9]{1,9}){0,3}$'
+    [[ $1 =~ $pattern && $2 =~ $pattern ]] || return 1
+    while [[ -n $a$b ]]; do
+        x=${a%%.*}; y=${b%%.*}; a=${a#*.}; b=${b#*.}
+        x=$((10#${x:-0})); y=$((10#${y:-0}))
+        (( x == y )) || { (( x > y )); return; }
+    done
+    return 1
 }
 # Note where a skill's newest run starts: the transcript's length right now.
 skill_started() {  # skill_started <skill>
@@ -312,9 +386,13 @@ main() {
     local event session script url every root base dir run now request question picker reason end
     local input response answers annotations answer tool stored_tool born transcript size start identity current
     local good=0 bad=0 share=0 keep=0 comment='' score='' rest part fields
-    local metadata questions signature expected token target cwd asked subject unknown
+    local metadata questions signature expected token target asked subject unknown
     local eval_name eval_question good_label good_description bad_label bad_description
+    local settings mine latest first second offered
     for token in curl cksum mkdir rmdir mv date od stat head tail sort; do command -v "$token" >/dev/null || return; done
+    # Cursor also runs Claude Code's hooks and plugins, with events in its own shape.
+    # RateXp's Cursor hook rates there.
+    [[ -z ${CURSOR_VERSION-} ]] || return
     # NUL is the delimiter: a successful read means NUL or the size limit was hit.
     json=''; IFS= read -r -d '' -n 131073 json && return
     (( ${#json} <= 131072 )) || return
@@ -330,33 +408,22 @@ main() {
     script=$(cd -P -- "${script%/*}" && pwd) || return
     url=${RATEXP_URL:-$DEFAULT_URL}; url=${url%/}
     good_url "$url" || return
-    # Environment settings override the distributed defaults.
-    every=${RATEXP_EVERY:-$DEFAULT_EVERY}
-    [[ $every =~ ^[1-9][0-9]{0,4}$ ]] && (( every <= 32768 )) || return
     root=${XDG_STATE_HOME:-$HOME/.local/state}/ratexp
-    token=$(printf '%s' "$script" | cksum); token=${token%% *}
+    # The plugin's folder changes with each version, so state is keyed by the plugin,
+    # not by the folder: a survey count carries over an update.
+    token=$(printf '%s' claude-plugin | cksum); token=${token%% *}
     base=$root/$token-$session
     [[ ! -L $root && ! -L $base ]] || return
     mkdir -p -- "$base" || return
+    settings=$(printf '%s' "$url" | cksum); settings=$root/settings-${settings%% *}
     now=$(date +%s)
-    get 0 cwd; cwd=$found
     if [[ $event == SessionStart ]]; then
-        # Claude Code reads command files only when a session starts, so what is
-        # written here shows from the next session on.
-        ratexp_command "$script/commands/ratexp.md" \
-            "Rate this session with RateXp; add an eval's name to pick the survey." 'this session'
-        # One /ratexp:<skill> entry per installed skill, so every name autocompletes.
-        # The entries are global, so one project's skills are listed in another too;
-        # rating one there is refused, because it never ran in that session.
-        set +f
-        for token in "$cwd"/.claude/skills/*/SKILL.md "$HOME"/.claude/skills/*/SKILL.md; do
-            [[ -f $token ]] || continue
-            token=${token%/SKILL.md}; token=${token##*/}
-            [[ $token =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$ ]] &&
-                ratexp_command "$script/commands/ratexp/$token.md" \
-                    "Rate your most recent run of $token with RateXp." "$token"
-        done
-        set -f
+        fetch_hook_settings "$settings"
+        mine=$(manifest_version "$script/../.claude-plugin/plugin.json")
+        if load_hook_settings "$settings" && is_newer "$latest" "$mine"; then
+            quote "RateXp $latest is out, and you have $mine. To update RateXp, run: claude plugin marketplace update ratexp && claude plugin update ratexp@ratexp"
+            printf '{"systemMessage":%s}\n' "$quoted"
+        fi
         return
     fi
     if [[ $event == PreToolUse ]]; then
@@ -375,30 +442,47 @@ main() {
             return
         fi
         # The newest request decides: one whose turn the user interrupted fired no
-        # Stop, so it can still be waiting here. No target means the whole session,
-        # and no eval the one core asks by default.
+        # Stop, so it can still be waiting here. Its words are read at Stop, where
+        # the evals core offers are known.
         [[ ! -L $base/rate-now ]] && mkdir -p -- "$base/rate-now" || return
-        [[ ! -L $base/rate-now/target ]] && printf '%s' "$target" > "$base/rate-now/target"
-        [[ ! -L $base/rate-now/eval ]] && printf '%s' "$eval_name" > "$base/rate-now/eval"
+        [[ ! -L $base/rate-now/first ]] && printf '%s' "$first" > "$base/rate-now/first"
+        [[ ! -L $base/rate-now/second ]] && printf '%s' "$second" > "$base/rate-now/second"
         return
     fi
+    # Only a survey needs the turns and the evals. It uses what core sent at session
+    # start. When core was out of reach then, the first turn's end asks again, once,
+    # so a core that stays down does not slow every turn.
+    if ! load_hook_settings "$settings"; then
+        [[ $event == Stop ]] && mkdir -- "$base/asked-core" 2>/dev/null &&
+            fetch_hook_settings "$settings" && load_hook_settings "$settings" || {
+            # A /ratexp:rate that cannot be asked is consumed, so it is reported once.
+            [[ $event == Stop && -d $base/rate-now ]] && mv -- "$base/rate-now" "$base/unasked-$now" || return
+            quote "RateXp: the surveys could not be loaded from $url, so no survey can be asked."
+            printf '{"systemMessage":%s}\n' "$quoted"
+            return
+        }
+    fi
+    # RATEXP_EVERY overrides the turns core sent.
+    every=${RATEXP_EVERY:-$DEFAULT_EVERY}
+    [[ $every =~ ^[1-9][0-9]{0,4}$ ]] && (( every <= 32768 )) || return
     if [[ $event == Stop ]]; then
         get 0 stop_hook_active; [[ $type != true ]] || return
         get 0 transcript_path
         token=$(file_info "$found") || return
-        target=''; eval_name=''; start=0
+        first=''; second=''; start=0
         if [[ -d $base/rate-now ]]; then
-            # /ratexp asks, and moving the request aside consumes it: one request,
-            # one survey. It keeps the skill and the eval it named, if any. That
+            # /ratexp:rate asks, and moving the request aside consumes it: one
+            # request, one survey. It keeps the words typed after the command. That
             # turn was the user asking to rate, not work, so it is not counted.
             asked=$base/asked-${token//:/-}
             mv -- "$base/rate-now" "$asked" 2>/dev/null || return
-            [[ -f $asked/target && ! -L $asked/target ]] && target=$(< "$asked/target")
-            [[ -f $asked/eval && ! -L $asked/eval ]] && eval_name=$(< "$asked/eval")
+            [[ -f $asked/first && ! -L $asked/first ]] && first=$(< "$asked/first")
+            [[ -f $asked/second && ! -L $asked/second ]] && second=$(< "$asked/second")
         else
             # Every Nth turn the whole session is asked about on its own.
             turn_is_due "${token//:/-}" || return
         fi
+        request_target "$first" "$second"
         # A request that names no eval, and every Nth turn, ask core's default one.
         if ! find_eval "${eval_name:=$DEFAULT_EVAL}"; then
             unknown_eval_line "$eval_name"; quote "$unknown"
@@ -409,7 +493,13 @@ main() {
         if [[ -n $target ]]; then
             [[ $target =~ ^[a-zA-Z0-9][a-zA-Z0-9_:.-]{0,127}$ ]] || return
             if [[ ! -f $base/skills/${target//:/--} || -L $base/skills/${target//:/--} ]]; then
-                quote "RateXp: there is no run of $target in this session to rate yet."
+                # One word that names no eval was read as a skill; it may be either.
+                if [[ -z $second ]]; then
+                    evals_offered
+                    quote "RateXp: $target is neither an eval nor a skill that ran in this session. The evals are: $offered."
+                else
+                    quote "RateXp: there is no run of $target in this session to rate yet."
+                fi
                 printf '{"systemMessage":%s}\n' "$quoted"
                 return
             fi

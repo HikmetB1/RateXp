@@ -15,97 +15,86 @@ const WS_BASE =
     ? API_BASE.replace(/^http/i, 'ws')
     : window.location.origin.replace(/^http/i, 'ws'))
 
-// The hooks each coding agent needs, for a user who would rather paste them into its
-// settings than run the installer. They are the same for everyone: Claude Code expands
-// $HOME, and Cursor runs the hooks in ~/.cursor/hooks.json from ~/.cursor. Claude Code's
-// are every event core/ratexp-claude.sh handles (its triage()), and core/install.sh
-// writes the same ones; keep the three in step.
-const CLAUDE_HOOK = { type: 'command', command: 'bash "$HOME/.claude/ratexp-claude.sh"' }
-const CLAUDE_SETTINGS = {
-  hooks: {
-    SessionStart: [{ hooks: [CLAUDE_HOOK] }],
-    UserPromptExpansion: [{ hooks: [CLAUDE_HOOK] }],
-    Stop: [{ hooks: [CLAUDE_HOOK] }],
-    PreToolUse: [{ matcher: 'Skill|AskUserQuestion', hooks: [CLAUDE_HOOK] }],
-    PostToolUse: [{ matcher: 'AskUserQuestion', hooks: [{ ...CLAUDE_HOOK, timeout: 60 }] }],
-    PostToolUseFailure: [{ matcher: 'AskUserQuestion', hooks: [CLAUDE_HOOK] }],
-  },
-}
-const CURSOR_HOOK = { command: 'bash ./ratexp-cursor.sh' }
-const CURSOR_HOOKS = { version: 1, hooks: { sessionStart: [CURSOR_HOOK], stop: [CURSOR_HOOK] } }
+// The plugin sends to the hosted core unless RATEXP_URL names another (see
+// core/ratexp-claude.sh), so a dashboard that reads another core tells plugin users how to
+// point the plugin at it.
+const HOSTED_CORE_URL = 'https://ratexp-core.azurewebsites.net'
+// The repo that holds the plugin and its marketplace.
+const PLUGIN_REPO = 'HikmetB1/RateXp'
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
-// because each keeps its hooks somewhere different. It installs from this deployment's
-// own core, which /meta names. The installer's other options, editing the settings by hand
-// and how to run RateXp each sit in their own folded box below the one line.
+// because each installs the plugin its own way. How to run RateXp sits in a folded box
+// below the install steps.
 const INSTALL_GUIDES = {
   claude: {
-    dir: '~/.claude',
-    script: 'ratexp-claude.sh',
-    settings: '~/.claude/settings.json',
-    settingsName: "Claude Code's settings file",
-    hooks: CLAUDE_SETTINGS,
+    name: 'Claude Code',
+    plugin: `1. Type one of these commands in the terminal.
+
+   **For you, in all of your projects:**
+
+   \`\`\`bash
+   claude plugin install ratexp --marketplace ${PLUGIN_REPO}
+   \`\`\`
+
+   **For you, only in one repository** (type it in the repository's folder):
+
+   \`\`\`bash
+   claude plugin install ratexp --marketplace ${PLUGIN_REPO} --scope local
+   \`\`\`
+
+2. Start Claude Code: \`/ratexp:rate\` works. If Claude Code is open, type
+   \`/reload-plugins\` in it.`,
     run: `1. Start a Claude Code session and work as usual.
-2. Type \`/ratexp\` to rate the whole session. It also asks on its own every 5th turn
-   (change \`DEFAULT_EVERY\` in \`~/.claude/ratexp-claude.sh\`).
-3. Pick \`/ratexp:<skill>\` from the menu to rate just that skill's most recent run.`,
+2. Type \`/ratexp:rate\` to rate the whole session. It also asks on its own every 5th turn
+   (set \`RATEXP_EVERY\` to change the number).
+3. Type \`/ratexp:rate <skill>\` to rate just that skill's most recent run.`,
   },
   cursor: {
-    dir: '~/.cursor',
-    script: 'ratexp-cursor.sh',
-    settings: '~/.cursor/hooks.json',
-    settingsName: "Cursor's hooks file",
-    hooks: CURSOR_HOOKS,
-    run: `1. Start a Cursor chat and work as usual.
-2. Type \`/ratexp\` to rate the whole chat. It also asks on its own every 5th turn
-   (change \`DEFAULT_EVERY\` in \`~/.cursor/ratexp-cursor.sh\`).
-3. Type \`/ratexp:<skill>\` to rate just that skill's most recent run.`,
+    name: 'the Cursor CLI',
+    plugin: `If RateXp is installed in Claude Code on the same computer, the Cursor CLI already runs
+it, so you do not have to install it again. Otherwise:
+
+1. Add the RateXp marketplace in the terminal:
+
+   \`\`\`bash
+   agent plugin marketplace add https://github.com/${PLUGIN_REPO}
+   \`\`\`
+
+2. Start the Cursor CLI with \`agent\`, type \`/plugin\`, select the \`ratexp\` plugin, then
+   select the user (all of your projects) or the project (this project only).
+3. Restart the Cursor CLI. Then \`/ratexp:rate\` works, and the survey every 5 turns starts
+   from your next Cursor CLI session.`,
+    run: `1. Start the Cursor CLI and work as usual.
+2. Type \`/ratexp:rate\` (or just \`/ratexp\`) to rate the whole chat. It also asks on its
+   own every 5th turn (set \`RATEXP_EVERY\` to change the number).
+3. Type \`/ratexp:rate <skill>\` to rate just that skill's most recent run.`,
   },
 }
 
 function runGuideMd(agent) {
   return `${INSTALL_GUIDES[agent].run}
 4. To answer a different eval (survey) than the default, \`human-satisfaction\`, add its
-   name, as in \`/ratexp <eval>\` or \`/ratexp:<skill> <eval>\`.
+   name, as in \`/ratexp:rate <eval>\` or \`/ratexp:rate <skill> <eval>\`.
 5. Answer the survey. Nothing is stored unless you agree, and personal data is masked
    (redacted) before it is stored. Your rating then shows up on this dashboard.`
 }
 
-function installGuideMd(agent, coreUrl = '<your-core-url>') {
+function installGuideMd(agent, coreUrl) {
   const guide = INSTALL_GUIDES[agent]
-  return `Install RateXp with one line, once for every project. The line saves the RateXp
-script and adds RateXp's hooks to \`${guide.settings}\`, keeping everything else in that file:
+  const otherCore = coreUrl && coreUrl !== HOSTED_CORE_URL
+    ? `\n\nThe plugin sends the ratings to the hosted RateXp core. To send them to this
+dashboard's core instead, add this line to your shell profile (such as \`~/.bashrc\` or
+\`~/.zshrc\`), then start ${guide.name} again:
 
 \`\`\`bash
-curl -fsSL ${coreUrl}/install.sh | bash -s -- install ${agent}
-\`\`\`
+export RATEXP_URL=${coreUrl}
+\`\`\``
+    : ''
+  return `Install the RateXp plugin, once:
 
-Restart your coding agent to load the RateXp hooks.
+${guide.plugin}${otherCore}
 
 Congratulations - your agentic experience is live at RateXp! 🎉`
-}
-
-function helpGuideMd(coreUrl = '<your-core-url>') {
-  return `The installer's help shows how to do each:
-
-\`\`\`bash
-curl -fsSL ${coreUrl}/install.sh | bash -s -- --help
-\`\`\``
-}
-
-function manualGuideMd(agent, coreUrl = '<your-core-url>') {
-  const guide = INSTALL_GUIDES[agent]
-  return `Save the RateXp script:
-
-\`\`\`bash
-curl -fsSL ${coreUrl}/${guide.script} --create-dirs -o ${guide.dir}/${guide.script}
-\`\`\`
-
-Then add the following section to \`${guide.settings}\`:
-
-\`\`\`json
-${JSON.stringify(guide.hooks, null, 2)}
-\`\`\``
 }
 
 // Shown in the "preview & download" info popup (the (i) badge and the "click here for
@@ -791,44 +780,12 @@ function TrajectoryDrawer({ data, onClose }) {
   )
 }
 
-// Centered how-to popup, one tab per coding agent (installGuideMd): each keeps its
-// hooks somewhere different, and showing both at once buried the one the reader wanted.
+// Centered how-to popup, one tab per coding agent (installGuideMd): each installs the
+// plugin its own way, and showing both at once buried the one the reader wanted.
 const GUIDE_AGENTS = [
   { key: 'claude', label: 'Claude Code' },
   { key: 'cursor', label: 'Cursor CLI' },
 ]
-
-// The hooks snippet is long, so the hand-editing guide folds its JSON block until clicked;
-// its one-line curl block stays open.
-const FOLD_JSON = {
-  pre({ node, ...props }) {
-    const pre = <pre {...props} />
-    const code = node?.children?.[0]
-    if (!code?.properties?.className?.includes('language-json')) return pre
-    const text = code.children.map((c) => c.value ?? '').join('').trimEnd()
-    return (
-      <details className="md-fold">
-        <summary>Show the section<CopyButton text={text} /></summary>
-        {pre}
-      </details>
-    )
-  },
-}
-
-// Copies `text` and says so for a moment. It sits inside a <summary>, so the click
-// must not also open or close the fold.
-function CopyButton({ text }) {
-  const [copied, setCopied] = useState(false)
-  const copy = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
-  }
-  return <button type="button" className="copy-btn" onClick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
-}
 
 // Closes on the backdrop, the X, or Escape.
 function InstallGuideModal({ open, onClose, coreUrl }) {
@@ -870,14 +827,6 @@ function InstallGuideModal({ open, onClose, coreUrl }) {
             ))}
           </div>
           <Md className="md modal-md">{installGuideMd(agent, coreUrl)}</Md>
-          <details className="md-fold md-run">
-            <summary>Uninstall, check the status, or install for one project?</summary>
-            <Md className="md modal-md">{helpGuideMd(coreUrl)}</Md>
-          </details>
-          <details className="md-fold md-run">
-            <summary>Prefer to edit {INSTALL_GUIDES[agent].settingsName} yourself?</summary>
-            <Md className="md modal-md" components={FOLD_JSON}>{manualGuideMd(agent, coreUrl)}</Md>
-          </details>
           <details className="md-fold md-run">
             <summary>How to run RateXp in your coding agent session</summary>
             <Md className="md modal-md">{runGuideMd(agent)}</Md>

@@ -1,0 +1,16 @@
+{
+  "name": "ratexp",
+  "owner": {
+    "name": "Hikmet Beyoglu"
+  },
+  "metadata": {
+    "description": "RateXp: rate the work of your coding agent, and see the ratings on a live dashboard."
+  },
+  "plugins": [
+    {
+      "name": "ratexp",
+      "source": "./",
+      "description": "Rate the whole chat with /ratexp:rate, or the most recent run of a skill with /ratexp:rate <skill>."
+    }
+  ]
+}

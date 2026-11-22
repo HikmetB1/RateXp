@@ -25,12 +25,11 @@ deploy your own copy of RateXp. See [Custom deploy](./custom-deploy.md). And fol
 4. **Ask the eval:**
 
    ```bash
-   /ratexp <custom-eval-name>
+   /ratexp:rate <custom-eval-name>
    ```
 
    See [How to give a rating](../README.md#how-to-give-a-rating-the-commands-to-type).
 
 - **After a change to an eval:** Build and deploy core again (steps 2 and 4 of
-  [Custom deploy](./custom-deploy.md#steps-deploy-ratexp-to-azure)). Then each user runs the
-  install command from your own core again (step 5 of Custom deploy), to get a hook script
-  with the changed eval.
+  [Custom deploy](./custom-deploy.md#steps-deploy-ratexp-to-azure)). Each user gets the
+  changed eval at the start of the next session, with no new install.

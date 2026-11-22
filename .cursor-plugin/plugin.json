@@ -1,0 +1,15 @@
+{
+  "name": "ratexp",
+  "displayName": "RateXp",
+  "version": "1.0.0",
+  "description": "Rate the whole chat with /ratexp:rate, or the most recent run of a skill with /ratexp:rate <skill>. The ratings, and the conversation when you agree, go to the RateXp dashboard.",
+  "author": {
+    "name": "Hikmet Beyoglu"
+  },
+  "homepage": "https://github.com/HikmetB1/RateXp",
+  "repository": "https://github.com/HikmetB1/RateXp",
+  "license": "LicenseRef-RateXp-Source-Available-1.0",
+  "keywords": ["feedback", "evals", "ratings", "skills"],
+  "skills": "./.cursor-plugin/skills/",
+  "hooks": "./.cursor-plugin/hooks.json"
+}

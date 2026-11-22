@@ -1,0 +1,44 @@
+{
+  "name": "ratexp",
+  "displayName": "RateXp",
+  "version": "1.0.0",
+  "description": "Rate the whole session with /ratexp:rate, or the most recent run of a skill with /ratexp:rate <skill>. The ratings, and the conversation when you agree, go to the RateXp dashboard.",
+  "author": {
+    "name": "Hikmet Beyoglu",
+    "url": "https://github.com/HikmetB1"
+  },
+  "homepage": "https://github.com/HikmetB1/RateXp",
+  "repository": "https://github.com/HikmetB1/RateXp",
+  "license": "LicenseRef-RateXp-Source-Available-1.0",
+  "keywords": ["feedback", "evals", "ratings", "skills"],
+  "skills": "./.claude-plugin/skills/",
+  "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]}
+    ],
+    "UserPromptExpansion": [
+      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]}
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Skill|AskUserQuestion",
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\"", "timeout": 60}]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]
+      }
+    ]
+  }
+}

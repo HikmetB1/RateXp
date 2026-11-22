@@ -2,7 +2,7 @@
 # eval writes only what differs - and any value it does write wins over the one here.
 #
 # To add an eval, copy this file to <name>.yaml, where <name> is the word users type after
-# /ratexp (lowercase letters, digits and -; "base" is taken), and fill in the three fields
+# /ratexp:rate (lowercase letters, digits and -; "base" is taken), and fill in the three fields
 # commented out below. The labels may stay as they are or go: they come from here anyway.
 #
 # question: Did {subject} ...?   # one line, at most 300 characters; any {subject} becomes
