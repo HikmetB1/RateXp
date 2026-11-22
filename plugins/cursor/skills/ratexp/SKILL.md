@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # RateXp survey
 
-Run `bash "<folder>/../../../core/ratexp-cursor.sh" ask '<request>'`, where <folder>
+Run `bash "<folder>/../../ratexp-cursor.sh" ask '<request>'`, where <folder>
 is the folder that holds this SKILL.md, and <request> is the user's /ratexp:rate
 request exactly as they typed it, such as `/ratexp:rate <skill> <eval>`. Then follow
 what it prints, word for word. Do nothing else, and do not summarise the session.

@@ -1,4 +1,4 @@
-"""Black-box tests for core/ratexp-cursor.sh.
+"""Black-box tests for plugins/cursor/ratexp-cursor.sh.
 
 The RateXp plugin runs it for whoever uses Cursor. It rates the whole chat every
 Nth turn on its own (through the stop hook) and on /ratexp:rate, and any skill's
@@ -20,7 +20,16 @@ import subprocess
 import time
 
 import pytest
-from test_hook import CORE, DEFAULT_EVAL, EARLIER, EVALS, LOCAL_URL, SENTINEL, Hook
+from test_hook import (
+    CLAUDE_PLUGIN,
+    CURSOR_PLUGIN,
+    DEFAULT_EVAL,
+    EARLIER,
+    EVALS,
+    LOCAL_URL,
+    SENTINEL,
+    Hook,
+)
 
 SKILL = "poem-creator"
 
@@ -28,6 +37,7 @@ SKILL = "poem-creator"
 class CursorHook(Hook):
     """The script in the Cursor plugin, one skill of the user's, and one chat transcript."""
 
+    source = CURSOR_PLUGIN
     script_name = "ratexp-cursor.sh"
     manifest_dir = ".cursor-plugin"
 
@@ -70,7 +80,7 @@ class CursorHook(Hook):
     def request(self, text="/ratexp:rate"):
         """The user's /ratexp:rate message, with the plugin's ratexp skill that Cursor
         attaches to it."""
-        skill = self.plugin / ".cursor-plugin" / "skills" / "ratexp" / "SKILL.md"
+        skill = self.plugin / "skills" / "ratexp" / "SKILL.md"
         self.line(
             f"<manually_attached_skills>\nSkill Name: ratexp\nPath: {skill}\n"
             "SKILL.md content:\n# RateXp survey\n\nRun ...\n</manually_attached_skills>\n"
@@ -629,6 +639,6 @@ def shell_function(path, name):
 
 @pytest.mark.parametrize("name", SHARED)
 def test_the_code_both_hooks_share_is_the_same_in_each(name):
-    claude = shell_function(CORE / "ratexp-claude.sh", name)
-    cursor = shell_function(CORE / "ratexp-cursor.sh", name)
+    claude = shell_function(CLAUDE_PLUGIN / "ratexp-claude.sh", name)
+    cursor = shell_function(CURSOR_PLUGIN / "ratexp-cursor.sh", name)
     assert claude == cursor, f"{name}() differs between the two hooks; change both copies"

@@ -29,9 +29,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # core/, one level up from this package. Resolved from __file__ so the working
 # directory doesn't matter.
 CORE_DIR = Path(__file__).resolve().parent.parent
-# The plugin's manifest sits beside core/ in the repo. The Dockerfile copies it to the
-# same place beside /app, so this path holds in the image too.
-PLUGIN_MANIFEST = CORE_DIR.parent / ".claude-plugin" / "plugin.json"
+# The Claude Code plugin's manifest, in plugins/ beside core/ in the repo. The Dockerfile
+# copies it to the same place beside /app, so this path holds in the image too. The Cursor
+# plugin always has the same version.
+PLUGIN_MANIFEST = CORE_DIR.parent / "plugins" / "claude-code" / ".claude-plugin" / "plugin.json"
 # The newest plugin version. A hook from an older plugin shows the user how to update.
 PLUGIN_VERSION: str = json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))["version"]
 

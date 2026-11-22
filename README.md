@@ -75,13 +75,13 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
    **For you, in all of your projects:**
 
    ```bash
-   claude plugin install ratexp --marketplace HikmetB1/RateXp
+   claude plugin install ratexp --marketplace HikmetB1/ratexp-claude-plugin
    ```
 
    **For you, only in one repository:** Type the command in the folder of the repository.
 
    ```bash
-   claude plugin install ratexp --marketplace HikmetB1/RateXp --scope local
+   claude plugin install ratexp --marketplace HikmetB1/ratexp-claude-plugin --scope local
    ```
 
 2. **Start Claude Code:** `/ratexp:rate` works. If Claude Code is open, type
@@ -89,13 +89,10 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
 
 **Cursor CLI:**
 
-If RateXp is installed in Claude Code on the same computer, the Cursor CLI already runs RateXp.
-You do not have to install RateXp again. Otherwise, do these steps:
-
 1. **Add the RateXp marketplace:** Type this command in the terminal:
 
    ```bash
-   agent plugin marketplace add https://github.com/HikmetB1/RateXp
+   agent plugin marketplace add https://github.com/HikmetB1/ratexp-cursor-plugin
    ```
 
 2. **Install the plugin:** Start the Cursor CLI with `agent`. Type `/plugin`, select the

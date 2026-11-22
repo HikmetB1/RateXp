@@ -440,12 +440,12 @@ def test_the_survey_itself_is_not_part_of_the_run_it_rates(ask):
         # Cursor's survey is worded by the hook - the stop hook's followup, the questions
         # and the result - and by the plugin's ratexp skill, which Cursor logs as part
         # of the user's message.
-        ("core/ratexp-cursor.sh", CURSOR_SURVEY_MARKS),
-        (".cursor-plugin/skills/ratexp/SKILL.md", [CURSOR_SURVEY_MARK]),
+        ("plugins/cursor/ratexp-cursor.sh", CURSOR_SURVEY_MARKS),
+        ("plugins/cursor/skills/ratexp/SKILL.md", [CURSOR_SURVEY_MARK]),
         # Claude Code writes the command's name itself; the one line the agent says
         # comes from the plugin's rate skill.
         (
-            ".claude-plugin/skills/rate/SKILL.md",
+            "plugins/claude-code/skills/rate/SKILL.md",
             [m for m in CLAUDE_REQUEST_MARKS if "<command-name>" not in m],
         ),
     ],
@@ -545,9 +545,7 @@ def test_the_agent_running_the_ratexp_script_is_not_part_of_the_run():
                     {
                         "type": "tool_use",
                         "name": "Shell",
-                        "input": {
-                            "command": 'bash "/x/ratexp/core/ratexp-cursor.sh" report good share'
-                        },
+                        "input": {"command": 'bash "/x/ratexp/ratexp-cursor.sh" report good share'},
                     }
                 ]
             },

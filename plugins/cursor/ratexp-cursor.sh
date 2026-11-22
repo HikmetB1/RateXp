@@ -395,7 +395,7 @@ turn_is_due() {  # turn_is_due <state dir> <turn key>
 # Whether a chat's newest user message asks for a rating: /ratexp:rate, or the stop
 # hook's followup. Cursor sends the ratexp skill's text along, which opens with
 # "RateXp survey"; a bare /ratexp counts only at the start of what the user typed,
-# since a path like core/ratexp-cursor.sh names it too.
+# since a path like plugins/cursor/ratexp-cursor.sh names it too.
 asked_to_rate() {  # asked_to_rate <transcript>
     tail -c 65536 -- "$1" | grep -e '"role":"user"' -e '"role": "user"' | tail -n 1 |
         grep -q -F -e 'RateXp survey' -e '<user_query>\n/ratexp'
@@ -520,7 +520,7 @@ ask() {
         printf 'RateXp: the surveys could not be loaded from %s, so no survey can be asked.\n' "$url" >&2
         return 1
     }
-    mine=$(manifest_version "$here/../.cursor-plugin/plugin.json")
+    mine=$(manifest_version "$here/.cursor-plugin/plugin.json")
     is_newer "$latest" "$mine" &&
         printf '%s\n' "First tell the user: RateXp $latest is out, and they have $mine. To update RateXp, type /plugin in the Cursor CLI, and update the ratexp plugin there."
     request_target "$first" "$second"

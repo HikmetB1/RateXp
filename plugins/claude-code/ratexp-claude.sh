@@ -419,7 +419,7 @@ main() {
     now=$(date +%s)
     if [[ $event == SessionStart ]]; then
         fetch_hook_settings "$settings"
-        mine=$(manifest_version "$script/../.claude-plugin/plugin.json")
+        mine=$(manifest_version "$script/.claude-plugin/plugin.json")
         if load_hook_settings "$settings" && is_newer "$latest" "$mine"; then
             quote "RateXp $latest is out, and you have $mine. To update RateXp, run: claude plugin marketplace update ratexp && claude plugin update ratexp@ratexp"
             printf '{"systemMessage":%s}\n' "$quoted"

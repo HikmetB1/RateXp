@@ -1,7 +1,7 @@
 """Opt-in check of the production RateXp with the real Claude Code and Cursor CLIs.
 
-Never runs by default. Turn it on after deploying a change to core/ratexp-*.sh or to
-the plugin's files (.claude-plugin/, .cursor-plugin/):
+Never runs by default. Turn it on after deploying a change to the plugins' files
+(plugins/claude-code/, plugins/cursor/):
 
     RATEXP_PROD_AGENTS=1 uv run --no-project --with-requirements tests/requirements.txt \\
         pytest tests/test_agents_production.py -v
@@ -146,9 +146,10 @@ def plugin_env(state: Path) -> dict:
     return env
 
 
-def plugin_copy(folder: Path) -> Path:
-    """The plugin as a marketplace install gets it: the files git tracks, nothing local."""
-    root = Path(__file__).resolve().parent.parent
+def plugin_copy(folder: Path, agent: str) -> Path:
+    """An agent's plugin as its marketplace install gets it: the files git tracks in
+    plugins/<agent>/, which the release step sends to that agent's plugin repo."""
+    root = Path(__file__).resolve().parent.parent / "plugins" / agent
     listed = run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], root)
     for name in filter(None, listed.stdout.split("\0")):
         if (root / name).is_file():
@@ -162,7 +163,7 @@ def test_claude_code_plugin_survey_and_rating(project, agent_cli):
     claude = agent_cli("claude")
     folder = project / "project"
     state = project / "state"
-    plugin = plugin_copy(project / "plugin")
+    plugin = plugin_copy(project / "plugin", "claude-code")
     env = plugin_env(state)
     # Only the project's settings, so a RateXp you installed yourself stays out of it.
     session = [claude, "-p", "--model", CLAUDE_MODEL, "--setting-sources", "project"]
@@ -254,8 +255,8 @@ def test_cursor_plugin_survey_and_rating(project, agent_cli, cursor_hooks_file):
     cursor = agent_cli("cursor-agent")
     folder = project / "project"
     state = project / "state"
-    plugin = plugin_copy(project / "plugin")
-    script = plugin / "core/ratexp-cursor.sh"
+    plugin = plugin_copy(project / "plugin", "cursor")
+    script = plugin / "ratexp-cursor.sh"
     env = plugin_env(state)
     chat = [cursor, "-p", "--force", "--plugin-dir", str(plugin)]
 

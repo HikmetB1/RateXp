@@ -65,8 +65,8 @@ COPY modules/ ./modules/
 # over /app leaves it in place.
 COPY --from=guide /repo/docs-server/site /docs-server/site
 # The plugin's manifest, for the newest plugin version at /hook-settings. It sits
-# beside /app as .claude-plugin/ sits beside core/ in the repo, for the same reason.
-COPY --from=repo .claude-plugin/plugin.json /.claude-plugin/plugin.json
+# beside /app as plugins/ sits beside core/ in the repo, for the same reason.
+COPY --from=repo plugins/claude-code/.claude-plugin/plugin.json /plugins/claude-code/.claude-plugin/plugin.json
 
 # Non-root runtime user; owns nothing writable in /app or the venv.
 RUN useradd -u 10001 -m ratexp && chown -R ratexp:ratexp /app /opt/venv

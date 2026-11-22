@@ -16,11 +16,13 @@ const WS_BASE =
     : window.location.origin.replace(/^http/i, 'ws'))
 
 // The plugin sends to the hosted core unless RATEXP_URL names another (see
-// core/ratexp-claude.sh), so a dashboard that reads another core tells plugin users how to
+// plugins/claude-code/ratexp-claude.sh), so a dashboard that reads another core tells plugin users how to
 // point the plugin at it.
 const HOSTED_CORE_URL = 'https://ratexp-core.azurewebsites.net'
-// The repo that holds the plugin and its marketplace.
-const PLUGIN_REPO = 'HikmetB1/RateXp'
+// Each agent's plugin has its own repo, which is also its marketplace (see
+// infra/publish-plugins.sh), so users download only their agent's plugin.
+const CLAUDE_PLUGIN_REPO = 'HikmetB1/ratexp-claude-plugin'
+const CURSOR_PLUGIN_REPO = 'HikmetB1/ratexp-cursor-plugin'
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
 // because each installs the plugin its own way. How to run RateXp sits in a folded box
@@ -33,13 +35,13 @@ const INSTALL_GUIDES = {
    **For you, in all of your projects:**
 
    \`\`\`bash
-   claude plugin install ratexp --marketplace ${PLUGIN_REPO}
+   claude plugin install ratexp --marketplace ${CLAUDE_PLUGIN_REPO}
    \`\`\`
 
    **For you, only in one repository** (type it in the repository's folder):
 
    \`\`\`bash
-   claude plugin install ratexp --marketplace ${PLUGIN_REPO} --scope local
+   claude plugin install ratexp --marketplace ${CLAUDE_PLUGIN_REPO} --scope local
    \`\`\`
 
 2. Start Claude Code: \`/ratexp:rate\` works. If Claude Code is open, type
@@ -51,13 +53,10 @@ const INSTALL_GUIDES = {
   },
   cursor: {
     name: 'the Cursor CLI',
-    plugin: `If RateXp is installed in Claude Code on the same computer, the Cursor CLI already runs
-it, so you do not have to install it again. Otherwise:
-
-1. Add the RateXp marketplace in the terminal:
+    plugin: `1. Add the RateXp marketplace in the terminal:
 
    \`\`\`bash
-   agent plugin marketplace add https://github.com/${PLUGIN_REPO}
+   agent plugin marketplace add https://github.com/${CURSOR_PLUGIN_REPO}
    \`\`\`
 
 2. Start the Cursor CLI with \`agent\`, type \`/plugin\`, select the \`ratexp\` plugin, then

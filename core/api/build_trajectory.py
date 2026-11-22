@@ -134,7 +134,7 @@ def _has_block(content, block_type: str) -> bool:
 
 SURVEY_MARK = "check all that apply or type a comment."
 # Cursor's survey starts from a /ratexp:rate the user sent, so it reads as an
-# ordinary user message. The plugin's ratexp skill (.cursor-plugin/skills/ratexp/),
+# ordinary user message. The Cursor plugin's ratexp skill (plugins/cursor/skills/ratexp/),
 # which Cursor sends along, and the stop hook's followup open with this phrase; keep
 # them in step.
 CURSOR_SURVEY_MARK = "RateXp survey"
@@ -153,7 +153,7 @@ _CURSOR_TAGS = re.compile(r"</?(?:user_query|timestamp)>")
 
 
 # The /ratexp:rate request as Claude Code logs it: the command's name, and the one line
-# the plugin's rate skill (.claude-plugin/skills/rate/) tells the agent to answer with.
+# the plugin's rate skill (plugins/claude-code/skills/rate/) tells the agent to answer with.
 CLAUDE_REQUEST_MARKS = ("<command-name>/ratexp", "Opening the RateXp survey.")
 
 

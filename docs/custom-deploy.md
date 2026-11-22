@@ -252,8 +252,8 @@ After the check on dev, the same images go to prod.
 3. **Deploy a Dynatrace change to dev.** For a change to `dashboard_for_dynatrace.yaml`, do
    step 5 of "Create dev". For a change to `app/dynatrace/`, do step 6 of "Create dev".
 4. **Check the change on dev.** Open the RateXp app of dev at
-   <https://ratexp-dev-app.azurewebsites.net>. For a change to `core/ratexp-*.sh` or to the
-   plugin files (`.claude-plugin/`, `.cursor-plugin/`), also run the agent test on dev. The **Dev**
+   <https://ratexp-dev-app.azurewebsites.net>. For a change to the plugins (`plugins/`), also
+   run the agent test on dev. The **Dev**
    item of [Tests](../CONTRIBUTING.md#tests-per-component-and-whole-app) tells how.
 5. **Copy the tested images to prod.** Name each changed image (`core`, `app`, `seeder`,
    `retention`). The copy script copies each image to the registry of prod, with no new
@@ -290,6 +290,17 @@ After the check on dev, the same images go to prod.
 
    ```bash
    TF_WORKSPACE=default terraform apply
+   ```
+
+9. **Publish a plugin change.** Users install each plugin from its own repo:
+   `HikmetB1/ratexp-claude-plugin` and `HikmetB1/ratexp-cursor-plugin`. Do this step after
+   prod has the new core, and after you push `main` to GitHub. The publish script sends
+   `plugins/claude-code/` and `plugins/cursor/` to these repos with `git subtree push`. Change
+   the plugins only in `plugins/`, never in the plugin repos. Run this command in the repo
+   root:
+
+   ```bash
+   infra/publish-plugins.sh
    ```
 
 <!-- shared ../README.md destinations -->

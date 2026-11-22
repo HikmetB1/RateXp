@@ -1,5 +1,6 @@
-"""Black-box tests for what core/ratexp-claude.sh and core/ratexp-cursor.sh do as the
-RateXp plugin's hooks, and for the plugin's manifests and skills.
+"""Black-box tests for what plugins/claude-code/ratexp-claude.sh and
+plugins/cursor/ratexp-cursor.sh do as the RateXp plugins' hooks, and for the two
+plugins' manifests and skills.
 
 The hooks send to the hosted core unless RATEXP_URL says otherwise, ask core at
 /hook-settings for the turns, the default eval and the evals, keep that answer for
@@ -16,7 +17,15 @@ import json
 import re
 
 import pytest
-from test_hook import CORE, EVALS, LOCAL_URL, PLUGIN_VERSION, settings_answer
+from test_hook import (
+    CLAUDE_PLUGIN,
+    CORE,
+    CURSOR_PLUGIN,
+    EVALS,
+    LOCAL_URL,
+    PLUGIN_VERSION,
+    settings_answer,
+)
 from test_hook_cursor import CursorHook
 from test_hook_session import SessionHook
 
@@ -396,24 +405,29 @@ def test_cursor_does_not_follow_a_planted_hooks_file_symlink(cp):
 # The plugin's manifests
 # --------------------------------------------------------------------------
 
-REPO = CORE.parent
+# Each agent's plugin: the folder that agent installs, and that the release step sends
+# to the agent's own plugin repo.
+PLUGINS = {
+    "claude-code": (CLAUDE_PLUGIN, ".claude-plugin"),
+    "cursor": (CURSOR_PLUGIN, ".cursor-plugin"),
+}
 
 
 def read_json(path):
-    return json.loads((REPO / path).read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def test_both_plugin_manifests_carry_the_same_version():
     """core names one newest version at /hook-settings, for both agents."""
-    claude = read_json(".claude-plugin/plugin.json")["version"]
-    assert read_json(".cursor-plugin/plugin.json")["version"] == claude
+    claude = read_json(CLAUDE_PLUGIN / ".claude-plugin/plugin.json")["version"]
+    assert read_json(CURSOR_PLUGIN / ".cursor-plugin/plugin.json")["version"] == claude
 
 
 def test_the_claude_code_plugin_hooks_up_the_events_its_hook_reads():
     """The events, matchers and timeouts the Claude Code hook needs; its triage step
     lets exactly these through."""
-    hook = {"type": "command", "command": 'bash "${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh"'}
-    assert read_json(".claude-plugin/plugin.json")["hooks"] == {
+    hook = {"type": "command", "command": 'bash "${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh"'}
+    assert read_json(CLAUDE_PLUGIN / ".claude-plugin/plugin.json")["hooks"] == {
         "SessionStart": [{"hooks": [hook]}],
         "UserPromptExpansion": [{"hooks": [hook]}],
         "Stop": [{"hooks": [hook]}],
@@ -424,46 +438,70 @@ def test_the_claude_code_plugin_hooks_up_the_events_its_hook_reads():
 
 
 def test_the_cursor_plugin_hooks_up_session_start_and_stop():
-    manifest = read_json(".cursor-plugin/plugin.json")
-    hooks = read_json(manifest["hooks"].removeprefix("./"))
-    command = {"command": 'bash "${CURSOR_PLUGIN_ROOT}/core/ratexp-cursor.sh"'}
+    manifest = read_json(CURSOR_PLUGIN / ".cursor-plugin/plugin.json")
+    hooks = read_json(CURSOR_PLUGIN / manifest["hooks"])
+    command = {"command": 'bash "${CURSOR_PLUGIN_ROOT}/ratexp-cursor.sh"'}
     assert hooks == {"version": 1, "hooks": {"sessionStart": [command], "stop": [command]}}
 
 
-@pytest.mark.parametrize(
-    ("agent", "skill"), [(".claude-plugin", "rate"), (".cursor-plugin", "ratexp")]
-)
+@pytest.mark.parametrize(("agent", "skill"), [("claude-code", "rate"), ("cursor", "ratexp")])
 def test_each_plugin_brings_its_rating_skill(agent, skill):
     """/ratexp:rate in both agents: Claude Code names a plugin's skill
     <plugin>:<skill>, and the Cursor CLI runs the skill named ratexp for
-    /ratexp:<anything>. Each manifest points at its own skills folder, so neither
-    agent sees the other's skill."""
-    folder = read_json(f"{agent}/plugin.json")["skills"]
-    assert folder == f"./{agent}/skills/"
-    assert [p.name for p in (REPO / folder).iterdir()] == [skill]
-    assert (REPO / folder / skill / "SKILL.md").is_file()
+    /ratexp:<anything>."""
+    folder = PLUGINS[agent][0] / "skills"
+    assert [p.name for p in folder.iterdir()] == [skill]
+    assert (folder / skill / "SKILL.md").is_file()
 
 
-@pytest.mark.parametrize(
-    "skill", [".claude-plugin/skills/rate/SKILL.md", ".cursor-plugin/skills/ratexp/SKILL.md"]
-)
+@pytest.mark.parametrize("skill", [CLAUDE_PLUGIN / "skills/rate", CURSOR_PLUGIN / "skills/ratexp"])
 def test_only_the_user_can_run_the_rating_skill(skill):
     """The hooks hear only what the user types, so a rating the model started
     itself would promise a survey that never comes."""
-    assert "disable-model-invocation: true" in (REPO / skill).read_text(encoding="utf-8")
+    text = (skill / "SKILL.md").read_text(encoding="utf-8")
+    assert "disable-model-invocation: true" in text
+
+
+def test_the_claude_skill_sends_cursor_users_to_the_cursor_plugin():
+    """The Cursor CLI also loads plugins that Claude Code installed, and attaches the Claude
+    plugin's skill on /rate. The Claude plugin has no Cursor part, so its skill tells a
+    Cursor user where the Cursor plugin is, rather than promising a survey."""
+    text = (CLAUDE_PLUGIN / "skills/rate/SKILL.md").read_text(encoding="utf-8")
+    assert "https://github.com/HikmetB1/ratexp-cursor-plugin" in text
 
 
 def test_the_cursor_skill_names_the_script_from_its_own_folder():
     """Cursor shows the agent the skill's path, so the skill names the script by a path
     from its own folder, wherever Cursor keeps the plugin."""
-    folder = REPO / ".cursor-plugin" / "skills" / "ratexp"
+    folder = CURSOR_PLUGIN / "skills" / "ratexp"
     text = (folder / "SKILL.md").read_text(encoding="utf-8")
     relative = re.search(r'bash "<folder>/([^"]+)" ask', text).group(1)
-    assert (folder / relative).resolve() == (CORE / "ratexp-cursor.sh").resolve()
+    assert (folder / relative).resolve() == (CURSOR_PLUGIN / "ratexp-cursor.sh").resolve()
     assert "RateXp survey" in text, "Cursor sends the skill along; the hook finds the chat by this"
 
 
-@pytest.mark.parametrize("agent", [".claude-plugin", ".cursor-plugin"])
-def test_each_marketplace_lists_the_plugin_at_the_repo_root(agent):
-    plugins = read_json(f"{agent}/marketplace.json")["plugins"]
+@pytest.mark.parametrize("agent", PLUGINS)
+def test_each_plugin_repo_is_its_own_marketplace(agent):
+    """Each plugin folder becomes the root of its own repo, which is also the
+    marketplace: users download only that agent's files."""
+    folder, manifest_dir = PLUGINS[agent]
+    plugins = read_json(folder / manifest_dir / "marketplace.json")["plugins"]
     assert [(p["name"], p["source"]) for p in plugins] == [("ratexp", "./")]
+
+
+@pytest.mark.parametrize("agent", PLUGINS)
+def test_each_plugin_holds_only_its_own_agents_files(agent):
+    """Nothing of the other agent, and nothing of the rest of the repo, goes along."""
+    folder, _ = PLUGINS[agent]
+    other = ".cursor-plugin" if agent == "claude-code" else ".claude-plugin"
+    names = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
+    assert not any(other in n for n in names)
+    assert "LICENSE" in names and "README.md" in names
+    assert len(names) <= 8
+
+
+@pytest.mark.parametrize("agent", PLUGINS)
+def test_each_plugin_carries_the_repo_license(agent):
+    """A plugin repo is published on its own, so it brings the license along."""
+    license_text = (CORE.parent / "LICENSE").read_text(encoding="utf-8")
+    assert (PLUGINS[agent][0] / "LICENSE").read_text(encoding="utf-8") == license_text

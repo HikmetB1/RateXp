@@ -1,4 +1,4 @@
-"""Black-box tests for core/ratexp-claude.sh rating a skill, and the harness
+"""Black-box tests for plugins/claude-code/ratexp-claude.sh rating a skill, and the harness
 every hook test shares.
 
 The RateXp plugin runs the Claude Code hook for whoever uses Claude Code. It rates
@@ -47,6 +47,9 @@ ALLOWED_UTILS = ("cksum", "mkdir", "rmdir", "mv", "date", "od", "stat", "head", 
 FORBIDDEN_UTILS = ("python", "python3", "jq", "node", "perl", "awk", "sed", "grep", "cat")
 
 CORE = Path(__file__).resolve().parents[1]
+# Each agent's plugin folder, which holds its hook script beside its manifest folder.
+CLAUDE_PLUGIN = CORE.parent / "plugins" / "claude-code"
+CURSOR_PLUGIN = CORE.parent / "plugins" / "cursor"
 # The plugin version the tests install.
 PLUGIN_VERSION = "1.4.0"
 # The turns between surveys that core sends, where a real core sends config.yaml's.
@@ -193,8 +196,9 @@ def reorder(obj):
 class Hook:
     """Runs the hook script, as the plugin runs it, in a sandbox and reads back what curl saw."""
 
-    # Which script this harness runs, and the folder of its plugin manifest; a subclass
-    # testing the other agent overrides both.
+    # Which plugin this harness installs, its script and the folder of its manifest; a
+    # subclass testing the other agent overrides all three.
+    source = CLAUDE_PLUGIN
     script_name = "ratexp-claude.sh"
     manifest_dir = ".claude-plugin"
 
@@ -238,15 +242,14 @@ class Hook:
 
     def install_version(self, version):
         """Put a plugin version in place, the way the agent caches each version: the
-        script as the repo holds it, in core/ beside the plugin's manifest."""
+        script as the plugin's folder holds it, beside the plugin's manifest folder."""
         self.plugin = self.plugin.parent / version
-        (self.plugin / "core").mkdir(parents=True)
-        (self.plugin / self.manifest_dir).mkdir()
+        (self.plugin / self.manifest_dir).mkdir(parents=True)
         (self.plugin / self.manifest_dir / "plugin.json").write_text(
             json.dumps({"name": "ratexp", "version": version}), encoding="utf-8"
         )
-        self.script = self.plugin / "core" / self.script_name
-        shutil.copy(CORE / self.script_name, self.script)
+        self.script = self.plugin / self.script_name
+        shutil.copy(self.source / self.script_name, self.script)
 
     def answer_settings(self, answer):
         """What core answers at /hook-settings from now on; None: out of reach."""

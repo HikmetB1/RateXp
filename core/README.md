@@ -16,8 +16,6 @@ See [Quick start](../README.md#quick-start-install-ratexp) in the README.
 
 ```text
 core/
-├── ratexp-claude.sh     the Claude Code hook script: rates the session and each skill run in the session
-├── ratexp-cursor.sh     the Cursor CLI hook script: does the same as ratexp-claude.sh
 ├── api/                 routes, record schemas, rate limits, the ATIF trajectory builder and the local hourly delete
 ├── modules/
 │   ├── dashboard/       the dashboards: a shared base, one file for each destination, the publish command
@@ -32,10 +30,10 @@ core/
 └── Dockerfile.retention builds the image of the retention Function: the Azure Functions base, the code of core, the timer
 ```
 
-- **Plugin:** The RateXp plugin at the repo root runs `ratexp-claude.sh` and `ratexp-cursor.sh`
-  from this folder. Thus, a rename or a move of a hook script breaks the plugin. At the start
-  of each session, the hook scripts read the evals and the number of turns from
-  `/hook-settings`.
+- **Plugins:** The hook scripts are in the plugins, in `plugins/claude-code/` and
+  `plugins/cursor/` at the repo root. At the start of each session, the hook scripts read the
+  evals and the number of turns from `/hook-settings`. core reads the newest plugin version
+  from `plugins/claude-code/.claude-plugin/plugin.json`.
 
 ## Run locally: start core on your machine
 

@@ -1,4 +1,4 @@
-"""Black-box tests for core/ratexp-claude.sh across a whole session.
+"""Black-box tests for plugins/claude-code/ratexp-claude.sh across a whole session.
 
 The whole session is rated every Nth turn on its own and whenever the user types
 `/ratexp:rate`, always from byte zero; `/ratexp:rate <skill>` picks one skill's

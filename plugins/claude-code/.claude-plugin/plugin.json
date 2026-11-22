@@ -8,36 +8,35 @@
     "url": "https://github.com/HikmetB1"
   },
   "homepage": "https://github.com/HikmetB1/RateXp",
-  "repository": "https://github.com/HikmetB1/RateXp",
+  "repository": "https://github.com/HikmetB1/ratexp-claude-plugin",
   "license": "LicenseRef-RateXp-Source-Available-1.0",
   "keywords": ["feedback", "evals", "ratings", "skills"],
-  "skills": "./.claude-plugin/skills/",
   "hooks": {
     "SessionStart": [
-      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]}
+      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh\""}]}
     ],
     "UserPromptExpansion": [
-      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]}
+      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh\""}]}
     ],
     "Stop": [
-      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]}
+      {"hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh\""}]}
     ],
     "PreToolUse": [
       {
         "matcher": "Skill|AskUserQuestion",
-        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh\""}]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "AskUserQuestion",
-        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\"", "timeout": 60}]
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh\"", "timeout": 60}]
       }
     ],
     "PostToolUseFailure": [
       {
         "matcher": "AskUserQuestion",
-        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/core/ratexp-claude.sh\""}]
+        "hooks": [{"type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/ratexp-claude.sh\""}]
       }
     ]
   }

@@ -21,7 +21,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-CANONICAL_HOOK = ROOT / "core" / "ratexp-claude.sh"
+# The Claude Code plugin, as its own repo holds it and Claude Code installs it.
+CLAUDE_PLUGIN = ROOT / "plugins" / "claude-code"
 
 # The hook refuses to post anywhere but https or the loopback host.
 LOOPBACK_HTTP = re.compile(r"^http://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(/|$)")
@@ -196,10 +197,8 @@ def hook(tmp_path, core_url, http):
     if not (core_url.startswith("https://") or LOOPBACK_HTTP.match(core_url)):
         pytest.skip(f"the hook only posts to https or loopback - core is at {core_url}")
     plugin = tmp_path / "plugin"
-    (plugin / "core").mkdir(parents=True)
-    shutil.copytree(ROOT / ".claude-plugin", plugin / ".claude-plugin")
-    script = plugin / "core" / "ratexp-claude.sh"
-    shutil.copy(CANONICAL_HOOK, script)
+    shutil.copytree(CLAUDE_PLUGIN, plugin)
+    script = plugin / "ratexp-claude.sh"
     env = {**os.environ, "XDG_STATE_HOME": str(tmp_path / "state"), "RATEXP_URL": core_url}
     started = _run_hook(
         script,

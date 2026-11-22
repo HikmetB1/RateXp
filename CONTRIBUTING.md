@@ -23,7 +23,8 @@ The repo has these components:
 
 | Component | What the component is |
 |---------|------------|
-| [core](./core/README.md) | <ul><li>**Hook scripts:** Holds `ratexp-claude.sh` (Claude Code) and `ratexp-cursor.sh` (Cursor CLI), which the RateXp plugin runs.</li><li>**Plugin settings:** Sends the evals, the default eval, the number of turns and the newest plugin version to the plugin at `/hook-settings`.</li><li>**Ratings and transcripts:** Receives the ratings and the transcripts that the hook scripts send.</li><li>**Redaction and labels:** Masks the personal data and labels each conversation.</li><li>**Destinations:** Writes the result to each destination that is on.</li><li>**Dynatrace dashboard:** `modules/dashboard/publish_to_dynatrace.py` publishes the Dynatrace dashboard.</li><li>**Retention Function:** `core/Dockerfile.retention` builds the retention Function from the same folder. The retention Function deletes old ratings one time each hour.</li></ul> |
+| [plugins](./plugins/claude-code/README.md) | <ul><li>**Claude Code plugin:** `plugins/claude-code/` holds the manifest, the marketplace, the `/ratexp:rate` skill and `ratexp-claude.sh`.</li><li>**Cursor CLI plugin:** `plugins/cursor/` holds the manifest, the marketplace, the hooks, the `/ratexp:rate` skill and `ratexp-cursor.sh`.</li><li>**Own repos:** `infra/publish-plugins.sh` publishes each folder to its own repo. Users install from these repos, so they download only the plugin of their agent.</li><li>**Tests:** The tests of the hook scripts are in `core/tests/`.</li></ul> |
+| [core](./core/README.md) | <ul><li>**Plugin settings:** Sends the evals, the default eval, the number of turns and the newest plugin version to the plugin at `/hook-settings`.</li><li>**Ratings and transcripts:** Receives the ratings and the transcripts that the hook scripts send.</li><li>**Redaction and labels:** Masks the personal data and labels each conversation.</li><li>**Destinations:** Writes the result to each destination that is on.</li><li>**Dynatrace dashboard:** `modules/dashboard/publish_to_dynatrace.py` publishes the Dynatrace dashboard.</li><li>**Retention Function:** `core/Dockerfile.retention` builds the retention Function from the same folder. The retention Function deletes old ratings one time each hour.</li></ul> |
 | [app/ratexp](./app/ratexp/README.md) | <ul><li>**RateXp app:** The dashboard web app.</li><li>**Data:** Reads the stored feedback from one source, and shows the feedback when the feedback arrives.</li><li>**Dashboard view:** Panels and filters.</li><li>**Query & table view:** The query box.</li></ul> |
 | [app/dynatrace](./app/dynatrace/README.md) | <ul><li>**RateXp Dynatrace app:** The same Dashboard view, as an app inside Dynatrace.</li><li>**Data:** Reads the logs that core wrote to Dynatrace.</li><li>**Not the Dynatrace dashboard:** core publishes the Dynatrace dashboard.</li><li>**Optional:** RateXp works without the RateXp Dynatrace app.</li></ul> |
 | [seeder](./seeder/README.md) | <ul><li>**Demo ratings:** On a timer, an agent uses one of the bundled skills and rates the skill.</li><li>**Result:** A demo dashboard is never empty.</li><li>**Optional:** RateXp works without the seeder.</li></ul> |
@@ -86,11 +87,10 @@ in docs/custom-deploy.md.
 
 ```text
 .
-├── .claude-plugin/             The RateXp plugin for Claude Code: the manifest with the hooks, and the marketplace
-├── .cursor-plugin/             The RateXp plugin for Cursor: the manifest, the hooks and the marketplace
-├── core/                       Public ingestion service: serves the hook scripts, stores the feedback
-│   ├── ratexp-claude.sh        The Claude Code hook script: rates the session and each skill run in the session
-│   ├── ratexp-cursor.sh        The Cursor CLI hook script: does the same as ratexp-claude.sh
+├── plugins/                    The RateXp plugins: each folder is published to its own plugin repo
+│   ├── claude-code/            The Claude Code plugin: manifest, marketplace, /ratexp:rate skill, ratexp-claude.sh
+│   └── cursor/                 The Cursor CLI plugin: manifest, marketplace, hooks, /ratexp:rate skill, ratexp-cursor.sh
+├── core/                       Public ingestion service: sends the plugins their settings, stores the feedback
 │   ├── evals/                  The surveys that users answer: one file for each eval, over a shared base
 │   ├── api/                    The HTTP surface: routes, schemas, rate limits, the ATIF builder
 │   ├── retention_function/     The retention Function: deletes old ratings one time each hour
@@ -185,7 +185,7 @@ deployed systems: one against a deployed stack, and one with the real agents on 
 
 - **With the real agents, on production:**
   - **When:** Run `test_agents_production.py` after you deploy a change to
-    `core/ratexp-*.sh` or to the plugin files (`.claude-plugin/`, `.cursor-plugin/`).
+    the plugins (`plugins/`).
   - **No local stack:** The test loads the plugin from the repo, sends to the core of
     production and reads the RateXp app of production (for dev, see **Dev**). Thus, the test
     needs no local stack.

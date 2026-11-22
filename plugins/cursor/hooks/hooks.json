@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {"command": "bash \"${CURSOR_PLUGIN_ROOT}/ratexp-cursor.sh\""}
+    ],
+    "stop": [
+      {"command": "bash \"${CURSOR_PLUGIN_ROOT}/ratexp-cursor.sh\""}
+    ]
+  }
+}
