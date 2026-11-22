@@ -19,10 +19,12 @@ const WS_BASE =
 // plugins/claude-code/ratexp-claude.sh), so a dashboard that reads another core tells plugin users how to
 // point the plugin at it.
 const HOSTED_CORE_URL = 'https://ratexp-core.azurewebsites.net'
-// Each agent's plugin has its own repo, which is also its marketplace (see
-// infra/publish-plugins.sh), so users download only their agent's plugin.
-const CLAUDE_PLUGIN_REPO = 'HikmetB1/ratexp-claude-plugin'
-const CURSOR_PLUGIN_REPO = 'HikmetB1/ratexp-cursor-plugin'
+// Both plugins install from this repo on GitHub, whose root holds a marketplace file for
+// each agent (see docs/adr/0004-the-plugins-install-from-the-ratexp-repo.md). Claude Code
+// adds its marketplace by the file's web address, so it downloads only plugins/claude-code.
+const RATEXP_REPO = 'HikmetB1/RateXp'
+const CLAUDE_MARKETPLACE_URL =
+  `https://raw.githubusercontent.com/${RATEXP_REPO}/main/.claude-plugin/marketplace.json`
 
 // The "Install RateXp" popup, rendered as Markdown (see Md): one guide per coding agent,
 // because each installs the plugin its own way. How to run RateXp sits in a folded box
@@ -35,47 +37,47 @@ const INSTALL_GUIDES = {
    **For you, in all of your projects:**
 
    \`\`\`bash
-   claude plugin install ratexp --marketplace ${CLAUDE_PLUGIN_REPO}
+   claude plugin install ratexp --marketplace ${CLAUDE_MARKETPLACE_URL}
    \`\`\`
 
    **For you, only in one repository** (type it in the repository's folder):
 
    \`\`\`bash
-   claude plugin install ratexp --marketplace ${CLAUDE_PLUGIN_REPO} --scope local
+   claude plugin install ratexp --marketplace ${CLAUDE_MARKETPLACE_URL} --scope local
    \`\`\`
 
 2. Start Claude Code: \`/ratexp:rate\` works. If Claude Code is open, type
    \`/reload-plugins\` in it.`,
     run: `1. Start a Claude Code session and work as usual.
-2. Type \`/ratexp:rate\` to rate the whole session. It also asks on its own every 5th turn
-   (set \`RATEXP_EVERY\` to change the number).
-3. Type \`/ratexp:rate <skill>\` to rate just that skill's most recent run.`,
+2. Type \`/ratexp:rate\`. A panel opens: pick what to rate (this session, the last skill or
+   both), the evals, whether to store the conversation, and a comment. It also opens on its
+   own every 5th turn (set \`RATEXP_EVERY\` to change the number).`,
   },
   cursor: {
     name: 'the Cursor CLI',
     plugin: `1. Add the RateXp marketplace in the terminal:
 
    \`\`\`bash
-   agent plugin marketplace add https://github.com/${CURSOR_PLUGIN_REPO}
+   agent plugin marketplace add https://github.com/${RATEXP_REPO}
    \`\`\`
 
-2. Start the Cursor CLI with \`agent\`, type \`/plugin\`, select the \`ratexp\` plugin, then
-   select the user (all of your projects) or the project (this project only).
+2. Start the Cursor CLI with \`agent\` and type \`/plugin\`. Press → to open Marketplace,
+   type \`ratexp\`, press Enter, then pick "Install for you" (all of your projects) or
+   "Install for all collaborators on this repository" (shared with everyone on the
+   repository).
 3. Restart the Cursor CLI. Then \`/ratexp:rate\` works, and the survey every 5 turns starts
    from your next Cursor CLI session.`,
     run: `1. Start the Cursor CLI and work as usual.
-2. Type \`/ratexp:rate\` (or just \`/ratexp\`) to rate the whole chat. It also asks on its
-   own every 5th turn (set \`RATEXP_EVERY\` to change the number).
-3. Type \`/ratexp:rate <skill>\` to rate just that skill's most recent run.`,
+2. Type \`/ratexp:rate\`. The agent asks in one menu: what to rate, the evals, whether to
+   store the chat, and a comment. It also asks on its own every 5th turn (set
+   \`RATEXP_EVERY\` to change the number).`,
   },
 }
 
 function runGuideMd(agent) {
   return `${INSTALL_GUIDES[agent].run}
-4. To answer a different eval (survey) than the default, \`human-satisfaction\`, add its
-   name, as in \`/ratexp:rate <eval>\` or \`/ratexp:rate <skill> <eval>\`.
-5. Answer the survey. Nothing is stored unless you agree, and personal data is masked
-   (redacted) before it is stored. Your rating then shows up on this dashboard.`
+3. Nothing is stored unless you agree, and personal data is masked before it is stored.
+   Your rating then shows up on this dashboard.`
 }
 
 function installGuideMd(agent, coreUrl) {

@@ -400,8 +400,7 @@ def test_cursor_does_not_follow_a_planted_hooks_file_symlink(cp):
 # The plugin's manifests
 # --------------------------------------------------------------------------
 
-# Each agent's plugin: the folder that agent installs, and that the release step sends
-# to the agent's own plugin repo.
+# Each agent's plugin: the folder that agent installs from the marketplace at the repo root.
 PLUGINS = {
     "claude-code": (CLAUDE_PLUGIN, ".claude-plugin"),
     "cursor": (CURSOR_PLUGIN, ".cursor-plugin"),
@@ -470,7 +469,7 @@ def test_the_claude_skill_sends_cursor_users_to_the_cursor_plugin():
     plugin's skill on /rate. The Claude plugin has no Cursor part, so its skill tells a
     Cursor user where the Cursor plugin is, rather than promising a survey."""
     text = (CLAUDE_PLUGIN / "skills/rate/SKILL.md").read_text(encoding="utf-8")
-    assert "https://github.com/HikmetB1/ratexp-cursor-plugin" in text
+    assert "https://github.com/HikmetB1/RateXp#quick-start-install-ratexp" in text
 
 
 def test_the_cursor_skill_names_the_script_from_its_own_folder():
@@ -483,13 +482,30 @@ def test_the_cursor_skill_names_the_script_from_its_own_folder():
     assert "RateXp survey" in text, "Cursor sends the skill along; the hook finds the chat by this"
 
 
+def test_the_claude_marketplace_names_only_the_claude_plugin_folder():
+    """Users add the Claude Code marketplace by the web address of this file, and a
+    git-subdir source makes Claude Code download only the plugin folder, not the repo."""
+    plugins = read_json(CORE.parent / ".claude-plugin/marketplace.json")["plugins"]
+    source = {"source": "git-subdir", "url": "https://github.com/HikmetB1/RateXp.git"}
+    assert [(p["name"], p["source"]) for p in plugins] == [
+        ("ratexp", {**source, "path": "plugins/claude-code"})
+    ]
+    assert (CORE.parent / plugins[0]["source"]["path"]).resolve() == CLAUDE_PLUGIN
+
+
+def test_the_cursor_marketplace_names_the_cursor_plugin_folder():
+    """The Cursor CLI reads .cursor-plugin/marketplace.json before the Claude Code one, so
+    it installs the Cursor plugin from the same repo."""
+    plugins = read_json(CORE.parent / ".cursor-plugin/marketplace.json")["plugins"]
+    assert [(p["name"], p["source"]) for p in plugins] == [("ratexp", "./plugins/cursor")]
+    assert (CORE.parent / plugins[0]["source"]).resolve() == CURSOR_PLUGIN
+
+
 @pytest.mark.parametrize("agent", PLUGINS)
-def test_each_plugin_repo_is_its_own_marketplace(agent):
-    """Each plugin folder becomes the root of its own repo, which is also the
-    marketplace: users download only that agent's files."""
+def test_the_plugin_folders_hold_no_marketplace(agent):
+    """The marketplaces sit at the repo root only, so each agent has one."""
     folder, manifest_dir = PLUGINS[agent]
-    plugins = read_json(folder / manifest_dir / "marketplace.json")["plugins"]
-    assert [(p["name"], p["source"]) for p in plugins] == [("ratexp", "./")]
+    assert not (folder / manifest_dir / "marketplace.json").exists()
 
 
 @pytest.mark.parametrize("agent", PLUGINS)
@@ -505,6 +521,6 @@ def test_each_plugin_holds_only_its_own_agents_files(agent):
 
 @pytest.mark.parametrize("agent", PLUGINS)
 def test_each_plugin_carries_the_repo_license(agent):
-    """A plugin repo is published on its own, so it brings the license along."""
+    """A user downloads only the plugin folder, so it brings the license along."""
     license_text = (CORE.parent / "LICENSE").read_text(encoding="utf-8")
     assert (PLUGINS[agent][0] / "LICENSE").read_text(encoding="utf-8") == license_text

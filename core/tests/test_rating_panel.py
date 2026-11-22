@@ -1,7 +1,7 @@
 """Runs rating-panel.test.tsx, the tests of the Claude Code rating panel
 (plugins/claude-code/hooks/rating-panel.tsx), with Claude Code's own mod test kit.
 
-`claude plugin test` runs the tests found in a plugin's folder, and the plugin repo
+`claude plugin test` runs the tests found in a plugin's folder, and the plugin folder
 ships no tests, so the plugin and the test file are copied into a scratch folder
 first. The kit needs no session, sign-in or network; it does need the `claude` CLI,
 so the test is skipped where that is not installed.

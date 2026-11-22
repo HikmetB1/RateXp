@@ -8,7 +8,11 @@
   "plugins": [
     {
       "name": "ratexp",
-      "source": "./",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/HikmetB1/RateXp.git",
+        "path": "plugins/claude-code"
+      },
       "description": "Type /ratexp:rate to rate the session, the most recent run of a skill, or both, on as many evals as you like."
     }
   ]

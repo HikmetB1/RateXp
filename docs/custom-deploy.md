@@ -292,15 +292,12 @@ After the check on dev, the same images go to prod.
    TF_WORKSPACE=default terraform apply
    ```
 
-9. **Publish a plugin change.** Users install each plugin from its own repo:
-   `HikmetB1/ratexp-claude-plugin` and `HikmetB1/ratexp-cursor-plugin`. Do this step after
-   prod has the new core, and after you push `main` to GitHub. The publish script sends
-   `plugins/claude-code/` and `plugins/cursor/` to these repos with `git subtree push`. Change
-   the plugins only in `plugins/`, never in the plugin repos. Run this command in the repo
-   root:
+9. **Publish a plugin change.** Users install both plugins from `main` of
+   `HikmetB1/RateXp` on GitHub: the marketplace files are in `.claude-plugin/` and
+   `.cursor-plugin/` at the repo root. Push `main` after prod has the new core:
 
    ```bash
-   infra/publish-plugins.sh
+   git push origin main
    ```
 
 <!-- shared ../README.md destinations -->

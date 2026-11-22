@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "ratexp",
-      "source": "./",
+      "source": "./plugins/cursor",
       "description": "Type /ratexp:rate to rate the chat, the most recent run of a skill, or both, on as many evals as you like."
     }
   ]

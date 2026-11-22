@@ -8,4 +8,4 @@ draw any picker yourself - the hook supplies one as soon as this turn ends.
 
 In any other agent, such as the Cursor CLI, say only: "This RateXp plugin is for Claude Code.
 To rate in the Cursor CLI, install the RateXp plugin for the Cursor CLI:
-https://github.com/HikmetB1/ratexp-cursor-plugin"
+https://github.com/HikmetB1/RateXp#quick-start-install-ratexp"

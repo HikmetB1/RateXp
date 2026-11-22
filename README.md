@@ -75,14 +75,16 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
    **For you, in all of your projects:**
 
    ```bash
-   claude plugin install ratexp --marketplace HikmetB1/ratexp-claude-plugin
+   claude plugin install ratexp --marketplace https://raw.githubusercontent.com/HikmetB1/RateXp/main/.claude-plugin/marketplace.json
    ```
 
    **For you, only in one repository:** Type the command in the folder of the repository.
 
    ```bash
-   claude plugin install ratexp --marketplace HikmetB1/ratexp-claude-plugin --scope local
+   claude plugin install ratexp --marketplace https://raw.githubusercontent.com/HikmetB1/RateXp/main/.claude-plugin/marketplace.json --scope local
    ```
+
+   Claude Code downloads only the plugin folder, `plugins/claude-code/`, not the whole repo.
 
 2. **Start Claude Code:** `/ratexp:rate` works. If Claude Code is open, type
    `/reload-plugins` in Claude Code.
@@ -92,12 +94,13 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
 1. **Add the RateXp marketplace:** Type this command in the terminal:
 
    ```bash
-   agent plugin marketplace add https://github.com/HikmetB1/ratexp-cursor-plugin
+   agent plugin marketplace add https://github.com/HikmetB1/RateXp
    ```
 
-2. **Install the plugin:** Start the Cursor CLI with `agent`. Type `/plugin`, select the
-   `ratexp` plugin, then select the user (all of your projects) or the project (this project
-   only).
+2. **Install the plugin:** Start the Cursor CLI with `agent` and type `/plugin`. Press → to
+   open Marketplace, type `ratexp` and press Enter. Then pick "Install for you" (all of your
+   projects) or "Install for all collaborators on this repository" (shared with everyone on
+   the repository).
 3. **Restart the Cursor CLI:** Exit the Cursor CLI and start the Cursor CLI again. Then
    `/ratexp:rate` works. The survey every 5 turns starts from your next Cursor CLI session.
 

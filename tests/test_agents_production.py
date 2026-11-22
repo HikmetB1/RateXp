@@ -150,7 +150,7 @@ def plugin_env(state: Path) -> dict:
 
 def plugin_copy(folder: Path, agent: str) -> Path:
     """An agent's plugin as its marketplace install gets it: the files git tracks in
-    plugins/<agent>/, which the release step sends to that agent's plugin repo."""
+    plugins/<agent>/, which the marketplace at the repo root names on GitHub."""
     root = Path(__file__).resolve().parent.parent / "plugins" / agent
     listed = run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"], root)
     for name in filter(None, listed.stdout.split("\0")):

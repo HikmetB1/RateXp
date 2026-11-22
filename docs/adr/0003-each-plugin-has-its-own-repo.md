@@ -1,6 +1,6 @@
 # ADR 0003: Each plugin has its own repo
 
-- **Status:** Accepted
+- **Status:** Replaced by [ADR 0004](./0004-the-plugins-install-from-the-ratexp-repo.md)
 - **Scope:** The RateXp plugins for Claude Code and for the Cursor CLI.
 
 ## Context: an install copied the whole repo
