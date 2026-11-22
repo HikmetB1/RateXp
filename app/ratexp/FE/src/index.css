@@ -222,9 +222,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   background: var(--ink);
   border: 2px solid var(--ink);
 }
-/* Cells wrap between words only. The When cell stays on one line, and a name (skill,
-   agent, model, eval) never splits inside a word (FeedbackTable's Words); ids, which have
-   no break points, may break anywhere but keep a column wide enough to read. */
+/* Cells wrap between words only. The When cell keeps the date and the time each on one
+   line, a name (skill, agent, model) never splits inside a word (FeedbackTable's Words),
+   and an eval name may also break after a hyphen; ids, which have no break points, may
+   break anywhere but keep a column wide enough to read. */
 .td {
   padding: 12px 8px;
   border: 2px solid var(--ink);
@@ -233,6 +234,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .td-nowrap, .word { white-space: nowrap; }
 .td-id { overflow-wrap: anywhere; min-width: 80px; }
+/* A skill rating's session id goes under the skill name: the table has no Session column. */
+.name-session { display: block; margin-top: 4px; font-size: 11px; }
 /* Plain monospace for code in table cells (no chip box). */
 .data-table .td code { border: none; background: none; padding: 0; }
 
@@ -638,11 +641,9 @@ summary:hover { opacity: 0.8; }
 .bar-scroll { max-height: 270px; overflow-y: auto; padding-right: 8px; }
 .chart-label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; fill: var(--muted); }
 
-/* Phones (<=640px): tighten and turn the table into a stack of cards. */
-@media (max-width: 640px) {
-  .app { padding: 16px; }
-  h1 { font-size: 18px; }
-
+/* Windows up to 1080px: the feedback table becomes a stack of cards. The table needs about
+   910px plus the page and card padding (136px), so narrower windows would scroll it sideways. */
+@media (max-width: 1080px) {
   .data-table thead { display: none; }
   .data-table,
   .data-table tbody,
@@ -677,6 +678,12 @@ summary:hover { opacity: 0.8; }
   /* Oversized trajectories wrap the chip in .tx-cell; stretch it so the button
      stays the same proper width as a normal trajectory's chip (not tiny). */
   .tx-cell { align-items: stretch; }
+}
+
+/* Phones (<=640px): tighten the page. */
+@media (max-width: 640px) {
+  .app { padding: 16px; }
+  h1 { font-size: 18px; }
 
   /* One half of the how-to label per line, and a half that still does not fit may
      break inside itself - so the button shrinks with the screen instead of

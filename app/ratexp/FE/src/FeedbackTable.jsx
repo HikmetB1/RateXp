@@ -7,7 +7,8 @@ import { Fragment } from 'react'
 // `onOpen(transcript, row)` opens it in the trajectory drawer.
 export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
   return (
-    // Scrolls sideways inside the card on tight widths instead of overflowing.
+    // Narrow windows show the rows as cards (index.css); a row still too wide for the
+    // card scrolls sideways inside it instead of overflowing.
     <div className="table-scroll" style={style}>
       <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
         <thead>
@@ -22,7 +23,6 @@ export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
             <Th>Score</Th>
             <Th>Comment</Th>
             <Th>Trajectory</Th>
-            <Th>Session</Th>
           </tr>
         </thead>
         <tbody>
@@ -32,24 +32,45 @@ export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
             const labels = labelsOf(transcript)
             return (
               <tr key={i}>
-                <Td label="When" className="td-nowrap">{r.created_at}</Td>
+                <Td label="When" className="td-nowrap"><When at={r.created_at} /></Td>
                 <Td label="Type"><TypeBadge skillName={r.skill_name} /></Td>
-                {/* A session rating's name is its session id, so it breaks like one. */}
-                <Td label="Name" className={r.skill_name ? undefined : 'td-id'}>{r.name ? (r.skill_name ? <code><Words text={r.name} /></code> : <code style={{ fontSize: 11 }}>{r.name}</code>) : <Dash />}</Td>
+                <Td label="Name" className="td-id"><Name row={r} /></Td>
                 <Td label="Agent"><code><Words text={r.agent} /></code></Td>
                 <Td label="Model">{model ? <code><Words text={model} /></code> : <Dash />}</Td>
                 <Td label="Labels">{labels ? <code>{labels}</code> : <Dash />}</Td>
-                <Td label="Eval">{r.eval_name ? <code><Words text={r.eval_name} /></code> : <Dash />}</Td>
+                {/* No Words here: unlike the other names, an eval name may break after a
+                    hyphen ("human-" / "satisfaction"), which keeps the Eval column narrow. */}
+                <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
                 <Td label="Score">{scoreLabel(r.score)}</Td>
                 <Td label="Comment">{r.comment ?? <Dash />}</Td>
                 <Td label="Trajectory"><Trajectory transcript={transcript} onOpen={(t) => onOpen(t, r)} /></Td>
-                <Td label="Session" className="td-id"><code style={{ fontSize: 11 }}>{r.session_id}</code></Td>
               </tr>
             )
           })}
         </tbody>
       </table>
     </div>
+  )
+}
+
+// The timestamp as the date over the time ("2026-11-22" / "18:36:50Z"), which keeps the
+// When column narrow. A timestamp without a "T" stays on one line.
+function When({ at }) {
+  if (!at) return <Dash />
+  const [date, time] = String(at).split('T')
+  return time ? <span>{date}<br />{time}</span> : at
+}
+
+// A session rating's name is its session id. A skill rating's name is the skill, with
+// the session id in small type under it, so the table needs no Session column.
+function Name({ row }) {
+  if (!row.name) return <Dash />
+  if (!row.skill_name) return <code style={{ fontSize: 11 }}>{row.name}</code>
+  return (
+    <>
+      <code><Words text={row.name} /></code>
+      {row.session_id && <code className="name-session">{row.session_id}</code>}
+    </>
   )
 }
 
@@ -129,8 +150,8 @@ function Trajectory({ transcript, onOpen }) {
   )
 }
 
-// Cell styling lives in index.css (.th/.td) so the mobile breakpoint can restyle
-// the table into cards. `label` becomes data-label, the card row's heading on phones;
+// Cell styling lives in index.css (.th/.td) so the narrow-window breakpoint can restyle
+// the table into cards. `label` becomes data-label, the card row's heading there;
 // `className` adds how the cell wraps (.td-nowrap, .td-id).
 function Th({ children }) { return <th className="th">{children}</th> }
 function Td({ children, label, className }) { return <td className={className ? `td ${className}` : 'td'} data-label={label}>{children}</td> }
