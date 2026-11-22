@@ -18,6 +18,7 @@
   <a href="#available-human-evals-the-question-of-each-eval">Available human evals</a> ·
   <a href="#how-ratexp-works-from-hook-to-destination">How RateXp works</a> ·
   <a href="#features-what-you-get">Features</a> ·
+  <a href="#the-ratexp-dynatrace-app-read-and-export-the-feedback">RateXp Dynatrace app</a> ·
   <a href="#the-ratexp-app-read-and-export-the-feedback">RateXp app</a> ·
   <a href="#contact-how-to-reach-me">Contact</a> ·
   <a href="#acknowledgements-and-citations-projects-ratexp-builds-on">Acknowledgements</a> ·
@@ -70,21 +71,21 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
 
 **Claude Code:**
 
-1. **Install the plugin:** Type one of these commands in the terminal.
+1. **Install the plugin:** Type one of these commands in the terminal. For one repository,
+   type the command in the folder of the repository.
 
-   **For you, in all of your projects:**
+   <!-- tabs -->
+   **All your projects:**
 
    ```bash
    claude plugin install ratexp --marketplace https://raw.githubusercontent.com/HikmetB1/RateXp/main/.claude-plugin/marketplace.json
    ```
 
-   **For you, only in one repository:** Type the command in the folder of the repository.
+   **One repository:**
 
    ```bash
    claude plugin install ratexp --marketplace https://raw.githubusercontent.com/HikmetB1/RateXp/main/.claude-plugin/marketplace.json --scope local
    ```
-
-   Claude Code downloads only the plugin folder, `plugins/claude-code/`, not the whole repo.
 
 2. **Start Claude Code:** `/ratexp:rate` works. If Claude Code is open, type
    `/reload-plugins` in Claude Code.
@@ -98,9 +99,18 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
    ```
 
 2. **Install the plugin:** Start the Cursor CLI with `agent` and type `/plugin`. Press → to
-   open Marketplace, type `ratexp` and press Enter. Then pick "Install for you" (all of your
-   projects) or "Install for all collaborators on this repository" (shared with everyone on
-   the repository).
+   open Marketplace, type `ratexp` and press Enter. Then pick the tab that fits:
+
+   <!-- tabs -->
+   **All your projects:**
+
+   Pick **Install for you**.
+
+   **One repository:**
+
+   Pick **Install for all collaborators on this repository** (shared with everyone on the
+   repository).
+
 3. **Restart the Cursor CLI:** Exit the Cursor CLI and start the Cursor CLI again. Then
    `/ratexp:rate` works. The survey every 5 turns starts from your next Cursor CLI session.
 
@@ -110,15 +120,6 @@ Install the RateXp plugin one time. Do the steps for your coding agent.
   [How to give a rating](#how-to-give-a-rating-the-command-and-the-survey).
 - **Cursor hooks file:** The plugin changes `~/.cursor/hooks.json` and keeps a copy of your
   old file as `~/.cursor/hooks.json.ratexp-backup`.
-- **Where the ratings go:** The plugin sends the ratings to the hosted RateXp core. To send
-  the ratings to your own core, add this line to your shell profile, such as `~/.bashrc` or
-  `~/.zshrc`, with the URL of your core:
-
-  ```bash
-  export RATEXP_URL=https://core.example.com
-  ```
-
-  See [Custom deploy](./docs/custom-deploy.md).
 - **Updates:** When a newer version of the plugin is available, RateXp shows a message that
   tells how to update.
 
@@ -316,18 +317,35 @@ core writes each submission to each write adapter that you switch on in
 
 <!-- shared:end destinations -->
 
-## Tested: the coding agents and the models
+## Tested agents and models: what the tests of RateXp ran with
 
 The tests of RateXp ran with these coding agents and models:
 
 | Type | Names and versions |
 |------|--------------------|
 | Coding agents | Claude Code, Cursor CLI |
-| Models | Claude Opus 5.5, 5, 4.8, 4.7, 4.6, 4.5; Claude Sonnet 5.5, 5, 4.6, 4.5; Fable |
+| Models | Claude Opus 5.5, 5, 4.8, 4.7, 4.6, 4.5; Claude Sonnet 5.5, 5, 4.6, 4.5; Claude Haiku 5.5, 4.5; Fable |
+
+## The RateXp Dynatrace app: read and export the feedback
+<p align="center">
+  <img src="./assets/dynatrace-app.png" alt="The RateXp Dynatrace app" width="720">
+</p>
+
+The [RateXp Dynatrace app](./app/dynatrace/README.md) is one of the destinations: the RateXp
+Dynatrace app shows the feedback that core writes with the `app_be_dynatrace` write adapter,
+when the feedback arrives. The RateXp Dynatrace app has this view:
+
+- **Dashboard:** panels, filters, a time range and **Download trajectories**.
+
+See [Destinations](#destinations-where-core-writes-the-feedback) and
+[View options](./docs/read-the-feedback.md#view-options-where-to-see-the-human-evals).
+
+For each panel, filter and download, see
+[docs/read-the-feedback.md](./docs/read-the-feedback.md).
 
 ## The RateXp app: read and export the feedback
 <p align="center">
-  <img src="./assets/dashboard.png" alt="The RateXp dashboard" width="720">
+  <img src="./assets/dashboard.png" alt="The RateXp app in the Query & table view" width="720">
 </p>
 
 The [RateXp app](https://ratexp-app.azurewebsites.net/) is one of the destinations: the RateXp

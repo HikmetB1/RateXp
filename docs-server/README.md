@@ -51,6 +51,9 @@ core serves its own copy of the docs site at `/guide/`:
 - `site_name`: The name in the header and at the end of each browser tab title.
 - `site_url`: The public `/guide/` URL of core. The 404 page loads its styles from the path of
   `site_url`. Thus, the path must end in `/guide/`.
+- `repo_url` / `repo_name`: The RateXp repo on GitHub. The top bar shows the GitHub icon as a
+  link to the repo, on the left of the light/dark toggle. `ratexp.css` hides the name and the
+  stars and forks counts that Material shows next to the icon.
 - `docs_dir`: `theme/`, which holds only the stylesheet of the site. The pages come from
   `hooks` (the top of `add_repo_pages.py` tells why).
 - `dev_addr`: The address that `mkdocs serve` listens on.
@@ -59,11 +62,15 @@ core serves its own copy of the docs site at `/guide/`:
     `assets/` folder of the repo.
   - **Exception:** `add_repo_pages.py` adds the logo and the favicon of the RateXp app from
     `app/ratexp/FE/public/`.
-  - **Tabs:** `tab_code_blocks.py` shows two or more code blocks as one box with tabs. Write
-    each tab as a bold label line, for example `**Claude Code:**`, and then the code block of
-    the tab. Put `<!-- tabs -->` on the line above the first label line. GitHub does not show
-    `<!-- tabs -->`. Thus, GitHub shows each label line and the code block below the label
-    line.
+  - **Tabs:** `tab_code_blocks.py` shows two or more blocks as one box with tabs. Write each
+    tab as a bold label line, for example `**Claude Code:**`, and then the block of the tab.
+    Put `<!-- tabs -->` on the line above the first label line. GitHub does not show
+    `<!-- tabs -->`. Thus, GitHub shows each label line and the block below the label line.
+  - **Tab blocks:** A tab holds one code block, or one paragraph or list for a step that is a
+    click and not a command. All tabs of a box can mix the two.
+  - **Tabs in a step:** Indent the tabs to the text of a numbered step. The numbered list then
+    continues after the box. Tabs that are not indented end the list, and the next step starts
+    again at 1.
   - **Shared sections:** `include_shared_sections.py` shows one section on more than one page,
     and the text of the section stays in one file only. Mark the section in its own page:
     `<!-- shared:start destinations -->` above the heading, and
@@ -89,7 +96,8 @@ core serves its own copy of the docs site at `/guide/`:
   - **`features`:** Switches on the copy button on code, the group headings in the sidebar, the
     open subgroups in the sidebar (now: app), the previous and next links, and the back-to-top
     button.
-  - **`icon`:** Gives Tip a lightbulb and Note an information icon.
+  - **`icon`:** Gives Tip a lightbulb and Note an information icon, and gives the repo link
+    the GitHub icon.
 - `extra`:
   - **`generator`:** `false` removes the "Made with Material for MkDocs" footer.
     [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) holds the credit and the license of
@@ -117,8 +125,8 @@ uv sync && uv run mkdocs build --strict
 - **Missing file:** A nav entry without a file always makes the build fail.
 - **Strict mode:** Strict mode also makes the build fail on each warning, for example a link to
   a missing page or to a missing `#anchor`.
-- **Tabs:** A `<!-- tabs -->` line without two or more labelled code blocks below the line
-  makes the build fail.
+- **Tabs:** A `<!-- tabs -->` line without two or more labelled blocks below the line makes
+  the build fail.
 - **Shared sections:** A `<!-- shared -->` line makes the build fail when the line has no
   `<!-- /shared -->` line below it, when the file is missing, or when the file has no
   `shared:start` and `shared:end` lines with the name of the section.

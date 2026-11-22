@@ -2,6 +2,8 @@
 
 site_name: RateXp docs
 site_url: https://ratexp-core.azurewebsites.net/guide/   # must end in /guide/
+repo_url: https://github.com/HikmetB1/RateXp   # the GitHub icon in the top bar
+repo_name: RateXp
 docs_dir: theme
 dev_addr: 127.0.0.1:8002
 hooks:
@@ -63,6 +65,7 @@ theme:
     - navigation.top
     - toc.follow
   icon:
+    repo: fontawesome/brands/github
     admonition:
       tip: material/lightbulb-outline
       note: material/information-outline

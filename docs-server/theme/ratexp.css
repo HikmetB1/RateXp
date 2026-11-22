@@ -68,6 +68,29 @@
   background: var(--header-bg);
 }
 
+/* The repo link in the top bar is the GitHub icon alone, right before the night/day switch at
+   the end of the bar, on every screen width. Material hides the name and the stars and forks
+   counts here, and its 11.7rem box for them shrinks to the icon. */
+.md-header .md-header__source {
+  display: block;
+  order: 1;
+  width: auto;
+  max-width: none;
+}
+
+[dir="ltr"] .md-header .md-header__source {
+  margin-left: 0;
+}
+
+.md-header .md-source__repository,
+.md-header .md-source__facts {
+  display: none;
+}
+
+.md-header form[data-md-component="palette"] {
+  order: 2;
+}
+
 .md-header .md-logo img {
   filter: var(--header-logo-filter);
 }
@@ -357,6 +380,25 @@
 }
 
 .md-typeset .code-tabs > input:checked + label + pre {
+  display: block;
+}
+
+/* A tab whose body is text instead of code (the Cursor CLI's menu clicks): the same box and
+   labels, with the paragraph or list under the labels. */
+.md-typeset .code-tabs > p,
+.md-typeset .code-tabs > ol,
+.md-typeset .code-tabs > ul {
+  display: none;
+  flex: 0 0 100%;
+  margin: 0;
+  padding: 0.8em 1.2em;
+  text-align: left;
+  border-top: 1px solid var(--box-line);
+}
+
+.md-typeset .code-tabs > input:checked + label + p,
+.md-typeset .code-tabs > input:checked + label + ol,
+.md-typeset .code-tabs > input:checked + label + ul {
   display: block;
 }
 

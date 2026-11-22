@@ -8,7 +8,7 @@
 - [Dev environment](#dev-environment-test-a-change-before-prod)
 - [Repository layout](#repository-layout-what-each-folder-holds)
 - [Tests](#tests-per-component-and-whole-app)
-- [Documentation rules](#documentation-rules-how-docs-should-read)
+- [Documentation rules](#documentation-rules-what-to-write-in-a-doc)
 - [Code rules](#code-rules-how-code-should-read)
 - [Open work](#open-work-what-is-not-built-yet)
 - [Contributor License Agreement](#contributor-license-agreement-what-you-agree-to)
@@ -212,7 +212,7 @@ deployed systems: one against a deployed stack, and one with the real agents on 
     RATEXP_PROD_AGENTS=1 RATEXP_AGENTS_ENVIRONMENT=dev uv run --no-project --with-requirements tests/requirements.txt pytest tests/test_agents_production.py -v
     ```
 
-## Documentation rules: how docs should read
+## Documentation rules: what to write in a doc
 
 - **Where:** The rules apply to each doc in the repo, most of all to the README of a folder.
 - **Exception:** The root [README.md](./README.md) and CONTRIBUTING.md introduce the whole
