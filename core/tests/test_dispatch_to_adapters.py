@@ -21,7 +21,13 @@ class _Recorder:
         self.feedback: list = []
         self.transcripts: list = []
         self.deleted_old_ratings = False
+        self.prepared = False
         self.closed = False
+
+    def prepare(self):
+        if self.boom:
+            raise RuntimeError(f"{self.name} not ready")
+        self.prepared = True
 
     def write_feedback(self, record):
         if self.boom:
@@ -99,6 +105,16 @@ def test_old_ratings_are_deleted_everywhere_even_when_one_destination_fails(monk
     dispatch_to_adapters.delete_old_ratings_everywhere()  # no raise
     assert first.deleted_old_ratings and last.deleted_old_ratings
     assert "broken failed deleting old ratings" in caplog.text
+
+
+def test_startup_prepares_every_destination_even_when_one_is_not_ready(monkeypatch, caplog):
+    # PostgreSQL migrates in prepare, so the RateXp app never reads a table a migration
+    # still has to change; one destination down at boot must not keep the rest unready.
+    first, broken, last = _Recorder("first"), _Recorder("broken", boom=True), _Recorder("last")
+    _use(monkeypatch, first, broken, last)
+    dispatch_to_adapters.prepare_adapters()  # no raise
+    assert first.prepared and last.prepared
+    assert "broken failed to get ready" in caplog.text
 
 
 def test_shutdown_closes_every_destination_and_forgets_them(monkeypatch):

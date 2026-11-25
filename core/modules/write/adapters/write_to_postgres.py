@@ -8,8 +8,9 @@ connection:
 - ``write_to_app_be_psql.py`` -> ``AppBePostgresWriteAdapter`` (RateXp's own database).
 - ``write_to_custom_psql.py`` -> ``CustomPostgresWriteAdapter`` (an adopter's own database).
 
-The pool and migrations are built lazily on first write, so a database that is
-briefly unreachable at boot doesn't disable the adapter - the next write retries.
+core runs the migrations and opens the pool at startup (``prepare``), before the RateXp
+app reads a table a migration changes. A database that is briefly unreachable at boot
+doesn't disable the adapter: the first write tries again.
 """
 
 from __future__ import annotations
@@ -49,6 +50,9 @@ class PostgresWriteAdapter:
                 apply_migrations(dsn=self._dsn, auth=self._auth)
             self._pool = make_pool(dsn=self._dsn, auth=self._auth)
         return self._pool
+
+    def prepare(self) -> None:
+        self._ensure_pool()
 
     def write_feedback(self, record: Feedback) -> None:
         with self._ensure_pool().connection() as conn, conn.cursor() as cur:

@@ -159,6 +159,21 @@ def test_the_hourly_run_deletes_everything_older_than_the_nth_newest_rating():
     assert params == {"skip": 999}  # the 1000th newest rating is the cutoff, and it stays
 
 
+def test_prepare_runs_the_migrations_once_before_the_first_write(monkeypatch):
+    # core prepares at startup, so a migration has run before the RateXp app reads.
+    from modules.write import connect_to_postgres
+    from modules.write.schema import apply_migrations
+
+    runs: list = []
+    monkeypatch.setattr(apply_migrations, "apply_migrations", lambda **kw: runs.append(kw))
+    monkeypatch.setattr(connect_to_postgres, "make_pool", lambda **_: _FakePool())
+    adapter = PostgresWriteAdapter("app_be_psql", dsn="x", auth="password")
+    adapter.prepare()
+    assert runs == [{"dsn": "x", "auth": "password"}]
+    adapter.write_feedback(Feedback(agent="claude-code"))
+    assert len(runs) == 1  # the write reuses the prepared pool
+
+
 def test_the_delete_never_runs_core_s_migrations(monkeypatch):
     # The retention Function's role may only SELECT and DELETE (infra/grant-db-access.sql);
     # a migration would need CREATE and fail before anything is deleted.

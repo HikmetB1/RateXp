@@ -23,7 +23,7 @@ from load_config import (
     RATE_LIMIT_PER_MINUTE,
 )
 from modules.redaction.redact_trajectory import warm_up_redaction
-from modules.write.dispatch_to_adapters import WriteError, close_adapters, get_adapters
+from modules.write.dispatch_to_adapters import WriteError, close_adapters, prepare_adapters
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 from starlette.formparsers import MultiPartException
@@ -45,11 +45,12 @@ BODY_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Build the enabled write adapters now so PostgreSQL migrations run before the
-    # dashboard reads. Adapter build is best-effort (a bad one is skipped), so this
-    # never crash-loops at boot.
+    # Build and prepare the enabled write adapters now, so the PostgreSQL migrations run
+    # before the RateXp app reads a table they change. Both are best-effort (a bad adapter
+    # is skipped, one that is not ready tries again on its first write), so this never
+    # crash-loops at boot.
     try:
-        get_adapters()
+        prepare_adapters()
     except Exception:  # noqa: BLE001 - a destination may not be ready at boot
         pass
     # In the background, so core answers /healthz while presidio loads its models.

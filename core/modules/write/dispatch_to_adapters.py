@@ -6,7 +6,7 @@ independent: a failure in one is logged and the rest still run. The fan-out is
 at-least-one - if no destination accepted the record we raise WriteError, which
 api/serve_http.py turns into HTTP 503, so a caller is never told "stored" when
 nothing was. The built adapter list is held for the process lifetime;
-api/serve_http.py opens it at boot and closes it at shutdown.
+api/serve_http.py builds and prepares it at boot and closes it at shutdown.
 """
 
 from __future__ import annotations
@@ -57,6 +57,17 @@ def write_feedback(record: Feedback) -> None:
 
 def write_transcript(record: Transcript) -> None:
     _fan_out("transcript", lambda adapter: adapter.write_transcript(record))
+
+
+def prepare_adapters() -> None:
+    """Build the destinations and get each one ready before the first write (PostgreSQL runs
+    its migrations), so the RateXp app never reads a table a migration still has to change.
+    Independent like the fan-out: one that fails is logged, and its first write tries again."""
+    for adapter in get_adapters():
+        try:
+            adapter.prepare()
+        except Exception:  # noqa: BLE001 - a destination may not be ready at boot
+            logger.warning("adapter %s failed to get ready", adapter.name, exc_info=True)
 
 
 def delete_old_ratings_everywhere() -> None:

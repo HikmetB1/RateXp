@@ -215,6 +215,9 @@ class PhoenixWriteAdapter:
             )
         )
 
+    def prepare(self) -> None:
+        """Nothing: the exporter is built on the first write, and the spans have no schema."""
+
     def delete_old_ratings(self) -> None:
         if self._keep_newest is None:
             return

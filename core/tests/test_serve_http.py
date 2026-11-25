@@ -15,6 +15,21 @@ from load_config import Eval
 JSON_CT = {"content-type": "application/json"}
 
 
+def test_startup_prepares_the_destinations_before_it_serves(monkeypatch):
+    # The PostgreSQL migrations run then, not on the first write, so the RateXp app never
+    # reads a table a migration still has to change.
+    from fastapi.testclient import TestClient
+
+    events: list[str] = []
+    monkeypatch.setattr(serve_http, "prepare_adapters", lambda: events.append("prepared"))
+    monkeypatch.setattr(serve_http, "warm_up_redaction", lambda: None)
+    monkeypatch.setattr(serve_http, "close_adapters", lambda: events.append("closed"))
+    with TestClient(serve_http.app) as started:
+        assert events == ["prepared"]
+        assert started.get("/healthz").status_code == 200
+    assert events == ["prepared", "closed"]
+
+
 def test_healthz_reports_ok(client):
     response = client.get("/healthz")
     assert response.status_code == 200

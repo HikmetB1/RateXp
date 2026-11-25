@@ -38,6 +38,13 @@ class WriteAdapter(Protocol):
     # Stable identifier used in logs and config (e.g. "app_be_psql").
     name: str
 
+    def prepare(self) -> None:
+        """Get this destination ready before the first write, so its readers find it ready
+        too (PostgreSQL: run the migrations). core's web app calls it once at startup; the
+        retention Function never does. May raise; the caller isolates it, and the first
+        write tries again."""
+        ...
+
     def write_feedback(self, record: Feedback) -> None:
         """Send one rating to this destination. May raise; the caller isolates it."""
         ...
