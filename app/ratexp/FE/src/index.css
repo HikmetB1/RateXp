@@ -208,8 +208,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   .theme-toggle .knob { transition: none; }
 }
 
-/* Page shell. On a 1440px window 1296px leaves 96px of navy on each side. */
-.app { padding: 24px; max-width: 1296px; margin: 0 auto; }
+/* Page shell. On a 1920px window 1776px leaves 96px of navy on each side; narrower windows
+   give the page their whole width, so the feedback table fits from 1360px (see below). */
+.app { padding: 24px; max-width: 1776px; margin: 0 auto; }
 
 .table-scroll { overflow-x: auto; }
 
@@ -659,9 +660,10 @@ summary:hover { opacity: 0.8; }
 .bar-scroll { max-height: 270px; overflow-y: auto; padding-right: 8px; }
 .chart-label { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10px; fill: var(--muted); }
 
-/* Windows up to 1080px: the feedback table becomes a stack of cards. The table needs about
-   910px plus the page and card padding (136px), so narrower windows would scroll it sideways. */
-@media (max-width: 1080px) {
+/* Windows up to 1360px: the feedback table becomes a stack of cards. With the four label
+   groups of core/config.yaml the table needs about 1200px plus the page and card padding
+   (136px), so narrower windows would scroll it sideways. */
+@media (max-width: 1360px) {
   .data-table thead { display: none; }
   .data-table,
   .data-table tbody,
