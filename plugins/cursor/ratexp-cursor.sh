@@ -681,7 +681,10 @@ report() {
     [[ $what == chat || -n $skill ]] ||
         { printf 'RateXp: no skill has run in this chat, so only chat can be rated\n' >&2; return 1; }
     # Consume before sending: a retried command cannot upload the same survey twice.
-    mkdir -- "$dir/done" 2>/dev/null || { printf 'RateXp: already answered\n' >&2; return 1; }
+    # A noclobber file, not mkdir: the uutils mkdir of Ubuntu 26.04 tells two racing
+    # commands that each one made the folder.
+    (set -o noclobber; : > "$dir/done") 2>/dev/null ||
+        { printf 'RateXp: already answered\n' >&2; return 1; }
     [[ ! -L $pending ]] || return 1
     : > "$pending"
     mkdir -- "${dir%/runs/*}/answered" 2>/dev/null

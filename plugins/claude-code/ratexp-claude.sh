@@ -700,8 +700,10 @@ main() {
     fi
     [[ -f $dir/tool && ! -L $dir/tool ]] || return
     stored_tool=$(< "$dir/tool"); [[ $stored_tool == "$tool" ]] || return
-    mkdir -- "$dir/done" 2>/dev/null || return
     # Consume before parsing/sending: replay and parallel hooks cannot upload twice.
+    # A noclobber file, not mkdir: the uutils mkdir of Ubuntu 26.04 tells two racing
+    # hooks that each one made the folder.
+    (set -o noclobber; : > "$dir/done") 2>/dev/null || return
     [[ ! -L $dir/pending ]] || return
     : > "$dir/pending"
     [[ $event == PostToolUse ]] || return
