@@ -715,6 +715,9 @@ report() {
     # bad command the agent should try again - the retry would find nothing.
     send_ratings "cursor${model:+ $model}" || return 0
     sent_line
+    # Only feedback core stored is thanked for. sent_line is shared with the Claude Code
+    # hook, whose panel thanks the person itself, so the thanks goes on here.
+    (( sent )) && line="$line We're very glad we heard from you!"
     printf '%s\n' "$line"
 }
 

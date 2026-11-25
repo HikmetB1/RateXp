@@ -1,7 +1,7 @@
 {
   "name": "ratexp",
   "displayName": "RateXp",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Type /ratexp:rate to rate the session, the most recent run of a skill, or both, on as many evals as you like, in one panel. The ratings, and the conversation when you agree, go to the RateXp dashboard.",
   "author": {
     "name": "Hikmet Beyoglu",

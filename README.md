@@ -148,7 +148,8 @@ RateXp then stores one rating for each eval that you rated, for each part that y
   **Store** and **Comment**, and the buttons **Send** and **Skip**. The up and down arrows,
   Enter, the keys 1 to 4 and the mouse work in the panel. Past the last choice of a tab, the
   down arrow goes to the next tab. With nothing ticked under **Eval what**, the other tabs
-  and **Send** are struck through, and the down arrow goes to **Skip**. The panel needs Claude Code v2.1.287 or
+  and **Send** are struck through, and the down arrow goes to **Skip**. A new prompt closes a
+  survey that you did not send. The panel needs Claude Code v2.1.287 or
   later with mods on. Without a panel, Claude Code asks the default eval about the whole
   session.
 - **Cursor CLI:** The agent asks the same questions in one question menu. The Cursor CLI

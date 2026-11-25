@@ -1,15 +1,18 @@
-import type { EngineInterface, Register, ResolveInput, UiFocusInput, UiFocusResult } from 'claude-code'
+import type { EngineInterface, Register, ResolveInput, Timer, UiFocusInput, UiFocusResult } from 'claude-code'
 
 // The RateXp rating panel: what to evaluate, a True or False for each eval, consent, and
 // one comment for every rating sent, in four tabs, with Send and Skip. It opens on
 // /ratexp:rate and, every Nth turn, when ratexp-claude.sh (beside the plugin's manifest)
-// marks the survey due. That script owns the evals, the session's state and every
-// request to core: the panel only asks.
+// marks the survey due. A new prompt closes a survey that was not sent. That script owns
+// the evals, the session's state and every request to core: the panel only asks.
 //
 // The panel always spans the width above the prompt. A pane does that wherever Claude Code
 // seats it inline; where it would dock the pane beside the transcript instead (fullscreen,
 // from 110 columns), and for every survey that opens unasked, the panel is drawn in the
 // band above the prompt.
+//
+// Where a survey closes, one line plays in the band for a few seconds: a sorry when it
+// closed unsent (a new prompt or Skip), a thank-you once core stored what Send sent.
 
 const PANE = 'ratexp-rate'
 const TABS = ['Eval what', 'Evals', 'Store', 'Comment']
@@ -20,6 +23,24 @@ const PANE_HINT = '↑↓ move · Enter ticks or presses · 1-4 tabs · click wo
 // names the click alone, to stay short), and Esc there hands it back to the prompt without
 // closing anything.
 const BAND_HINT = 'click to use · ↑↓ move · Enter ticks or presses · 1-4 tabs · Skip closes'
+
+// The line that plays where a survey closed: its words in the mood's one colour. The
+// command in the sorry stays dim, so the words stand out.
+type Mood = 'sorry' | 'glad'
+type Words = { text: string; color?: string; isDim?: boolean }
+const PURPLE = '#a855f7'
+const ORANGE = '#ff8a1e'
+const FAREWELLS: Record<Mood, Words[]> = {
+  sorry: [
+    { text: "Sorry, we didn't hear from you. ", color: PURPLE },
+    { text: '/ratexp:rate', isDim: true },
+    { text: ' opens it again.', color: PURPLE },
+  ],
+  glad: [{ text: "We're very glad we heard from you!", color: ORANGE }],
+}
+const FRAME_MS = 50
+const TYPING_MS = 1000
+const SHOWN_MS = 3000
 
 type Eval = {
   name: string
@@ -47,6 +68,11 @@ let comment = ''
 let isSending = false
 // Where the keyboard is in the panel, as the ui.focus hook last saw it.
 let focused: string | undefined
+// The line playing where the last survey closed, and how many frames of it have played.
+let farewell: { mood: Mood; frame: number } | null = null
+let farewellTimer: Timer | undefined
+// Whether the person folded the band, as its last drawing said: nothing in it shows then.
+let isBandCollapsed = false
 // The sessions whose Stop hook already knows the panel asks.
 const panelSessions = new Set<string>()
 
@@ -80,15 +106,14 @@ export function panelSite(presentation: { isFullscreen: boolean; columns: number
   return presentation?.isFullscreen && presentation.columns >= DOCK_COLUMNS ? 'band' : 'pane'
 }
 
-// Where an unasked survey shows: the band, which shows at any width, on the surfaces that
-// draw it (the terminal and desktop); a pane on the others, and where Claude Code is too
-// old to name its surfaces.
-async function unaskedSite($: EngineInterface): Promise<Site> {
+// Whether a surface of the session draws the band above the prompt: the terminal and
+// desktop do. Where Claude Code is too old to name its surfaces, none is taken to.
+async function drawsBand($: EngineInterface): Promise<boolean> {
   try {
     const surfaces = await $.session.surfaces()
-    return surfaces.some(surface => surface === 'terminal' || surface === 'desktop') ? 'band' : 'pane'
+    return surfaces.some(surface => surface === 'terminal' || surface === 'desktop')
   } catch {
-    return 'pane'
+    return false
   }
 }
 
@@ -105,6 +130,7 @@ async function openPanel($: EngineInterface, session: string, isAsked: boolean, 
   }
   if (found.error) return found.error
   if (!isAsked && !found.due) return undefined
+  stopFarewell()
   survey = found
   tab = 0
   isSessionRated = true
@@ -167,6 +193,30 @@ async function closeSurvey($: EngineInterface) {
   else await $.ui.close({ id: PANE })
 }
 
+// Plays <mood>'s line: in the band, a frame every FRAME_MS until it has shown, or as a
+// toast where no band shows it (a surface without one, or a folded band).
+async function playFarewell($: EngineInterface, mood: Mood) {
+  stopFarewell()
+  if (isBandCollapsed || !(await drawsBand($))) {
+    $.ui.toast(FAREWELLS[mood].map(words => words.text).join(''))
+    return
+  }
+  const playing = { mood, frame: 0 }
+  farewell = playing
+  redraw($)
+  farewellTimer = $.clock.every(FRAME_MS, () => {
+    playing.frame += 1
+    if (playing.frame * FRAME_MS >= TYPING_MS + SHOWN_MS) stopFarewell()
+    redraw($)
+  })
+}
+
+function stopFarewell() {
+  farewellTimer?.cancel()
+  farewellTimer = undefined
+  farewell = null
+}
+
 // The stops a survey with nothing to evaluate locks: the other tabs and Send.
 const LOCKED = TABS.slice(1).map((_, i) => `tab-${i + 1}`).concat('send')
 
@@ -207,12 +257,14 @@ async function landFocus(e: UiFocusInput, next: (e: UiFocusInput) => Promise<UiF
 }
 
 // Hands every rated eval of every rated target, each with the one comment, to the script,
-// closes the panel and leaves the script's result line in the conversation.
+// closes the panel, thanks the person once core stored the feedback, and leaves the
+// script's result line in the conversation.
 async function sendRatings($: EngineInterface) {
   if (!survey || isSending) return
   const targets = ratedTargets()
   const evals = ratedEvals()
   if (targets.length === 0 || evals.length === 0) return
+  const sending = survey
   isSending = true
   redraw($)
   const session = await $.session.id()
@@ -230,8 +282,19 @@ async function sendRatings($: EngineInterface) {
   } catch {
     line = 'RateXp: feedback could not be sent.'
   }
-  await closeSurvey($)
+  // A due turn may have put a fresh survey in this one's place while it sent: that one stays.
+  if (survey === sending) {
+    if (isFeedbackStored(line)) await playFarewell($, 'glad')
+    await closeSurvey($)
+  }
   $.ui.log(shownLine(line))
+}
+
+// Whether the script's result line says core stored the feedback. The script prints one
+// line and exits 0 either way; each line for stored feedback, and only those, says
+// "accepted by" (sent_line in ratexp-claude.sh).
+export function isFeedbackStored(line: string) {
+  return line.includes(' accepted by ')
 }
 
 // A line of the script's, or the panel's own, as the conversation shows it: Claude Code
@@ -240,8 +303,11 @@ function shownLine(line: string) {
   return line.replace(/^RateXp: /, '')
 }
 
-// Closes the panel and sends nothing: the rating is skipped.
+// Closes the panel unsent, with the sorry: on Skip, on the person closing the pane, and on
+// a new prompt. The line starts before the survey goes, so the band shows nothing empty in
+// between.
 async function skipRating($: EngineInterface) {
+  await playFarewell($, 'sorry')
   await closeSurvey($)
 }
 
@@ -268,6 +334,24 @@ export const register: Register = on => {
     return { text: shownLine(problem ?? 'the rating panel is open.') }
   }).catch(($, e, next) => (next.called ? next(e) : { text: 'the rating panel could not open.' }))
 
+  // A new prompt that enters is the person moving on: a survey not sent by then closes.
+  // /ratexp:rate opens a fresh survey itself, a prompt the engine submits unseen (isMeta)
+  // is not the person's, and a survey that is sending is answered.
+  on('prompt.submit', async ($, e, next) => {
+    const result = await next(e)
+    const isMovingOn = result.drop === undefined && !e.isMeta && e.command?.name !== 'ratexp:rate'
+    if (survey && !isSending && isMovingOn) await skipRating($)
+    return result
+  }).catch(($, e, next) => next(e))
+
+  // The person closing the pane (Esc, or its close mark) skips the rating, as Skip does.
+  // Claude Code closes the pane itself, so the survey would otherwise stay open unseen.
+  on('ui.close', async ($, e, next) => {
+    const result = await next(e)
+    if (e.id === PANE && e.origin.kind === 'person' && survey && site === 'pane' && !isSending) await skipRating($)
+    return result
+  }).catch(($, e, next) => next(e))
+
   // The script's Stop hook counts the turns and marks the survey due; the panel opens
   // it once that hook has run. A failure here must never cost the turn that hook.
   on('classic.Stop', async ($, e, next) => {
@@ -280,9 +364,9 @@ export const register: Register = on => {
     const result = await next(e)
     // Another Stop hook that blocks keeps the turn going: the survey waits for its end.
     const isTurnGoingOn = result.block !== undefined
-    const isPanelOpen =
-      (site === 'band' && survey !== null) || (await $.ui.panes()).some(pane => pane.id === PANE)
-    if (session && !isTurnGoingOn && !isPanelOpen) await openPanel($, session, false, await unaskedSite($))
+    // A survey still open on a due turn (one Claude started with no prompt to close it)
+    // gives way to the fresh one, which shows the newest skill.
+    if (session && !isTurnGoingOn) await openPanel($, session, false, (await drawsBand($)) ? 'band' : 'pane')
     return result
   }).catch(($, e, next) => next(e))
 
@@ -303,17 +387,56 @@ export const register: Register = on => {
   })
 
   // The band above the prompt holds the panel, in a rounded frame, while a survey opened
-  // there. A question the model asks takes the band first; the rating waits under it.
+  // there, and the line that plays where a survey closed. A question the model asks takes
+  // the band first; the rating waits under it.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (!survey || site !== 'band' || e.props.hasSurvey) return next(e)
-    bandId = e.requestId
+    isBandCollapsed = e.props.isCollapsed
+    if (e.props.hasSurvey) return next(e)
     const { Box } = $.ui.resolve(e)
+    if (survey && site === 'band') {
+      bandId = e.requestId
+      return (
+        <Box borderStyle="round" paddingX={1}>
+          {drawPanel($, e, survey, BAND_HINT)}
+        </Box>
+      )
+    }
+    if (!farewell) return next(e)
     return (
       <Box borderStyle="round" paddingX={1}>
-        {drawPanel($, e, survey, BAND_HINT)}
+        {drawFarewell($, e, farewell)}
       </Box>
     )
   })
+}
+
+// <shown>'s line as far as it has played: its words typed in letter by letter behind a
+// cursor for TYPING_MS, then whole.
+function drawFarewell($: EngineInterface, e: ResolveInput, shown: { mood: Mood; frame: number }) {
+  const { Text } = $.ui.resolve(e)
+  const parts = FAREWELLS[shown.mood]
+  const playedMs = shown.frame * FRAME_MS
+  const length = parts.reduce((sum, part) => sum + part.text.length, 0)
+  const typed = Math.ceil((length * Math.min(playedMs, TYPING_MS)) / TYPING_MS)
+  let left = typed
+  const drawn = parts.map((part, i) => {
+    const text = part.text.slice(0, Math.max(left, 0))
+    left -= part.text.length
+    return (
+      <Text key={`part-${i}`} color={part.color} dimColor={part.isDim}>
+        {text}
+      </Text>
+    )
+  })
+  if (typed < length) {
+    return (
+      <Text>
+        {drawn}
+        <Text>▌</Text>
+      </Text>
+    )
+  }
+  return <Text>{drawn}</Text>
 }
 
 // The panel for <shown>: its tabs with Send and Skip, the open tab's body and the <hint>

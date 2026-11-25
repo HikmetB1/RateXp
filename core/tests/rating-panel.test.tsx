@@ -3,9 +3,10 @@
 // and runs `claude plugin test` there, so the panel's module sits beside it. Each hook
 // below stands for the engine; the script the panel runs (ratexp-claude.sh) is answered
 // here too, so nothing leaves the test. The kit answers no focus moves, so where the
-// arrows land is tested on focusLanding itself.
-import { expect, test } from 'claude-code/testing'
-import { focusLanding, panelSite } from './rating-panel.tsx'
+// arrows land is tested on focusLanding itself. The clock is the kit's mock: the line that
+// plays where a survey closed moves only as a test advances it.
+import { expect, mock, test } from 'claude-code/testing'
+import { focusLanding, isFeedbackStored, panelSite } from './rating-panel.tsx'
 
 const PANE = {
   plugin: 'ratexp',
@@ -61,12 +62,23 @@ const SURVEY = {
 
 type Run = { argv: readonly string[]; stdin?: string }
 
-// The engine's answers a panel session needs, and every script run and log line kept.
-function engine(on: any, { surfaces = ['terminal'], survey = SURVEY } = {}) {
+const STORED = 'RateXp: feedback and transcripts accepted by https://core.test for 2 ratings.\n'
+const SORRY = "Sorry, we didn't hear from you. /ratexp:rate opens it again."
+// The sorry as the band shows it once typed: whole, and nothing else.
+const SORRY_SHOWN = new RegExp(`^${SORRY.replace(/[./]/g, '\\$&')}$`)
+const GLAD = "We're very glad we heard from you!"
+const PURPLE = '#a855f7'
+const ORANGE = '#ff8a1e'
+
+// The engine's answers a panel session needs, and every script run, log line and toast
+// kept. <survey> is read at each run of the script, so a test can change it between turns.
+function engine(on: any, { surfaces = ['terminal'], survey = SURVEY, sendLine = STORED } = {}) {
   const runs: Run[] = []
   const logs: string[] = []
+  const toasts: string[] = []
   const opened: string[] = []
   const closed: string[] = []
+  const clock = mock.clock(on)
   on('session.surfaces', () => ({ value: surfaces }))
   on('session.id', () => ({ value: 'session-1' }))
   on('session.info', () => ({ value: { transcriptPath: '/tmp/session-1.jsonl' } }))
@@ -74,18 +86,20 @@ function engine(on: any, { surfaces = ['terminal'], survey = SURVEY } = {}) {
   on('ui.open', (_: unknown, e: { id: string }) => (opened.push(e.id), { value: { isPlaced: true } }))
   on('ui.close', (_: unknown, e: { id: string }) => (closed.push(e.id), { value: undefined }))
   on('ui.log', (_: unknown, e: { text: string }) => (logs.push(e.text), { value: undefined }))
+  on('ui.toast', (_: unknown, e: { text: string }) => (toasts.push(e.text), { value: undefined }))
   on('process.run', (_: unknown, e: { argv: readonly string[]; init?: { stdin?: string } }) => {
     runs.push({ argv: e.argv, stdin: e.init?.stdin })
     const command = e.argv[2]
     const stdout =
-      command === 'panel'
-        ? JSON.stringify(survey)
-        : command === 'send'
-          ? 'RateXp: feedback and transcripts accepted by https://core.test for 2 ratings.\n'
-          : ''
+      command === 'panel' ? JSON.stringify(survey) : command === 'send' ? sendLine : ''
     return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
-  return { runs, logs, opened, closed }
+  return { runs, logs, toasts, opened, closed, clock }
+}
+
+// A turn's end, as Claude Code raises it once the script's Stop hook ran.
+async function endTurn($: any) {
+  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false })
 }
 
 function sent(runs: Run[]) {
@@ -236,23 +250,25 @@ test('a session with nothing to draw on keeps the skill and its picker', async (
 })
 
 test('a turn the script marked due opens the panel in the band after its Stop hook ran', async ($, on) => {
-  const { runs, opened } = engine(on, { survey: { ...SURVEY, due: true } })
+  const survey = { ...SURVEY, due: true }
+  const { runs, opened } = engine(on, { survey })
   on('classic.Stop', () => ({}))
-  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
-  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
-  // The script hears once that the panel asks in this session, then the turn's end; the
-  // next turn finds the survey still open in the band and opens nothing.
-  expect(runs.map(run => run.argv[2])).toEqual(['panel-on', 'panel'])
+  await endTurn($)
+  survey.due = false
+  await endTurn($)
+  // The script hears once that the panel asks in this session; each turn's end asks
+  // whether a survey is due, and a turn that is not leaves the open one in the band.
+  expect(runs.map(run => run.argv[2])).toEqual(['panel-on', 'panel', 'panel'])
   expect(opened).toEqual([])
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect((await ui.find({ key: 'send' }))?.text).toBe('Send')
   await ui.unmount()
 })
 
-test('the band shows how to use it, sends, and then draws nothing of RateXp', async ($, on) => {
-  const { runs, logs } = engine(on, { survey: { ...SURVEY, due: true } })
+test('the band shows how to use it, sends, thanks, and then draws nothing of RateXp', async ($, on) => {
+  const { runs, logs, clock } = engine(on, { survey: { ...SURVEY, due: true } })
   on('classic.Stop', () => ({}))
-  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
+  await endTurn($)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /^click to use/ })).toBeDefined()
   await ui.press({ key: 'tab-1' })
@@ -260,15 +276,172 @@ test('the band shows how to use it, sends, and then draws nothing of RateXp', as
   await ui.press({ key: 'send' })
   expect(sent(runs)).toEqual(['/tmp/session-1.jsonl', 'yes', '', 'human-satisfaction', 'good', ''])
   expect(logs).toEqual(['feedback and transcripts accepted by https://core.test for 2 ratings.'])
+  await clock.advance(1200)
+  await ui.redraw()
+  expect(await ui.find({ key: 'send' })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: new RegExp(GLAD) })).toBeDefined()
+  await clock.advance(3000)
   await ui.redraw()
   expect(await ui.keepsBeneath()).toBe(true)
+  await ui.unmount()
+})
+
+test('the thank-you types in, then shows whole in orange', async ($, on) => {
+  const { clock } = engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  await endTurn($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await ui.press({ key: 'tab-1' })
+  await ui.press({ key: 'good-human-satisfaction' })
+  await ui.press({ key: 'send' })
+  await clock.advance(500)
+  await ui.redraw()
+  // Halfway through the typing, half the words show, behind the cursor.
+  expect(await ui.find({ type: 'Text', text: /^We're very g.*▌$/ })).toBeDefined()
+  await clock.advance(700)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: /▌/ })).toBeUndefined()
+  // The line and its one coloured part read the same: the part is the innermost.
+  expect((await ui.findAll({ type: 'Text', text: new RegExp(`^${GLAD}$`) })).at(-1)?.props.color).toBe(ORANGE)
+  await ui.unmount()
+})
+
+test('a send core did not store gets its failure line and no thank-you', async ($, on) => {
+  const { logs } = engine(on, {
+    survey: { ...SURVEY, due: true },
+    sendLine: 'RateXp: feedback could not be sent to https://core.test.\n',
+  })
+  on('classic.Stop', () => ({}))
+  await endTurn($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await ui.press({ key: 'tab-1' })
+  await ui.press({ key: 'good-human-satisfaction' })
+  await ui.press({ key: 'send' })
+  expect(logs).toEqual(['feedback could not be sent to https://core.test.'])
+  await ui.redraw()
+  expect(await ui.keepsBeneath()).toBe(true)
+  await ui.unmount()
+})
+
+test('only a line that says core accepted the feedback counts as stored', () => {
+  expect(isFeedbackStored('RateXp: feedback accepted by https://core.test. Transcript kept private.')).toBe(true)
+  expect(isFeedbackStored(STORED)).toBe(true)
+  expect(isFeedbackStored('RateXp: feedback accepted by https://core.test. Transcript could not be sent.')).toBe(true)
+  expect(isFeedbackStored('RateXp: feedback could not be sent to https://core.test.')).toBe(false)
+  expect(isFeedbackStored('RateXp: feedback not sent: the ratings could not be read.')).toBe(false)
+  expect(isFeedbackStored('RateXp: feedback could not be sent.')).toBe(false)
+})
+
+test('a new prompt closes the survey unsent, and the band says sorry in purple', async ($, on) => {
+  const { runs, clock } = engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  await endTurn($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await ui.press({ key: 'tab-1' })
+  await ui.press({ key: 'good-human-satisfaction' })
+  await $.prompt.submit({ text: 'next task' })
+  await clock.advance(1200)
+  await ui.redraw()
+  expect(await ui.find({ key: 'send' })).toBeUndefined()
+  expect(sent(runs)).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: SORRY_SHOWN })).toBeDefined()
+  expect((await ui.find({ type: 'Text', text: /^Sorry, we didn't hear from you\. $/ }))?.props.color).toBe(PURPLE)
+  // The command stays dim, and the words after it are purple again.
+  expect((await ui.find({ type: 'Text', text: /^\/ratexp:rate$/ }))?.props.dimColor).toBe(true)
+  expect((await ui.find({ type: 'Text', text: /^ opens it again\.$/ }))?.props.color).toBe(PURPLE)
+  await clock.advance(3000)
+  await ui.redraw()
+  expect(await ui.keepsBeneath()).toBe(true)
+  await ui.unmount()
+})
+
+test('Skip says the same sorry', async ($, on) => {
+  const { clock } = engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  await endTurn($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await ui.press({ key: 'skip' })
+  await clock.advance(1200)
+  await ui.redraw()
+  expect(await ui.find({ type: 'Text', text: SORRY_SHOWN })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a new prompt closes a survey /ratexp:rate opened in a pane too', async ($, on) => {
+  const { closed } = engine(on)
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  await $.command.run({ command: 'ratexp:rate', args: '' })
+  await $.prompt.submit({ text: 'next task' })
+  expect(closed.at(-1)).toBe('ratexp-rate')
+})
+
+test('/ratexp:rate typed as the next prompt leaves the survey to the command', async ($, on) => {
+  engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  await endTurn($)
+  await $.prompt.submit({ text: '/ratexp:rate', command: { name: 'ratexp:rate', args: '' } } as any)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ key: 'send' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a prompt that did not enter leaves the survey open', async ($, on) => {
+  engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  on('prompt.submit', () => ({ drop: 'blocked by a hook' }))
+  await endTurn($)
+  await $.prompt.submit({ text: 'next task' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ key: 'send' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('where no band shows, the sorry comes as a toast', async ($, on) => {
+  const { toasts, closed } = engine(on, { surfaces: ['vscode'] })
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  await $.command.run({ command: 'ratexp:rate', args: '' })
+  await $.prompt.submit({ text: 'next task' })
+  expect(closed.at(-1)).toBe('ratexp-rate')
+  expect(toasts).toEqual([SORRY])
+})
+
+test('a folded band gets the sorry as a toast', async ($, on) => {
+  const { toasts } = engine(on, { survey: { ...SURVEY, due: true } })
+  on('classic.Stop', () => ({}))
+  on('prompt.submit', (_: unknown, e: { text: string }) => ({ text: e.text }))
+  await endTurn($)
+  const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, isCollapsed: true }, surface: 'terminal' })
+  await $.prompt.submit({ text: 'next task' })
+  expect(toasts).toEqual([SORRY])
+  await ui.unmount()
+})
+
+test('a due turn with the survey still open swaps in a fresh one with the newest skill', async ($, on) => {
+  const survey: { due: boolean; skill: string | null; evals: typeof SURVEY.evals } = { ...SURVEY, due: true, skill: null }
+  engine(on, { survey })
+  on('classic.Stop', () => ({}))
+  await endTurn($)
+  let ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ key: 'rate-skill' })).toBeUndefined()
+  await ui.press({ key: 'tab-1' })
+  await ui.press({ key: 'good-human-satisfaction' })
+  await ui.unmount()
+  // A turn Claude started with no prompt from the person ends on a due turn.
+  survey.skill = 'poem-creator'
+  await endTurn($)
+  ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect((await ui.find({ key: 'rate-skill' }))?.text).toContain('poem-creator')
+  await ui.press({ key: 'tab-1' })
+  expect((await ui.find({ key: 'good-human-satisfaction' }))?.text).toContain('[ ]')
   await ui.unmount()
 })
 
 test('a question the model asks takes the band first', async ($, on) => {
   engine(on, { survey: { ...SURVEY, due: true } })
   on('classic.Stop', () => ({}))
-  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
+  await endTurn($)
   const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, hasSurvey: true }, surface: 'terminal' })
   expect(await ui.keepsBeneath()).toBe(true)
   expect(await ui.find({ key: 'send' })).toBeUndefined()
@@ -285,7 +458,7 @@ test('/ratexp:rate uses the band only where Claude Code would dock a pane', () =
 test('a turn another Stop hook keeps going opens nothing yet', async ($, on) => {
   const { runs, opened } = engine(on, { survey: { ...SURVEY, due: true } })
   on('classic.Stop', () => ({ block: 'keep working' }))
-  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
+  await endTurn($)
   expect(runs.map(run => run.argv[2])).toEqual(['panel-on'])
   expect(opened).toEqual([])
 })
@@ -293,7 +466,7 @@ test('a turn another Stop hook keeps going opens nothing yet', async ($, on) => 
 test('a turn that is not due opens nothing', async ($, on) => {
   const { opened } = engine(on)
   on('classic.Stop', () => ({}))
-  await $.classic.Stop({ session_id: 'session-1', stop_hook_active: false } as any)
+  await endTurn($)
   expect(opened).toEqual([])
 })
 

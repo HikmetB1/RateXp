@@ -524,6 +524,23 @@ def test_a_private_rating_sends_feedback_and_nothing_else(c):
     assert "kept private" in out
 
 
+def test_stored_feedback_is_thanked_for(c):
+    c.request()
+    c.ask()
+    out, rc = c.rate("chat", "private")
+    assert rc == 0
+    assert out.strip().endswith("Transcript kept private. We're very glad we heard from you!")
+
+
+def test_feedback_core_did_not_store_gets_no_thanks(c):
+    c.request()
+    c.ask()
+    out, rc = c.rate("chat", env={"RATEXP_CURL_STATUS": "500"})
+    assert rc == 0
+    assert "feedback could not be sent" in out
+    assert "glad" not in out
+
+
 @pytest.mark.parametrize(
     ("model", "label"),
     [
