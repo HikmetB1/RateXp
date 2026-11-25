@@ -2,11 +2,12 @@
 
 Builds a dashboard document from dashboard_for_dynatrace.yaml (see
 clone_dashboard_from_base.py) - a header, one tile per panel, a query variable for each
-filter (type, skill, agent, eval and the three labels), a 30-day default timeframe - and
+filter (type, skill, agent, eval and each label group), a 30-day default timeframe - and
 stores it under a fixed document id: created when absent, its name and content replaced
 when present, so running this again after editing the YAML updates the dashboard in
-place. The DQL's {list_view_limit} is filled in from the RateXp app's config.yaml, so
-publish again after changing it there.
+place. The DQL's {list_view_limit} is filled in from the RateXp app's config.yaml, and the
+label filters and panels come from core's config.yaml labeling.groups, so publish again
+after changing either.
 
 The dashboard shows the records of one environment, which the DQL's {environment} names.
 prod (the default) is stored as "ratexp", named as the YAML's name; dev is stored beside it
@@ -45,24 +46,48 @@ _VISUALIZATIONS = {
     "number": "singleValue",
     "line": "lineChart",
     "bar": "categoricalBarChart",
+    "count": "categoricalBarChart",
     "table": "table",
 }
 # (w, h) on Dynatrace's 24-column grid: four numbers or three bars to a row, a chart
 # or a table across the whole row. A bar tile is sized for about 5 rows; with more,
-# Dynatrace decides whether the chart scrolls or squeezes.
-_TILE_SIZES = {"number": (6, 3), "line": (24, 8), "bar": (8, 8), "table": (24, 10)}
+# Dynatrace decides whether the chart scrolls or squeezes. Count tiles come in pairs.
+_TILE_SIZES = {
+    "number": (6, 3),
+    "line": (24, 8),
+    "bar": (8, 8),
+    "count": (12, 8),
+    "table": (24, 10),
+}
 # The columns a chart plots - left unset, Dynatrace picks among all the numbers. Every
-# line panel returns day, good and bad, every bar panel name and percent_good (pinned in
-# core/tests/test_clone_dashboard_from_base.py); the key shapes are the ones Dynatrace's
-# own dashboards store.
+# line panel returns day, good and bad, every bar panel name and percent_good, every count
+# panel name and total (pinned in core/tests/test_clone_dashboard_from_base.py); the key
+# shapes are the ones Dynatrace's own dashboards store.
 _CHART_SETTINGS = {
     "line": {"fieldMapping": {"timestamp": "day", "leftAxisValues": ["good", "bad"]}},
     "bar": {
         "categoricalBarChartSettings": {"categoryAxis": ["name"], "valueAxis": ["percent_good"]}
     },
+    "count": {"categoricalBarChartSettings": {"categoryAxis": ["name"], "valueAxis": ["total"]}},
 }
 _GRID_COLUMNS = 24
 _HEADER_HEIGHT = 2
+# The colors of the RateXp Dynatrace app (Dynatrace's design tokens), so both Dynatrace views
+# agree: a neutral value blue, a good side green and a bad side red, as text in the table
+# and as bars in the count charts.
+_NEUTRAL_COLOR = "var(--dt-colors-text-primary-default, #0b56e5)"
+_SIDE_TEXT_COLORS = {
+    "good": "var(--dt-colors-text-success-default, #007242)",
+    "bad": "var(--dt-colors-text-critical-default, #c80026)",
+}
+_SIDE_BAR_COLORS = {
+    "good": "var(--dt-colors-charts-status-ideal-default, #00bb7b)",
+    "bad": "var(--dt-colors-charts-status-critical-default, #d40036)",
+}
+# The feedback table's neutral columns and its score column, as its DQL names them (pinned
+# in core/tests/test_publish_to_dynatrace.py); the label columns come from the label groups.
+_NEUTRAL_COLUMNS = ("Type", "Name", "Agent", "Model", "Eval", "Comment", "Session")
+_SCORE_COLUMN = "Score"
 
 
 def _variable(key: str, values_dql: str) -> dict:
@@ -91,6 +116,53 @@ def fill_app_limits(dql: str, limits: dict[str, int]) -> str:
     return dql
 
 
+def label_column(group: str) -> str:
+    """The feedback table's column of a label group: "Labels: Business case". A dashboard
+    table cannot put columns under one shared header, so each name carries it."""
+    words = group.replace("_", " ")
+    return f"Labels: {words[0].upper()}{words[1:]}"
+
+
+def _rename_label_columns(groups: list[str]) -> str:
+    """The DQL that gives each label group's column its label_column name."""
+    if not groups:
+        return ""
+    return " | fieldsRename " + ", ".join(f"`{label_column(g)}`={g}" for g in groups)
+
+
+def _color_rule(field: str, comparator: str, value: str, color: str) -> dict:
+    """A color rule: the text of `field`, or its bar, in `color` where the value compares."""
+    return {
+        "field": field,
+        "comparator": comparator,
+        "value": value,
+        "colorMode": "custom-color",
+        "customColor": {"Default": color},
+    }
+
+
+def _table_color_rules(groups: list[str], sides: dict[str, dict[str, str]]) -> list[dict]:
+    """The feedback table's colors: every value of a neutral column and of a label group
+    that does not split its values blue; a good score and each when_good value green, a
+    bad score and each when_bad value red."""
+    neutral = [*_NEUTRAL_COLUMNS, *(label_column(g) for g in groups if g not in sides)]
+    rules = [_color_rule(column, "!=", "", _NEUTRAL_COLOR) for column in neutral]
+    rules += [
+        _color_rule(_SCORE_COLUMN, "=", side, color) for side, color in _SIDE_TEXT_COLORS.items()
+    ]
+    for group in groups:
+        for value, side in sides.get(group, {}).items():
+            rules.append(_color_rule(label_column(group), "=", value, _SIDE_TEXT_COLORS[side]))
+    return rules
+
+
+def _bar_color_rules(sides: dict[str, str]) -> list[dict]:
+    """A count chart's colors: the bar of each when_good value green, of each when_bad red."""
+    return [
+        _color_rule("name", "=", value, _SIDE_BAR_COLORS[side]) for value, side in sides.items()
+    ]
+
+
 def name_and_document_id(name: str, environment: str) -> tuple[str, str]:
     """The dashboard's name and document id for `environment`: prod keeps the YAML's name
     and DOCUMENT_ID, another environment gets its own document beside it."""
@@ -104,13 +176,19 @@ def build_dashboard_document(dashboard: dict, environment: str) -> dict:
     `environment`: tiles and layouts share keys "0", "1", ...; "0" is the header, then one
     data tile per panel, placed left to right and wrapped to the next row when a tile
     would cross the grid's right edge. A table panel's hidden_columns, when the YAML gives
-    them, stay out of its table."""
+    them, stay out of its table.
+
+    The colors follow the RateXp Dynatrace app: the table's label columns are renamed to
+    "Labels: <group>" and colored blue, green or red, and each count chart's bars green
+    (praise) or red (complaints)."""
     filters_dql = dashboard["filters"]["dql"].replace("{environment}", environment)
     values = {
         key: dql.replace("{environment}", environment)
         for key, dql in dashboard["filters"]["values"].items()
     }
     limits = read_app_limits()
+    groups = dashboard.get("label_groups") or []
+    sides = dashboard.get("label_sides") or {}
     tiles = {
         "0": {
             "type": "markdown",
@@ -134,10 +212,19 @@ def build_dashboard_document(dashboard: dict, environment: str) -> dict:
         if "hidden_columns" in panel:
             # A column id is the path to its field, so a top-level field is a list of one.
             settings["table"] = {"hiddenColumns": [[c] for c in panel["hidden_columns"]]}
+        query = fill_app_limits(panel["dql"].replace("{filters}", filters_dql), limits)
+        if panel["kind"] == "table":
+            query += _rename_label_columns(groups)
+            settings["coloring"] = {"colorRules": _table_color_rules(groups, sides)}
+        if panel["kind"] == "count":
+            # A count panel counts the values of one label group, which its id ends in.
+            group = next((g for g in sides if panel["id"].endswith(f"_by_{g}")), None)
+            if group:
+                settings["coloring"] = {"colorRules": _bar_color_rules(sides[group])}
         tiles[str(index)] = {
             "type": "data",
             "title": panel["title"],
-            "query": fill_app_limits(panel["dql"].replace("{filters}", filters_dql), limits),
+            "query": query,
             "visualization": _VISUALIZATIONS[panel["kind"]],
             "visualizationSettings": settings,
         }

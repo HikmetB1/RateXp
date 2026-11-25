@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from load_config import SCHEMA_VERSION
-from pydantic import BaseModel, Field
+from modules.read.clone_dashboard_from_base import read_label_groups
+from pydantic import BaseModel, Field, create_model
 
 
 class Feedback(BaseModel):
@@ -18,6 +19,9 @@ class Feedback(BaseModel):
     score: int | None = Field(default=None, ge=1, le=2)  # 1 = good, 2 = bad
     comment: str | None = None
     request_id: str | None = None
+    # The labels core gave the rating, {group: value} (see core/modules/labeling/); its
+    # conversation's, when stored, win over them group by group.
+    labels: dict[str, str] = {}
 
 
 class Transcript(BaseModel):
@@ -30,10 +34,8 @@ class Transcript(BaseModel):
     schema_version: str = SCHEMA_VERSION
     atif: dict
     request_id: str | None = None
-    # The labels core gave the conversation (see core/modules/labeling/); None when unlabeled.
-    business_case: str | None = None
-    language: str | None = None
-    task_type: str | None = None
+    # The labels core gave the conversation, {group: value} (see core/modules/labeling/).
+    labels: dict[str, str] = {}
 
 
 class QueryRequest(BaseModel):
@@ -46,22 +48,28 @@ class QueryRequest(BaseModel):
     full: bool = False  # true = Download trajectories (up to list_max_limit); else the view
 
 
-class PanelFilters(BaseModel):
-    """What the Dashboard view's filter row picked. None means all; ``since`` is ISO 8601
-    (PostgreSQL casts it)."""
-
+class _FixedPanelFilters(BaseModel):
     type: str | None = None  # "skill" or "session": a session rating is one with no skill
     skill: str | None = None
     agent: str | None = None
     eval: str | None = None
-    business_case: str | None = None  # the three labels core gives a stored conversation
-    language: str | None = None
-    task_type: str | None = None
     since: str | None = None
 
     def params(self) -> dict:
         # "" (an empty query-string value) binds as NULL too, which the fragment reads as "all".
         return {key: value or None for key, value in self.model_dump().items()}
+
+
+# An admin names the label groups in core/config.yaml, so their filters are fields made
+# from that file: the image copies it in (see app/ratexp/Dockerfile).
+PanelFilters = create_model(
+    "PanelFilters",
+    __base__=_FixedPanelFilters,
+    __doc__="""What the Dashboard view's filter row picked: type, skill, agent, eval, one
+    filter per label group, named as the group, and since. None means all; ``since`` is ISO
+    8601 (PostgreSQL casts it).""",
+    **{group: (str | None, None) for group in read_label_groups()},
+)
 
 
 class PanelRequest(BaseModel):

@@ -5,6 +5,7 @@ import { Flex, PageLayout, Surface } from "@dynatrace/strato-components/layouts"
 import { Code, Heading, Paragraph, Strong } from "@dynatrace/strato-components/typography";
 import Colors from "@dynatrace/strato-design-tokens/colors";
 import { conversationOf, transcriptQueries } from "../dashboard/buildDownload";
+import { dashboard, groupTitle, labelSide, type Side } from "../dashboard/loadDashboard";
 import type { QueryTimeframe } from "../dashboard/runDql";
 import { Muted, text, type Row } from "./Panel";
 
@@ -58,7 +59,17 @@ export const TrajectoryDetails = ({ row, timeframe, onClose }: TrajectoryDetails
   );
 };
 
-// Type, Name, Agent, Model, Labels, Eval, Score, Steps and Tokens - each when known.
+// A good score or praise in green, a bad score or complaint in red, and a neutral value -
+// the type, name, agent, model, eval and a label of a group that does not split its values
+// - in Dynatrace's blue, as the table colors them.
+const SIDE_COLOR: Record<Side, string> = {
+  good: Colors.Text.Success.Default,
+  bad: Colors.Text.Critical.Default,
+};
+const NEUTRAL_COLOR = Colors.Text.Primary.Default;
+
+// Type, Name, Agent, Model, one per label group, Eval, Score, Steps and Tokens - each when
+// known.
 const Facts = ({ row, atif }: { row: Row; atif: Atif | null }) => {
   const metrics = atif?.final_metrics ?? {};
   // Some coding agents (Cursor) write no token counts into their transcripts.
@@ -66,14 +77,19 @@ const Facts = ({ row, atif }: { row: Row; atif: Atif | null }) => {
     metrics.total_prompt_tokens || metrics.total_completion_tokens
       ? `↑ ${metrics.total_prompt_tokens ?? 0} · ↓ ${metrics.total_completion_tokens ?? 0}`
       : "not recorded";
-  const facts: [string, unknown][] = [
-    ["Type", row.Type],
-    ["Name", row.Type === "skill" ? row.Name : null],
-    ["Agent", row.Agent],
-    ["Model", row.Model],
-    ["Labels", row.Labels],
-    ["Eval", row.Eval],
-    ["Score", row.Score],
+  const score = row.Score === "good" || row.Score === "bad" ? row.Score : undefined;
+  // Each fact with its text color: a side's, the neutral blue, or none for the counts.
+  const facts: [string, unknown, string?][] = [
+    ["Type", row.Type, NEUTRAL_COLOR],
+    ["Name", row.Type === "skill" ? row.Name : null, NEUTRAL_COLOR],
+    ["Agent", row.Agent, NEUTRAL_COLOR],
+    ["Model", row.Model, NEUTRAL_COLOR],
+    ...dashboard.label_groups.map((group): [string, unknown, string?] => {
+      const side = labelSide(group, row[group]);
+      return [groupTitle(group), row[group], side ? SIDE_COLOR[side] : NEUTRAL_COLOR];
+    }),
+    ["Eval", row.Eval, NEUTRAL_COLOR],
+    ["Score", row.Score, score && SIDE_COLOR[score]],
     ["Steps", atif ? (metrics.total_steps ?? atif.steps?.length ?? 0) : null],
     ["Tokens", atif ? tokens : null],
   ];
@@ -81,10 +97,10 @@ const Facts = ({ row, atif }: { row: Row; atif: Atif | null }) => {
     <Flex gap={16} flexWrap="wrap">
       {facts
         .filter(([, value]) => value != null)
-        .map(([key, value]) => (
+        .map(([key, value, color]) => (
           <Flex key={key} flexDirection="column" gap={2}>
             <Paragraph style={{ color: Colors.Text.Neutral.Subdued, fontSize: 12 }}>{key}</Paragraph>
-            <Code>{text(value)}</Code>
+            <Code style={color ? { color } : undefined}>{text(value)}</Code>
           </Flex>
         ))}
     </Flex>

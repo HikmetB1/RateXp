@@ -12,7 +12,8 @@ critical_ratio: 0.3                # 0 = always lenient, 1 = always tough
 oversized_ratio: 0.2               # 0 = never oversized, 1 = always
 interval_seconds: 60               # local loop only; the deployed timer uses SEED_SCHEDULE
 
-# Skill runs. {name} = the skill for this call, {max_rounds} = turn budget.
+# Skill runs. {name} = the skill for this call, {max_rounds} = turn budget,
+# {focus} = one of comment_focuses, picked at random.
 system_prompt: |
   You are a developer's coding agent. You have one skill, "{name}", via the load_skill
   tool, and a scratch workspace with list_files, read_file, and write_file to actually
@@ -31,8 +32,13 @@ task_prompt: |
   the skill itself and finish with your assessment: an honest score (1 = good, 2 = bad)
   and a short comment naming what made it that way. Don't stop before you have rated it.
 
+  Comment focus: {focus}. Praise this aspect for a good score, name its flaw for a bad
+  one. Keep the score and the comment true to the run: if this aspect does not fit, name
+  what does.
+
 # Session runs: a plain coding task, no skill, and the whole session is rated.
-# {task} = one of session_tasks, picked at random; {max_rounds} = turn budget.
+# {task} = one of session_tasks, picked at random; {max_rounds} = turn budget;
+# {focus} = one of comment_focuses, picked at random.
 session_system_prompt: |
   You are a developer's coding agent with a scratch workspace and list_files, read_file,
   and write_file to actually do the work. Carry out the developer's task for real —
@@ -52,8 +58,12 @@ session_task_prompt: |
   finish with your assessment: an honest score (1 = good, 2 = bad) and a short comment
   naming what made it that way. Don't stop before you have rated it.
 
-# Together the tasks aim at every word in core's labeling.labels (../core/config.yaml),
-# "other" too, so the demo data fills each label group.
+  Comment focus: {focus}. Praise this aspect for a good score, name its flaw for a bad
+  one. Keep the score and the comment true to the run: if this aspect does not fit, name
+  what does.
+
+# Together the tasks aim at every value of business_case, language and task_type in core's
+# labeling.groups (../core/config.yaml), "other" too, so the demo data fills those groups.
 session_tasks:
   - Write a Python function that parses a semantic version string like "1.4.2-beta" and compares two versions, with a few tests.
   - Add input validation and clear error messages to a small Flask signup endpoint you write first.
@@ -77,6 +87,23 @@ session_tasks:
   - Write an architecture decision record in Markdown that compares PostgreSQL and MongoDB for a small booking app and picks one.
   - Write a small text-adventure game in Python with three rooms, an inventory, and a win condition.
   - Write a Python function that finds duplicate files by hashing every file in full, then make it faster by comparing sizes first and hashing only the matches.
+
+# The aspect that a run's comment aims at, one per run at random, skill and session alike.
+# In order they aim at the praise / complaint pairs of feedback_theme in core's
+# labeling.groups (../core/config.yaml), the last at other_praise / other_complaint. The
+# honest score picks the side, so the demo data fills every feedback_theme value.
+comment_focuses:
+  - the steps - few and easy to follow, or too many and hard to follow
+  - the speed - finished in few turns, or took too long
+  - the result - correct and working, or buggy and wrong
+  - completeness - the whole task done, or parts of the task left undone
+  - the instructions - kept to the task and its rules, or ignored or broke them
+  - the scope - changed only what the task asked for, or changed or added things nobody asked for
+  - the answers - short and easy to follow, or confusing, vague or too long
+  - independence - few questions or corrections needed, or constant fixing needed
+  - care - no risky or destructive step, or deleted, overwrote or ran something risky
+  - the tools - install, tools and commands worked, or install, tools or commands failed
+  - one thing that stood out beyond the steps, speed, result, completeness, instructions, scope, answers, independence, care and tools
 
 # Appended to the task on a `critical_ratio` share of runs, skill and session alike,
 # so the seeder isn't all praise.

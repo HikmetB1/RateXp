@@ -1,7 +1,8 @@
 """phoenix - an Arize Phoenix project, over Phoenix's REST span API.
 
 Phoenix stores OpenTelemetry spans, so a rating and a transcript each become one
-span in the configured project, carrying the record on ``ratexp.*`` attributes.
+span in the configured project, carrying the record on ``ratexp.*`` attributes, its
+labels as ``ratexp.<group>``.
 The span is POSTed as JSON to ``<endpoint>/v1/projects/<project>/spans`` with
 urllib - stdlib only, so this destination adds no dependency to core. Phoenix's
 own SDK exports over OTLP instead, which batches in the background and would
@@ -66,6 +67,12 @@ def _iso_utc(value) -> str:
 
 def _compact(attributes: dict) -> dict:
     return {k: v for k, v in attributes.items() if v is not None}
+
+
+def _label_attributes(record) -> dict[str, str]:
+    """The record's labels as ratexp.<group> attributes; core's config.yaml keeps the group
+    names off every other ratexp.* attribute."""
+    return {f"ratexp.{group}": value for group, value in record.labels.items()}
 
 
 def _is_already_stored(error: urllib.error.HTTPError) -> bool:
@@ -187,6 +194,7 @@ class PhoenixWriteAdapter:
                     "ratexp.score": record.score,
                     "ratexp.rating": _SCORE_LABELS.get(record.score, "unrated"),
                     "ratexp.comment": record.comment,
+                    **_label_attributes(record),
                 },
             )
         )
@@ -202,9 +210,7 @@ class PhoenixWriteAdapter:
                     # core already caps a stored trajectory (max_transcript_bytes), so
                     # this goes in whole and always parses back as JSON on the read side.
                     "ratexp.atif": json.dumps(record.atif, ensure_ascii=False),
-                    "ratexp.business_case": record.business_case,
-                    "ratexp.language": record.language,
-                    "ratexp.task_type": record.task_type,
+                    **_label_attributes(record),
                 },
             )
         )

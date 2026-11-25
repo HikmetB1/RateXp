@@ -3,13 +3,7 @@
 import { getAppId } from "@dynatrace-sdk/app-environment";
 import dashboardJson from "./dashboard.json";
 
-// Type first: skill or session, where a session rating is one that has no skill; every
-// other dropdown's values query takes it. The last three are the labels core gives a stored
-// conversation; a rating takes its conversation's through the filter fragment's lookup.
-export const FILTER_KEYS = ["type", "skill", "agent", "eval", "business_case", "language", "task_type"] as const;
-export type FilterKey = (typeof FILTER_KEYS)[number];
-
-export type PanelKind = "number" | "line" | "bar" | "table";
+export type PanelKind = "number" | "line" | "bar" | "count" | "table";
 
 export interface Panel {
   id: string;
@@ -22,10 +16,17 @@ export interface Panel {
 
 export interface Dashboard {
   name: string;
-  filters: { dql: string; values: Record<FilterKey, string> };
+  filters: { dql: string; values: Record<string, string> };
   download: { dql: string };
   panels: Panel[];
+  // The label groups of core/config.yaml, in order; each is a column of the feedback and
+  // download queries, holding the rating's label, its conversation's winning.
+  label_groups: string[];
+  // For each group that splits its values into when_good and when_bad: each value's side.
+  label_sides: Record<string, Record<string, Side>>;
 }
+
+export type Side = "good" | "bad";
 
 /** The dashboard showing the records of `environment`: the {environment} in the filter
  * fragment and the dropdowns' values queries filled in. Each panel and the download take
@@ -34,7 +35,7 @@ export function fillEnvironment(dashboard: Dashboard, environment: string): Dash
   const fill = (dql: string) => dql.replace(/\{environment\}/g, () => environment);
   const values = Object.fromEntries(
     Object.entries(dashboard.filters.values).map(([key, dql]) => [key, fill(dql)]),
-  ) as Record<FilterKey, string>;
+  );
   return { ...dashboard, filters: { dql: fill(dashboard.filters.dql), values } };
 }
 
@@ -43,3 +44,29 @@ export function fillEnvironment(dashboard: Dashboard, environment: string): Dash
 export const environment = getAppId().endsWith(".dev") ? "dev" : "prod";
 
 export const dashboard = fillEnvironment(dashboardJson as Dashboard, environment);
+
+// The dropdowns, in filters.values order. Type first: skill or session, where a session
+// rating is one that has no skill; every other dropdown's values query takes it. Then
+// skill, agent, eval and one per label group.
+export const FILTER_KEYS = Object.keys(dashboard.filters.values);
+export type FilterKey = string;
+
+/** A feedback or download row's labels as {group: value}, in label_groups order: the groups
+ * it has a label for. */
+export function labelsOf(row: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    dashboard.label_groups.flatMap((group) => (typeof row[group] === "string" ? [[group, row[group]]] : [])),
+  );
+}
+
+/** A label group's name as a heading: "business_case" -> "Business case". */
+export function groupTitle(group: string): string {
+  const words = group.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** The side of `value` in `group`: good (praise) or bad (complaint), or undefined for a
+ * group that does not split its values. */
+export function labelSide(group: string, value: unknown): Side | undefined {
+  return typeof value === "string" ? dashboard.label_sides[group]?.[value] : undefined;
+}

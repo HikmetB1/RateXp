@@ -19,7 +19,7 @@ core/
 ├── api/                 routes, record schemas, rate limits, the ATIF trajectory builder and the local hourly delete
 ├── modules/
 │   ├── dashboard/       the dashboards: a shared base, one file for each destination, the publish command
-│   ├── labeling/        gives each stored conversation a business case, a language and a task type
+│   ├── labeling/        gives each rating and each stored conversation a value for each label group
 │   ├── redaction/       masks PII before storage: the presidio adapter or the azure adapter
 │   └── write/           the destinations, the fan-out and the SQL migrations
 ├── tests/               the tests of core: mocked, with no network and no database
@@ -61,7 +61,7 @@ uv sync --extra redaction-presidio --extra dynatrace-otlp
 DATABASE_URL=postgresql://ratexp:ratexp@localhost:5432/ratexp uv run uvicorn api.serve_http:app --reload
 ```
 
-To label conversations, also add `--extra labeling` and set `AZURE_OPENAI_ENDPOINT`. core
+To label ratings and conversations, also add `--extra labeling` and set `AZURE_OPENAI_ENDPOINT`. core
 connects to the model with your `az login`. Your account needs the "Cognitive Services OpenAI
 User" role on the Azure OpenAI account.
 
@@ -119,15 +119,44 @@ startup with an error.
   `presidio` (in-process, free) or `azure` (AI Language, billed for each 1,000 records). The
   image contains both adapters. To change the adapter, change one value and restart core. You
   do not have to build the image again.
-- `labeling`: core gives each stored conversation one word from each group in `labels`:
-  `business_case`, the main `language` and `task_type`.
-  - **Model:** The Azure OpenAI `deployment` selects the words from a digest of the masked
-    conversation. core cuts the digest to `max_input_chars`.
-  - **Groups and words:** The groups are fixed, because each group is a column and an
-    attribute. You select the words in each list.
+- `labeling`: core gives each rating, and again each stored conversation, one value from each
+  label group in `groups`. The shipped groups are `business_case`, `language`, `task_type`
+  and `feedback_theme`.
+  - **Model:** The Azure OpenAI `deployment` selects the values. For a rating, the model reads
+    the score, the skill, the eval and the comment. For a stored conversation, the model also
+    reads a digest of the masked conversation. core cuts the digest to `max_input_chars`.
+  - **Comment:** core masks the personal data in the comment before the model reads the
+    comment. core stores the comment as the user typed the comment.
+  - **Labels that win:** In the dashboards and in the `feedback_with_labels` view, the labels
+    of a stored conversation win over the labels of its rating, group by group.
+  - **Group:** A key under `groups`, with `means` and either `values`, or `when_good` and
+    `when_bad`. `means` tells the model what the group tells about a rating.
+  - **Values:** A list of values, or a mapping of each value to a one-line description that the
+    model reads. Each value is 1-40 characters, in the words that the dashboards show (for
+    example `Go` or `Bug fix`).
+  - **`when_good` and `when_bad`:** A good rating gets only a `when_good` value. A bad rating
+    gets only a `when_bad` value. A rating without a score can get a value from both lists.
+    The dashboards show **Top complaints** and **Top praise** for each group with `when_good`
+    and `when_bad`, and show a `when_good` value in green and a `when_bad` value in red.
+  - **`feedback_theme`:** Tells what the user praises or complains about, in pairs of
+    opposite values (for example `Process is easy` and `Process is complex`).
+  - **No value:** When the input does not tell the value of a group, the label of the group
+    stays empty. A rating without a comment and without a stored conversation gets no labels.
+  - **Group names:** 1-40 lowercase letters, digits and `_`, with a letter first. A group
+    cannot have the name of a record field or of a filter (for example `agent`, `score` or
+    `type`), because each group is a key of the `labels` column, a `ratexp.<group>` attribute
+    and a dashboard filter.
+  - **Limits:** At most 8 groups, and at most 30 values in each group. core does not start when
+    a group breaks a rule.
+  - **After a change:** Deploy the core image and the RateXp app image again, because the app
+    image copies `config.yaml`. For each environment, publish the Dynatrace dashboard again
+    and deploy the RateXp Dynatrace app again. Stored ratings keep their values.
+  - **Older words:** In PostgreSQL, migration `006` changes the older words of the shipped
+    groups to the words of `config.yaml` (for example `go` to `Go` and `fix` to `Bug fix`).
+    Dynatrace and Phoenix keep the older words in older records.
   - **Empty labels:** Labeling never stops a save. The labels stay empty in these cases:
-    labeling is off, the endpoint is not set, the conversation is an oversized stub, or the
-    model fails or takes longer than `timeout_seconds`.
+    labeling is off, the endpoint is not set, the masks or the model fail, the model takes
+    longer than `timeout_seconds`, or the conversation is an oversized stub.
 - `retention`: How many of the newest ratings a destination keeps.
   - **`keep_newest`:** The number of the newest ratings that each destination keeps when the
     `retention` switch of the destination is on.
@@ -159,7 +188,7 @@ startup with an error.
   how core authenticates: `password` on your machine, `entra` (Managed Identity) on Azure.
 - `RATEXP_REDACTION_PROVIDER`: Overrides `redaction.provider` for one deployment.
 - `AZURE_OPENAI_ENDPOINT`: The Azure OpenAI account that `labeling` calls. `config.yaml` names
-  `AZURE_OPENAI_ENDPOINT`. If `AZURE_OPENAI_ENDPOINT` is not set, core does not label conversations. Do not set
+  `AZURE_OPENAI_ENDPOINT`. If `AZURE_OPENAI_ENDPOINT` is not set, core does not label ratings and conversations. Do not set
   `AZURE_OPENAI_ENDPOINT` under compose, because the container has no Azure identity to call the account.
 - `DT_TENANT_URL` / `DT_ACCESS_TOKEN`, `CUSTOM_PSQL_DSN`, `CUSTOM_DT_TENANT_URL` /
   `CUSTOM_DT_TOKEN`, `BLUEBOX_OTLP_ENDPOINT` / `BLUEBOX_OTLP_TOKEN`,

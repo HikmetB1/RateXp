@@ -16,7 +16,8 @@ app/ratexp/
 ├── modules/
 │   └── read/            the one source that the dashboard reads from (one adapter for each source), and
 │                        clone_dashboard_from_base.py: the panels of the Dashboard view, read from
-│                        ../../core/modules/dashboard/ (see CONTRIBUTING.md)
+│                        ../../core/modules/dashboard/, and the label groups, read from
+│                        ../../core/config.yaml (see CONTRIBUTING.md)
 ├── FE/                  the React dashboard: src/{App.jsx, Dashboard.jsx, FeedbackTable.jsx, styles.js}, public/, vite.config.js
 ├── tests/               the tests of the app: mocked, with no database
 ├── config.yaml          the settings below; load_config.py reads config.yaml

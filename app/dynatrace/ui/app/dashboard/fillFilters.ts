@@ -4,7 +4,7 @@ import { FILTER_KEYS, type FilterKey } from "./loadDashboard";
 // reads with "*" as "every value"; this app fills the same slots with literals.
 export type Filters = Record<FilterKey, string | null>;
 
-export const ALL_FILTERS = Object.fromEntries(FILTER_KEYS.map((key) => [key, null])) as Filters;
+export const ALL_FILTERS: Filters = Object.fromEntries(FILTER_KEYS.map((key) => [key, null]));
 
 // $type, $skill, ... - each filter's dashboard variable as the queries name it.
 const VARIABLE = new RegExp(`\\$(${FILTER_KEYS.join("|")})\\b`, "g");

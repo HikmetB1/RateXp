@@ -62,9 +62,10 @@ _RATE_NOW = (
 )
 
 
-def run_skill_task(skill: dict) -> tuple[Rating | None, list]:
-    """Use one skill on a small task and rate the skill. See ``_run_to_rating``."""
-    prompt_fields = {"name": skill["name"], "max_rounds": MAX_ROUNDS}
+def run_skill_task(skill: dict, focus: str) -> tuple[Rating | None, list]:
+    """Use one skill on a small task and rate the skill, the comment aimed at ``focus``.
+    See ``_run_to_rating``."""
+    prompt_fields = {"name": skill["name"], "focus": focus, "max_rounds": MAX_ROUNDS}
     return _run_to_rating(
         SYSTEM_PROMPT.format(**prompt_fields),
         TASK_PROMPT.format(**prompt_fields),
@@ -72,9 +73,10 @@ def run_skill_task(skill: dict) -> tuple[Rating | None, list]:
     )
 
 
-def run_session_task(task: str) -> tuple[Rating | None, list]:
-    """Do one plain coding task, no skill, and rate the session. See ``_run_to_rating``."""
-    prompt_fields = {"task": task, "max_rounds": MAX_ROUNDS}
+def run_session_task(task: str, focus: str) -> tuple[Rating | None, list]:
+    """Do one plain coding task, no skill, and rate the session, the comment aimed at
+    ``focus``. See ``_run_to_rating``."""
+    prompt_fields = {"task": task, "focus": focus, "max_rounds": MAX_ROUNDS}
     return _run_to_rating(
         SESSION_SYSTEM_PROMPT.format(**prompt_fields),
         SESSION_TASK_PROMPT.format(**prompt_fields),

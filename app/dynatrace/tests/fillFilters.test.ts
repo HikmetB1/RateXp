@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dashboard } from "../ui/app/dashboard/loadDashboard";
+import { dashboard, FILTER_KEYS } from "../ui/app/dashboard/loadDashboard";
 import {
   ALL_FILTERS,
   dqlString,
@@ -9,13 +9,15 @@ import {
 } from "../ui/app/dashboard/fillFilters";
 
 const fragment = dashboard.filters.dql;
+// Any variable left unfilled: $type, $skill, ... and one per label group.
+const VARIABLE_LEFT = new RegExp(`\\$(${FILTER_KEYS.join("|")})\\b`);
 
 describe("fillFilters", () => {
   it("puts the fragment in the {filters} slot with * for every filter left on all", () => {
     const dql = fillFilters('fetch logs {filters} | limit 1', fragment, ALL_FILTERS);
     expect(dql).not.toContain("{filters}");
-    expect(dql).not.toMatch(/\$(type|skill|agent|eval|business_case|language|task_type)\b/);
-    expect(dql.match(/, "\*"\)/g)).toHaveLength(7);
+    expect(dql).not.toMatch(VARIABLE_LEFT);
+    expect(dql.match(/, "\*"\)/g)).toHaveLength(FILTER_KEYS.length);
   });
 
   it("matches a picked type against whether the rating has a skill", () => {
@@ -46,15 +48,20 @@ describe("fillFilters", () => {
     for (const dql of [...dashboard.panels.map((p) => p.dql), dashboard.download.dql]) {
       const filled = fillFilters(dql, fragment, ALL_FILTERS);
       expect(filled).not.toContain("{filters}");
-      expect(filled).not.toMatch(/\$(type|skill|agent|eval|business_case|language|task_type)\b/);
+      expect(filled).not.toMatch(VARIABLE_LEFT);
     }
   });
 
-  it("matches a picked label, and (none) for a rating without a labeled conversation", () => {
-    const dql = fillFilters("{filters}", fragment, { ...ALL_FILTERS, language: "go", task_type: "(none)" });
-    expect(dql).toContain('matchesValue(coalesce(transcript.language, "(none)"), "go")');
-    expect(dql).toContain('matchesValue(coalesce(transcript.task_type, "(none)"), "(none)")');
-    expect(dql).toContain('matchesValue(coalesce(transcript.business_case, "(none)"), "*")');
+  it("matches a picked label, the conversation's over the rating's, and (none) for an unlabeled rating", () => {
+    const dql = fillFilters("{filters}", fragment, { ...ALL_FILTERS, feedback_theme: "Completion is slow", task_type: "(none)" });
+    expect(dql).toContain('matchesValue(coalesce(transcript.feedback_theme, ratexp.feedback_theme, "(none)"), "Completion is slow")');
+    expect(dql).toContain('matchesValue(coalesce(transcript.task_type, ratexp.task_type, "(none)"), "(none)")');
+    expect(dql).toContain('matchesValue(coalesce(transcript.business_case, ratexp.business_case, "(none)"), "*")');
+  });
+
+  it("has a dropdown for type, skill, agent, eval and each label group, in that order", () => {
+    expect(FILTER_KEYS).toEqual(["type", "skill", "agent", "eval", ...dashboard.label_groups]);
+    expect(dashboard.label_groups).toContain("feedback_theme");
   });
 });
 

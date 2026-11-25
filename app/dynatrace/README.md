@@ -20,7 +20,7 @@ app/dynatrace/
 │   ├── components/Panel.tsx  one panel: runs the DQL of the panel with useDql, and draws the panel by its kind
 │   ├── components/TrajectoryDetails.tsx  the side panel that "view" in a Feedback row opens
 │   └── dashboard/            dashboard.json (generated, see below) and the logic that the tests cover
-├── scripts/sync-dashboard.mjs  writes dashboard.json from ../../core/modules/dashboard/
+├── scripts/sync-dashboard.mjs  writes dashboard.json from ../../core/modules/dashboard/ and ../../core/config.yaml
 ├── scripts/deploy-dev.mjs   deploys the dev copy of the RateXp Dynatrace app (npm run deploy:dev)
 ├── tests/                   vitest: filters, download, per-day series, environment, dashboard.json drift
 └── app.config.json          the app id my.ratexp, the tenant, and the scopes that the RateXp Dynatrace app reads with
@@ -28,7 +28,8 @@ app/dynatrace/
 
 - **Generated file:** `ui/app/dashboard/dashboard.json` is the `dashboard_base.yaml` of core,
   cloned into `dashboard_for_dynatrace.yaml`, with `list_view_limit` and `list_max_limit` from
-  `app/ratexp/config.yaml` filled in. The RateXp Dynatrace app cannot read the repo at
+  `app/ratexp/config.yaml` and the label groups from `labeling.groups` in `core/config.yaml`
+  filled in. The RateXp Dynatrace app cannot read the repo at
   runtime.
 - **Update:** `npm start`, `npm run build` and `npm run deploy` first write `dashboard.json`
   again. `npm test` fails when `dashboard.json` is out of date.

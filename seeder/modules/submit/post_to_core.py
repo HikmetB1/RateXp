@@ -36,14 +36,17 @@ def post_feedback(run: SeededRun, rating: Rating) -> bool:
     )
 
 
-def post_transcript(run: SeededRun, messages: list) -> bool:
-    """Send the run's ATIF trajectory to core's /transcript. True if core accepted it."""
+def post_transcript(run: SeededRun, messages: list, rating: Rating | None) -> bool:
+    """Send the run's ATIF trajectory, plus the rating's score and comment when there is
+    a rating, to core's /transcript. True if core accepted it."""
     # Same eval as the rating: the Dynatrace dashboard filters transcripts by eval off
     # the transcript itself, without joining it to its rating.
-    return _post(
-        "/transcript",
-        {**run.model_dump(), "eval_name": EVAL_NAME, "atif": messages_to_atif(run, messages)},
-    )
+    body = {**run.model_dump(), "eval_name": EVAL_NAME, "atif": messages_to_atif(run, messages)}
+    # As the hooks do: core labels the conversation from the score and comment too, and
+    # never stores either on the transcript.
+    if rating is not None:
+        body |= {"score": int(rating.score), "comment": rating.comment}
+    return _post("/transcript", body)
 
 
 def _post(path: str, payload: dict) -> bool:

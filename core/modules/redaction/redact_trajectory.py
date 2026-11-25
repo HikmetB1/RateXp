@@ -1,13 +1,16 @@
-"""PII redaction for consented transcripts, via a pluggable adapter.
+"""PII redaction for consented transcripts and for rating comments, via a pluggable adapter.
 
 ``redact_atif`` walks the ATIF conversation text, hands it to the adapter named
 by config.yaml ``redaction.provider`` (see adapters/), and writes the masked text
 back. Fail-closed: any adapter error propagates so the caller drops the upload.
+``redact_text`` masks one text, such as a comment before the labeling model reads it.
 The adapter (and its optional deps) is built lazily on first use, so core runs
-without those deps when redaction is off.
+without those deps when redaction is off; ``warm_up_redaction`` builds it ahead.
 """
 
 from __future__ import annotations
+
+import threading
 
 from load_config import (
     REDACTION_ENABLED,
@@ -22,6 +25,8 @@ _TEXT_FIELDS = ("message", "reasoning_content", "observation")
 
 # The chosen adapter, built once on first use (loads its deps / model). None until then.
 _redactor = None
+# The warm-up thread and the first request may both ask for the adapter; one builds it.
+_redactor_lock = threading.Lock()
 
 
 def is_enabled() -> bool:
@@ -47,11 +52,30 @@ def get_redactor(provider: str, *, endpoint: str, languages: list[str]) -> Redac
 
 def _configured_redactor() -> Redactor:
     global _redactor
-    if _redactor is None:
-        _redactor = get_redactor(
-            REDACTION_PROVIDER, endpoint=REDACTION_ENDPOINT, languages=REDACTION_LANGUAGES
-        )
+    with _redactor_lock:
+        if _redactor is None:
+            _redactor = get_redactor(
+                REDACTION_PROVIDER, endpoint=REDACTION_ENDPOINT, languages=REDACTION_LANGUAGES
+            )
     return _redactor
+
+
+def warm_up_redaction() -> None:
+    """Build the adapter and mask one short text, when redaction is on.
+
+    presidio loads its spaCy models on the first call, about 30 s. Every rating with a
+    comment is masked before the hook's 20 s limit runs out, so core starts the warm-up at
+    boot, in a thread.
+    """
+    if is_enabled():
+        _configured_redactor().redact_texts(["warm up"])
+
+
+def redact_text(text: str) -> str:
+    """`text` PII-masked; unchanged when redaction is off. Raises when the adapter fails."""
+    if not is_enabled():
+        return text
+    return _configured_redactor().redact_texts([text])[0]
 
 
 def redact_atif(atif: dict) -> dict:

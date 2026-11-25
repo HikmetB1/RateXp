@@ -137,3 +137,17 @@ def test_a_file_part_is_not_read_as_a_text_field(client, captured_writes):
 def test_a_rating_no_destination_accepted_answers_503(client, no_destination_accepts):
     # Never tell a caller "stored" when nothing was.
     assert client.post("/feedback", files=_multipart()).status_code == 503
+
+
+def test_a_labeling_failure_still_stores_the_rating_with_201(client, captured_writes, monkeypatch):
+    """Fail-open: a label only groups ratings, so a model that is down costs the labels,
+    never the rating."""
+    from modules.labeling import label_ratings
+
+    def boom(_score, _prompt):
+        raise TimeoutError("model too slow")
+
+    monkeypatch.setattr(label_ratings, "LABELING_ENDPOINT", "https://aoai.example/")
+    monkeypatch.setattr(label_ratings, "_ask_model", boom)
+    assert client.post("/feedback", files=_multipart()).status_code == 201
+    assert captured_writes[-1].labels == {}

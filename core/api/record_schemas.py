@@ -17,6 +17,8 @@ class Feedback(BaseModel):
     score: int | None = Field(default=None, ge=1, le=2)  # 1 = good, 2 = bad
     comment: str | None = None
     request_id: str | None = None  # idempotency key; dedup when present
+    # Core's labels, {group: value} (see modules/labeling/); a client's own are overwritten.
+    labels: dict[str, str] = {}
 
 
 class Transcript(BaseModel):
@@ -30,7 +32,9 @@ class Transcript(BaseModel):
     schema_version: str = SCHEMA_VERSION  # from config.yaml
     atif: dict  # ATIF trajectory; required
     request_id: str | None = None  # idempotency key; dedup when present
-    # Core's labels (see modules/labeling/); a client's own are overwritten on ingest.
-    business_case: str | None = None
-    language: str | None = None
-    task_type: str | None = None
+    # The rating's score and comment, which the hook sends along: core labels the
+    # conversation with them and stores neither on the transcript (the rating holds them).
+    score: int | None = Field(default=None, ge=1, le=2)
+    comment: str | None = None
+    # Core's labels, {group: value} (see modules/labeling/); a client's own are overwritten.
+    labels: dict[str, str] = {}

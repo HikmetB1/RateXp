@@ -47,8 +47,9 @@
 **Who RateXp is for:**
 - **A company that rolls out a coding agent from a vendor to its employees:**
   - The company gets feedback from real users on real sessions.
-  - The company sees the types of work that the employees do with the coding agent, and where
-    the employees get good or bad results. See [Labels](#feature-labels).
+  - The company sees the types of work that the employees do with the coding agent, where
+    the employees get good or bad results, and what the employees praise or complain about.
+    See [Labels](#feature-labels).
   - Thus, the company trains the employees where necessary, and tells the vendor what to
     improve.
 - **An employee who uses a coding agent or a skill:**
@@ -212,7 +213,7 @@ The answer to each eval is **True** or **False**.
   1. core sends the evals and the number of turns to the hook script of the plugin.
   2. core receives the ratings and the conversations that the hook script sends.
   3. core masks the personal data. See [Redaction](#feature-redaction).
-  4. core labels each conversation. See [Labels](#feature-labels).
+  4. core labels each rating and each conversation. See [Labels](#feature-labels).
   5. core writes the result to each destination that is on. See
      [Write adapters](#feature-write-adapters).
 
@@ -242,9 +243,10 @@ sequenceDiagram
 
     Note over H,D: On /ratexp:rate and every 5th turn, for each rated eval
     H->>C: POST /feedback (eval, rating, optional comment)
+    C->>C: Add the labels from the masked comment
     opt The user gives consent
         H->>C: POST /transcript (the skill run, or the session up to now)
-        C->>C: Build the conversation again, mask the personal data, add the labels
+        C->>C: Build the conversation again, mask the personal data, add the labels from the comment and the conversation
     end
     C->>D: Write to each destination that is on
     C-->>H: 201 when stored, or 503 when no destination accepted the data
@@ -287,8 +289,9 @@ sequenceDiagram
 8. <a id="feature-redaction"></a>**Redaction:** core masks the personal data before core stores
    the data. A pluggable adapter masks the data: self-hosted Presidio or Azure AI Language. If
    the adapter fails, core drops the data and does not store the data unmasked.
-9. <a id="feature-labels"></a>**Labels:** core gives each stored conversation a business case,
-   a main language and a task type. Thus, the trajectories can be put in groups by label.
+9. <a id="feature-labels"></a>**Labels:** core assigns a label to each rating and stored conversation,
+   based on every label group. The admin defines the label groups and their possible values in
+   `core/config.yaml`. This lets you organize ratings and conversations into labeled groups.
 10. <a id="feature-write-adapters"></a>**Write adapters:** core writes each submission to each
    write adapter that is on. The write adapters work independently: if one write adapter fails,
    the other write adapters continue. See

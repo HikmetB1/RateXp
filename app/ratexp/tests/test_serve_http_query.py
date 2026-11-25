@@ -105,9 +105,7 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
                 "ATIF-v1.7",
                 {"steps": []},
                 "req1",
-                "devops",
-                "go",
-                "fix",
+                {"business_case": "DevOps", "language": "Go", "task_type": "Bug fix"},
             )
         ]
 
@@ -121,7 +119,8 @@ def test_query_returns_rows_own_transcripts(app_with_fake_pool, monkeypatch):
     assert captured == {"request_ids": ["req1"]}  # ids taken from the shown rows
     assert len(body["transcripts"]) == 1
     assert body["transcripts"][0]["request_id"] == "req1"
-    assert body["transcripts"][0]["language"] == "go"  # the table's Labels column reads these
+    # The table's Labels column reads these, over the rating's own.
+    assert body["transcripts"][0]["labels"]["language"] == "Go"
 
 
 def test_a_download_carries_each_rows_own_transcript(app_with_fake_pool, monkeypatch):
@@ -145,9 +144,7 @@ def test_a_download_carries_each_rows_own_transcript(app_with_fake_pool, monkeyp
                 "ATIF-v1.7",
                 {},
                 "old",
-                None,
-                None,
-                None,
+                {},
             )
         ]
 

@@ -12,7 +12,6 @@ import pytest
 from api import ingest_records
 from api.build_trajectory import claude_jsonl_to_atif
 from api.record_schemas import Feedback, Transcript
-from modules.labeling.label_trajectory import Labels
 from modules.write.dispatch_to_adapters import WriteError
 
 RAW_JSONL = "\n".join(
@@ -113,37 +112,63 @@ def test_a_trajectory_no_destination_accepted_raises(no_destination_accepts):
         ingest_records.ingest_transcript(_transcript())
 
 
-def test_a_trajectory_is_labeled_after_it_is_redacted(captured_writes, monkeypatch):
+def test_a_rating_is_labeled_from_its_score_comment_skill_and_eval(captured_writes, monkeypatch):
+    def label(**rating):
+        assert rating == {
+            "score": 2,
+            "comment": "too slow",
+            "skill_name": "demo",
+            "eval_name": "speed",
+        }
+        return {"feedback_theme": "Completion is slow"}
+
+    monkeypatch.setattr(ingest_records, "label_rating", label)
+    ingest_records.ingest_feedback(
+        Feedback(
+            skill_name="demo", agent="claude-code", eval_name="speed", score=2, comment="too slow"
+        )
+    )
+    assert captured_writes[-1].labels == {"feedback_theme": "Completion is slow"}
+
+
+def test_a_trajectory_is_labeled_after_it_is_redacted_with_its_ratings_comment(
+    captured_writes, monkeypatch
+):
     # The model must only ever read masked text, so labeling sees redaction's output.
     monkeypatch.setattr(ingest_records, "redact_atif", lambda atif: {**atif, "masked": True})
 
-    def label(atif):
+    def label(*, score, comment, skill_name, eval_name, atif):
         assert atif["masked"] is True
-        return Labels(business_case="data", language="sql", task_type="feat")
+        assert (score, comment, skill_name) == (2, "too slow", "goodbye")
+        return {"business_case": "Data", "feedback_theme": "Completion is slow"}
 
-    monkeypatch.setattr(ingest_records, "label_atif", label)
-    ingest_records.ingest_transcript(_transcript())
-    stored = captured_writes[-1]
-    assert (stored.business_case, stored.language, stored.task_type) == ("data", "sql", "feat")
+    monkeypatch.setattr(ingest_records, "label_rating", label)
+    ingest_records.ingest_transcript(_transcript(score=2, comment="too slow"))
+    assert captured_writes[-1].labels == {
+        "business_case": "Data",
+        "feedback_theme": "Completion is slow",
+    }
 
 
 def test_an_oversized_trajectory_is_not_labeled(captured_writes, monkeypatch):
     # The stub has no conversation left, so there is nothing to pay a model to read.
     monkeypatch.setattr(ingest_records, "MAX_TRANSCRIPT_BYTES", 10)
 
-    def never_called(_atif):
+    def never_called(**_rating):
         raise AssertionError("the stub was handed to labeling")
 
-    monkeypatch.setattr(ingest_records, "label_atif", never_called)
-    ingest_records.ingest_transcript(_transcript(language="go"))
-    stored = captured_writes[-1]
-    assert (stored.business_case, stored.language, stored.task_type) == (None, None, None)
+    monkeypatch.setattr(ingest_records, "label_rating", never_called)
+    ingest_records.ingest_transcript(_transcript(labels={"language": "Go"}))
+    assert captured_writes[-1].labels == {}
 
 
 def test_labels_a_client_posted_itself_are_not_stored(captured_writes):
     # Labeling is off in tests, so core finds no labels - and the client's stay out.
-    ingest_records.ingest_transcript(
-        _transcript(business_case="ml", language="go", task_type="feat")
+    ingest_records.ingest_transcript(_transcript(labels={"business_case": "ml"}))
+    assert captured_writes[-1].labels == {}
+    ingest_records.ingest_feedback(
+        Feedback(
+            agent="claude-code", comment="ok", labels={"feedback_theme": "Completion is quick"}
+        )
     )
-    stored = captured_writes[-1]
-    assert (stored.business_case, stored.language, stored.task_type) == (None, None, None)
+    assert captured_writes[-1].labels == {}

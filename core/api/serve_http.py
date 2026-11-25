@@ -4,6 +4,7 @@ transcripts."""
 from __future__ import annotations
 
 import json
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,8 +22,10 @@ from load_config import (
     MAX_BODY_BYTES,
     RATE_LIMIT_PER_MINUTE,
 )
+from modules.redaction.redact_trajectory import warm_up_redaction
 from modules.write.dispatch_to_adapters import WriteError, close_adapters, get_adapters
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 from starlette.formparsers import MultiPartException
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -49,6 +52,8 @@ async def lifespan(_: FastAPI):
         get_adapters()
     except Exception:  # noqa: BLE001 - a destination may not be ready at boot
         pass
+    # In the background, so core answers /healthz while presidio loads its models.
+    threading.Thread(target=warm_up_redaction, name="warm-up-redaction", daemon=True).start()
     yield
     close_adapters()
 
@@ -134,14 +139,15 @@ def get_hook_settings() -> dict:
 
 @app.post("/feedback", status_code=status.HTTP_201_CREATED)
 async def post_feedback(request: Request) -> dict[str, str]:
-    """Store feedback with an optional score (1 = good, 2 = bad) and comment."""
+    """Store feedback with an optional score (1 = good, 2 = bad) and comment, labeled."""
     data = await _read_body(request)
     try:
         record = Feedback(**data)
     except ValidationError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, e.errors()) from e
+    # Labeling waits on a model; in a worker thread, so other requests go on meanwhile.
     try:
-        ingest_feedback(record)
+        await run_in_threadpool(ingest_feedback, record)
     except WriteError as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from e
     return {"status": "stored"}
@@ -149,7 +155,9 @@ async def post_feedback(request: Request) -> dict[str, str]:
 
 @app.post("/transcript", status_code=status.HTTP_201_CREATED)
 async def post_transcript(request: Request) -> dict[str, str]:
-    """Store a consented transcript supplied as raw JSONL or an ATIF object."""
+    """Store a consented transcript supplied as raw JSONL or an ATIF object. The rating's
+    score and comment may come along: core labels the conversation with them, and stores
+    neither on the transcript."""
     data = await _read_body(request)
     raw = data.pop("transcript", None)
     if raw is not None:
@@ -165,7 +173,7 @@ async def post_transcript(request: Request) -> dict[str, str]:
     # ingest_transcript size-limits, redacts (fail-closed), then stores. A dropped
     # upload is a 502; nothing accepting it is a 503. The rating is already safe.
     try:
-        ingest_transcript(record)
+        await run_in_threadpool(ingest_transcript, record)
     except WriteError as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from e
     except Exception as e:

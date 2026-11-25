@@ -32,6 +32,7 @@ def test_select_feedback_maps_records():
                 "ratexp.comment": "bad",
                 "ratexp.request_id": "r1",
                 "ratexp.eval_name": "human-satisfaction",
+                "ratexp.feedback_theme": "Completion is slow",
             }
         ]
     )
@@ -46,6 +47,7 @@ def test_select_feedback_maps_records():
         "bad",
         "r1",
         "human-satisfaction",
+        {"feedback_theme": "Completion is slow"},
     )
 
 
@@ -219,6 +221,7 @@ def test_phoenix_select_feedback_maps_spans():
                 comment="bad",
                 request_id="r1",
                 eval_name="human-satisfaction",
+                feedback_theme="Completion is slow",
             )
         ]
     )
@@ -233,6 +236,7 @@ def test_phoenix_select_feedback_maps_spans():
         "bad",
         "r1",
         "human-satisfaction",
+        {"feedback_theme": "Completion is slow"},
     )
 
 
@@ -294,6 +298,14 @@ def test_phoenix_filter_box_becomes_query_params():
     assert captured["limit"] == 5
 
 
+def test_phoenix_filter_box_takes_a_value_with_spaces_in_quotes():
+    # Label values are plain words, such as "Completion is slow".
+    captured: dict = {}
+    a = _phoenix([], captured)
+    a.run_query('feedback_theme:"Completion is slow"', 50, 5000)
+    assert captured["attribute"] == ["ratexp.feedback_theme:Completion is slow"]
+
+
 def test_phoenix_filter_box_cannot_ask_for_more_rows_than_allowed():
     captured: dict = {}
     a = _phoenix([], captured)
@@ -311,7 +323,7 @@ def test_phoenix_filter_box_names_its_columns_like_the_preview():
 
 def test_phoenix_filter_box_rejects_anything_that_is_not_key_value():
     a = _phoenix([])
-    for bad in ("SELECT 1", "   ", "limit:many"):
+    for bad in ("SELECT 1", "   ", "limit:many", 'feedback_theme:"Completion is slow'):
         with pytest.raises(ValueError):
             a.run_query(bad, 50, 5000)
 
@@ -385,9 +397,9 @@ def test_a_dynatrace_transcript_carries_its_labels():
                 "timestamp": "2026-07-12T10:15:13Z",
                 "ratexp.request_id": "r1",
                 "content": "{}",
-                "ratexp.business_case": "devops",
-                "ratexp.language": "go",
-                "ratexp.task_type": "fix",
+                "ratexp.business_case": "DevOps",
+                "ratexp.language": "Go",
+                "ratexp.task_type": "Bug fix",
             }
         ]
     )
@@ -399,8 +411,10 @@ def test_a_dynatrace_transcript_carries_its_labels():
 
     a._dql = _dql
     (row,) = a.select_transcripts_by_request_ids(["r1"])
-    assert row[7:] == ("devops", "go", "fix")
+    assert row[7] == {"business_case": "DevOps", "language": "Go", "task_type": "Bug fix"}
+    # Every label group of core/config.yaml is asked for.
     assert "ratexp.language" in captured["query"]
+    assert "ratexp.feedback_theme" in captured["query"]
 
 
 def test_a_phoenix_transcript_carries_its_labels_and_none_for_an_unlabeled_one():
@@ -411,5 +425,5 @@ def test_a_phoenix_transcript_carries_its_labels_and_none_for_an_unlabeled_one()
         ]
     )
     labeled, unlabeled = a.select_transcript(10)
-    assert labeled[7:] == ("ml", "python", "test")
-    assert unlabeled[7:] == (None, None, None)
+    assert labeled[7] == {"business_case": "ml", "language": "python", "task_type": "test"}
+    assert unlabeled[7] == {}

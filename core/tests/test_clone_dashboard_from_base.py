@@ -7,8 +7,10 @@ from __future__ import annotations
 import re
 
 import pytest
+import yaml
+from load_config import LABEL_GROUPS
 from modules.dashboard import clone_dashboard_from_base
-from modules.dashboard.clone_dashboard_from_base import clone_dashboard
+from modules.dashboard.clone_dashboard_from_base import clone_dashboard, read_label_groups
 
 PANEL_ORDER = [
     "total_ratings",
@@ -19,6 +21,8 @@ PANEL_ORDER = [
     "percent_good_by_skill",
     "percent_good_by_agent",
     "percent_good_by_eval",
+    "top_complaints_by_feedback_theme",
+    "top_praise_by_feedback_theme",
     "feedback",
 ]
 # The columns each panel's query returns, named the same in SQL and DQL - but the feedback
@@ -32,6 +36,8 @@ PANEL_COLUMNS = {
     "percent_good_by_skill": ["name", "total", "good", "bad", "percent_good"],
     "percent_good_by_agent": ["name", "total", "good", "bad", "percent_good"],
     "percent_good_by_eval": ["name", "total", "good", "bad", "percent_good"],
+    "top_complaints_by_feedback_theme": ["name", "total"],
+    "top_praise_by_feedback_theme": ["name", "total"],
 }
 FEEDBACK_COLUMNS = {
     # The Query & table view's rows (GET /feedback), their labels and their conversation:
@@ -46,20 +52,18 @@ FEEDBACK_COLUMNS = {
         "score",
         "comment",
         "request_id",
-        "business_case",
-        "language",
-        "task_type",
+        "labels",
         "atif",
     ],
-    # The web app's Feedback table columns but Trajectory, and the stored conversation's
-    # request_id the Dynatrace app opens it by.
+    # The web app's Feedback table columns but Trajectory, a column per label group in
+    # place of Labels, and the stored conversation's request_id the Dynatrace app opens it by.
     "dynatrace": [
         "When",
         "Type",
         "Name",
         "Agent",
         "Model",
-        "Labels",
+        *LABEL_GROUPS,
         "Eval",
         "Score",
         "Comment",
@@ -67,7 +71,7 @@ FEEDBACK_COLUMNS = {
         "request_id",
     ],
 }
-LABELS = {"business_case", "language", "task_type"}
+LABELS = set(LABEL_GROUPS)
 FILTER_KEYS = {"type", "skill", "agent", "eval"} | LABELS
 SQL_PARAMS = FILTER_KEYS | {"since"}
 # What a rating's type is: a session rating is one that has no skill.
@@ -174,12 +178,12 @@ def test_every_app_panel_names_its_columns_and_takes_the_shared_filter_once():
     assert "COALESCE(skill_name, '(none)') = %(skill)s" in fragment
     assert "COALESCE(eval_name, '(none)') = %(eval)s" in fragment
     for label in LABELS:
-        assert f"COALESCE({label}, '(none)') = %({label})s" in fragment, label
+        assert f"COALESCE(labels->>'{label}', '(none)') = %({label})s" in fragment, label
 
 
 def test_every_rating_panel_reads_the_labels_of_its_conversation():
-    # A label sits on the transcript, so a rating panel that read the bare feedback table
-    # would have no label column for the shared filter to narrow.
+    # A conversation's labels win over its rating's, so a rating panel that read the bare
+    # feedback table would filter by the rating's labels alone.
     app = clone_dashboard("app")
     queries = [app["download"]["sql"], *(panel["sql"] for panel in app["panels"])]
     assert not [sql for sql in queries if re.search(r"FROM feedback\b(?!_)", sql)]
@@ -206,6 +210,19 @@ def test_the_bars_list_every_row_worst_first():
                 query = panel[language]
                 assert "limit" not in query.lower(), (destination, panel["id"])
                 assert re.search(r"(?i)(order by|sort) percent_good asc, total desc$", query)
+
+
+def test_the_count_panels_list_every_complaint_or_praise_of_their_side_most_first():
+    for destination, language in (("app", "sql"), ("dynatrace", "dql")):
+        panels = _by_id(clone_dashboard(destination))
+        for side, score in (("complaints", 2), ("praise", 1)):
+            panel = panels[f"top_{side}_by_feedback_theme"]
+            assert panel["kind"] == "count"
+            assert panel["title"] == f"Top {side} by feedback theme"
+            query = panel[language]
+            assert "limit" not in query.lower(), (destination, side)
+            assert re.search(rf"score == {score}|score = {score}", query), (destination, side)
+            assert re.search(r"(?i)(order by|sort) total desc, name( asc)?$", query)
 
 
 def test_the_app_download_and_dropdown_queries_take_only_their_own_parameters():
@@ -238,7 +255,10 @@ def test_every_dynatrace_panel_takes_the_shared_filter_and_only_ratings_24h_pins
     for key in FILTER_KEYS:
         assert re.search(rf"\${key}\b", fragment), key
     for label in LABELS:
-        assert f'matchesValue(coalesce(transcript.{label}, "(none)"), ${label})' in fragment, label
+        assert (
+            f'matchesValue(coalesce(transcript.{label}, ratexp.{label}, "(none)"), ${label})'
+            in fragment
+        ), label
     assert DQL_TYPE in fragment
     assert 'splitString(ratexp.agent, " ")[0]' in fragment
     values = dynatrace["filters"]["values"]
@@ -264,6 +284,9 @@ def test_the_dynatrace_download_takes_the_shared_filter_and_returns_the_app_down
     assert dql.count("{filters}") == 1
     assert "from:" not in dql
     columns = re.match(r"SELECT (.*?) FROM", sql).group(1).split(", ")
+    # The app's labels object is a column per label group on Dynatrace; the Dynatrace app
+    # folds them back into one object.
+    columns = [c for c in columns if c != "labels"] + list(LABEL_GROUPS)
     for column in columns:
         assert re.search(rf"\b{column}=", dql), column
 
@@ -290,20 +313,23 @@ def test_a_missing_skill_or_eval_is_shown_and_matched_as_none_everywhere(
     assert set(stand_ins) == {"(none)"}
 
 
+GROUPS = "|".join(LABEL_GROUPS)
+
+
 @pytest.mark.parametrize(
     ("destination", "language", "stand_in"),
     [
         (
             "dynatrace",
             "dql",
-            r'coalesce\((?:transcript|ratexp)\.(?:business_case|language|task_type), "([^"]*)"\)',
+            rf'coalesce\((?:transcript\.(?:{GROUPS}), )?ratexp\.(?:{GROUPS}), "([^"]*)"\)',
         ),
-        ("app", "sql", r"COALESCE\((?:business_case|language|task_type), '([^']*)'\)"),
+        ("app", "sql", rf"COALESCE\(labels->>'(?:{GROUPS})', '([^']*)'\)"),
     ],
 )
 def test_a_missing_label_is_shown_and_matched_as_none_everywhere(destination, language, stand_in):
-    # A rating whose conversation was not stored, or not labeled, has no label to match.
-    # The Feedback table only shows labels, a missing one as "—" like the web app's.
+    # An unlabeled rating, whose conversation was not stored or not labeled either, has no
+    # label to match. The Feedback table only shows labels, a missing one as "—".
     dashboard = clone_dashboard(destination)
     queries = [
         dashboard["filters"][language],
@@ -311,6 +337,83 @@ def test_a_missing_label_is_shown_and_matched_as_none_everywhere(destination, la
         *(panel[language] for panel in dashboard["panels"] if panel["id"] != "feedback"),
     ]
     stand_ins = re.findall(stand_in, " ".join(queries))
-    # The filter (3) and the three label pickers (3).
-    assert len(stand_ins) == 6
+    # The filter and the picker of each label group.
+    assert len(stand_ins) == 2 * len(LABEL_GROUPS)
     assert set(stand_ins) == {"(none)"}
+
+
+def _write_label_groups(tmp_path, monkeypatch, groups: dict) -> None:
+    config = tmp_path / "config.yaml"
+    config.write_text(yaml.safe_dump({"labeling": {"groups": groups}}, sort_keys=False))
+    monkeypatch.setattr(clone_dashboard_from_base, "CORE_CONFIG_FILE", config)
+
+
+SPLIT_AND_PLAIN = {
+    "team": {"means": "The team.", "values": ["hr", "it"]},
+    "mood": {"means": "The mood.", "when_good": ["glad"], "when_bad": ["sad"]},
+    "user_tone": {"means": "The tone.", "when_good": ["warm"], "when_bad": ["cold"]},
+}
+
+
+def test_the_label_groups_come_from_core_config_in_order_with_the_side_of_each_value():
+    assert read_label_groups() == {
+        group: {**dict.fromkeys(g.when_good, "good"), **dict.fromkeys(g.when_bad, "bad")}
+        for group, g in LABEL_GROUPS.items()
+    }
+    assert clone_dashboard("app")["label_groups"] == list(LABEL_GROUPS)
+    sides = clone_dashboard("app")["label_sides"]
+    assert list(sides) == ["feedback_theme"]
+    assert sides["feedback_theme"]["Completion is quick"] == "good"
+    assert sides["feedback_theme"]["Completion is slow"] == "bad"
+
+
+def test_each_label_group_fills_the_templates(tmp_path, monkeypatch):
+    _write_label_groups(tmp_path, monkeypatch, SPLIT_AND_PLAIN)
+    _write_dashboards(
+        tmp_path,
+        monkeypatch,
+        """
+labels:
+  values: "SELECT {group}"
+  filter: " AND {group} = %({group})s"
+filters:
+  sql: "1 = 1{labels.filter} AND x"
+  values:
+    type: "SELECT type"
+download:
+  sql: "SELECT a{labels.filter}"
+panels:
+  good_bad_over_time: {}
+  per_{group}:
+    title: Per {group_words}
+    kind: count
+    sql: "SELECT '{group}'{labels.filter}"
+  feedback: {}
+""",
+    )
+    fake = clone_dashboard("fake")
+    joined = " AND team = %(team)s AND mood = %(mood)s AND user_tone = %(user_tone)s"
+    assert fake["filters"]["sql"] == f"1 = 1{joined} AND x"
+    assert fake["filters"]["values"] == {
+        "type": "SELECT type",
+        "team": "SELECT team",
+        "mood": "SELECT mood",
+        "user_tone": "SELECT user_tone",
+    }
+    assert fake["download"]["sql"] == f"SELECT a{joined}"
+    assert fake["label_groups"] == ["team", "mood", "user_tone"]
+    # Only the groups that split their values have sides.
+    assert fake["label_sides"] == {
+        "mood": {"glad": "good", "sad": "bad"},
+        "user_tone": {"warm": "good", "cold": "bad"},
+    }
+    # Only the groups that split their values get a copy of a {group} panel, in its place.
+    panels = fake["panels"]
+    assert [p["id"] for p in panels] == [
+        "good_bad_over_time",
+        "per_mood",
+        "per_user_tone",
+        "feedback",
+    ]
+    assert panels[2]["title"] == "Per user tone"
+    assert panels[2]["sql"] == f"SELECT 'user_tone'{joined}"

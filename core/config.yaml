@@ -22,11 +22,45 @@ labeling:
   api_version: "2024-10-21"
   timeout_seconds: 8
   max_input_chars: 20000               # about 5,000 tokens
-  # The model picks exactly one word from each list.
-  labels:
-    business_case: [devops, mlops, ml, imaging, data, frontend, backend, mobile, security, scripting, writing, other]
-    language: [go, python, typescript, javascript, java, csharp, cpp, rust, bash, sql, terraform, none, other]
-    task_type: [feat, fix, docs, style, refactor, test, chore, other]
+  # The label groups: for each rating, and again for each shared conversation, the model
+  # picks one value per group, or none when it cannot tell. ./README.md (labeling.groups)
+  # gives the rules: names, `means`, `values` or `when_good` + `when_bad`, the limits.
+  groups:
+    business_case:
+      means: The technical area of the work.
+      values: [DevOps, MLOps, ML, Imaging, Data, Frontend, Backend, Mobile, Security, Scripting, Writing, Other]
+    language:
+      means: The main programming language written or edited; No code when no code was involved.
+      values: [Go, Python, TypeScript, JavaScript, Java, "C#", C++, Rust, Bash, SQL, Terraform, No code, Other]
+    task_type:
+      means: The kind of work, as the conventional commit types name it (feat, fix, docs, ...).
+      values: [New feature, Bug fix, Docs, Style, Refactor, Tests, Chore, Other]
+    feedback_theme:
+      means: What the user praises (good rating) or complains about (bad rating).
+      when_good:
+        Process is easy: The steps were few and easy to follow.
+        Completion is quick: It finished quickly.
+        Result is correct: The result worked and was right.
+        Result is complete: It did the whole task.
+        Instructions are followed: It kept to what I asked and my rules.
+        Changes are in scope: It changed only what I asked for.
+        Answers are clear: Its answers were short and easy to follow.
+        Agent is independent: It needed few questions or corrections.
+        Actions are safe: It took no risky or destructive step.
+        Tools are working: Install, tools and commands worked.
+        Other praise: Praise that fits no other value.
+      when_bad:
+        Process is complex: Too many steps, or hard to follow.
+        Completion is slow: It took too long or kept me waiting.
+        Result is wrong: The result had bugs or was wrong.
+        Result is incomplete: It left parts of the task undone.
+        Instructions are ignored: It ignored or broke what I asked.
+        Changes are out of scope: It changed or added things I never asked for.
+        Answers are unclear: Its answers were confusing, vague or too long.
+        Agent needs hand-holding: It asked too much or needed constant fixing.
+        Actions are risky: It deleted, overwrote or ran something risky.
+        Tools are broken: Install, tools or commands failed.
+        Other complaint: A complaint that fits no other value.
 
 # How many of the newest ratings, and the conversations from the same time span, each write
 # destination below with `retention: true` keeps; ./README.md (retention) says how and when.

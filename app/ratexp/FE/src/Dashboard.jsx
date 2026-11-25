@@ -15,14 +15,14 @@ const RANGES = [
   { key: 'all', label: 'All', ms: null },
 ]
 const DEFAULT_RANGE = '30d'
-// Type first: skill or session, where a session rating is one that has no skill. Picking
-// one narrows every other dropdown to the values that exist for it. The last three are the
-// labels core gives a stored conversation; a rating takes its conversation's.
-const FILTER_KEYS = ['type', 'skill', 'agent', 'eval', 'business_case', 'language', 'task_type']
-const NO_FILTERS = Object.fromEntries(FILTER_KEYS.map((key) => [key, null]))
+// The dropdowns are the keys of GET /dashboard's filters, in its order: type first - skill
+// or session, where a session rating is one that has no skill - so picking one narrows
+// every other dropdown to the values that exist for it; then skill, agent, eval and one per
+// label group of core/config.yaml. A filter left out of the state means all.
+const NO_FILTERS = {}
 const DAY_MS = 24 * 3600e3
 
-const PANEL_CLASS = { number: 'panel-number', line: 'panel-line', bar: 'panel-bar', table: 'panel-table' }
+const PANEL_CLASS = { number: 'panel-number', line: 'panel-line', bar: 'panel-bar', count: 'panel-count', table: 'panel-table' }
 // The panels about skills, which a session rating has none of.
 const SKILL_PANELS = new Set(['skills_rated', 'percent_good_by_skill'])
 
@@ -52,14 +52,14 @@ function fetchPanel(apiBase, panel, filters) {
 // Picks the type's dropdowns no longer list go back to all. The same object when none do,
 // so the panels are not asked again for nothing.
 function keepListedPicks(filters, values) {
-  const dropped = FILTER_KEYS.filter((key) => key !== 'type' && filters[key] != null && !(values[key] ?? []).includes(filters[key]))
+  const dropped = Object.keys(filters).filter((key) => key !== 'type' && filters[key] != null && !(values[key] ?? []).includes(filters[key]))
   return dropped.length ? { ...filters, ...Object.fromEntries(dropped.map((key) => [key, null])) } : filters
 }
 
 // `active` is false while the view is hidden behind the other one: it then asks the API
 // nothing, and refreshes once when shown again. `onOpenTrajectory(transcript, row)` opens a
 // Feedback row's trajectory in the app's drawer.
-export default function Dashboard({ apiBase, liveTick, active, onOpenTrajectory }) {
+export default function Dashboard({ apiBase, liveTick, active, onOpenTrajectory, labelGroups, labelSides }) {
   const [info, setInfo] = useState(null) // GET /dashboard: availability, dropdown values, panel list, download limit
   const [infoError, setInfoError] = useState(null)
   const [filters, setFilters] = useState(NO_FILTERS)
@@ -172,7 +172,7 @@ export default function Dashboard({ apiBase, liveTick, active, onOpenTrajectory 
       />
       <div className="dashboard-grid">
         {info.panels.map((p) => (
-          <Panel key={p.id} panel={p} result={results[p.id]} type={filters.type} onOpenTrajectory={onOpenTrajectory} />
+          <Panel key={p.id} panel={p} result={results[p.id]} type={filters.type} onOpenTrajectory={onOpenTrajectory} labelGroups={labelGroups} labelSides={labelSides} />
         ))}
       </div>
     </div>
@@ -188,9 +188,9 @@ function FilterCard({ values, filters, onPick, range, onRange, updating, onDownl
         {updating && <span className="dashboard-label">updating...</span>}
       </div>
       <div className="dashboard-filters">
-        {FILTER_KEYS.filter((key) => !(key === 'skill' && filters.type === 'session')).map((key) => (
+        {Object.keys(values).filter((key) => !(key === 'skill' && filters.type === 'session')).map((key) => (
           <label key={key} className="dashboard-field">
-            <span className="dashboard-label">{key.replace('_', ' ')}</span>
+            <span className="dashboard-label">{key.replaceAll('_', ' ')}</span>
             <select
               className="dashboard-select"
               value={filters[key] ?? ''}
@@ -234,7 +234,7 @@ function FilterCard({ values, filters, onPick, range, onRange, updating, onDownl
 // One card per panel. Number tiles are a quarter wide, so their heading shrinks to fit.
 // Long titles wrap in narrow cards, and the pixel font's lines touch without the extra height.
 // With type session, the skill panels stay and say on top that they do not apply.
-function Panel({ panel, result, type, onOpenTrajectory }) {
+function Panel({ panel, result, type, onOpenTrajectory, labelGroups, labelSides }) {
   const small = panel.kind === 'number'
   const heading = { ...cardHeading, lineHeight: 1.6 }
   return (
@@ -246,13 +246,13 @@ function Panel({ panel, result, type, onOpenTrajectory }) {
         </p>
       )}
       <div style={{ marginTop: 12 }}>
-        <PanelBody panel={panel} result={result} onOpenTrajectory={onOpenTrajectory} />
+        <PanelBody panel={panel} result={result} onOpenTrajectory={onOpenTrajectory} labelGroups={labelGroups} labelSides={labelSides} />
       </div>
     </section>
   )
 }
 
-function PanelBody({ panel, result, onOpenTrajectory }) {
+function PanelBody({ panel, result, onOpenTrajectory, labelGroups, labelSides = {} }) {
   if (!result) return <Muted>Loading...</Muted>
   if (result.error) return <span style={{ color: 'var(--danger)', fontSize: 13 }}>{result.error}</span>
   const rows = result.rows.map((r) => Object.fromEntries(result.columns.map((c, i) => [c, r[i]])))
@@ -265,8 +265,13 @@ function PanelBody({ panel, result, onOpenTrajectory }) {
       return <StackedBars rows={rows} />
     case 'bar':
       return <PercentBars rows={rows} />
+    case 'count': {
+      // A count panel counts the values of one label group, which its id ends in.
+      const group = Object.keys(labelSides).find((g) => panel.id.endsWith(`_by_${g}`))
+      return <CountBars rows={rows} sides={labelSides[group] ?? {}} />
+    }
     default:
-      return <FeedbackRows rows={rows} onOpen={onOpenTrajectory} />
+      return <FeedbackRows rows={rows} onOpen={onOpenTrajectory} labelGroups={labelGroups} labelSides={labelSides} />
   }
 }
 
@@ -361,7 +366,7 @@ function PercentBars({ rows }) {
         return (
           <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', fontSize: 13 }}>
             {/* justifySelf: a grid item stretches by default, which drew the name chip as an empty bar. */}
-            <code title={r.name} style={{ justifySelf: 'start', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</code>
+            <code className="neutral" title={r.name} style={{ justifySelf: 'start', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</code>
             <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap' }}>
               {r.percent_good}% · <span style={{ color: 'var(--good)', fontWeight: 600 }}>{r.good}</span>/{r.total}
             </span>
@@ -375,17 +380,43 @@ function PercentBars({ rows }) {
   )
 }
 
-// The newest ratings that match the filters, in the Query & table view's Feedback table.
-function FeedbackRows({ rows, onOpen }) {
-  if (rows.length === 0) return <Muted>No ratings in this range</Muted>
-  return <FeedbackTable rows={rows} transcriptFor={conversationOf} onOpen={onOpen} />
+// How many ratings got each value, most first, each bar as long as its share of the top
+// count; the count panels list the complaints of bad ratings, or the praise of good ones.
+function CountBars({ rows, sides }) {
+  if (rows.length === 0) return <Muted>No labeled ratings in this range</Muted>
+  const top = Math.max(...rows.map((r) => Number(r.total) || 0), 1)
+  return (
+    <div className="bar-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {rows.map((r, i) => {
+        // Praise green, a complaint red, a value of neither side blue.
+        const side = sides[r.name]
+        const color = side === 'good' ? 'var(--good)' : side === 'bad' ? 'var(--bad)' : 'var(--accent-2)'
+        return (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8, alignItems: 'center', fontSize: 13 }}>
+            <code className={side ? `label-${side}` : 'neutral'} title={r.name} style={{ justifySelf: 'start', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</code>
+            <span style={{ color: 'var(--muted)', whiteSpace: 'nowrap', fontWeight: 600 }}>{r.total}</span>
+            <div style={{ gridColumn: '1 / -1', height: 12, border: '2px solid var(--ink)', background: 'var(--panel2)' }}>
+              <div style={{ width: `${(100 * (Number(r.total) || 0)) / top}%`, height: '100%', background: color }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
-// A row's stored conversation, which the feedback panel returns beside it: the trajectory
-// (atif, null when none was stored) and its labels.
+// The newest ratings that match the filters, in the Query & table view's Feedback table.
+// Each row carries its labels, its conversation's winning already.
+function FeedbackRows({ rows, onOpen, labelGroups, labelSides }) {
+  if (rows.length === 0) return <Muted>No ratings in this range</Muted>
+  return <FeedbackTable rows={rows} transcriptFor={conversationOf} onOpen={onOpen} labelGroups={labelGroups} labelSides={labelSides} />
+}
+
+// A row's stored conversation, which the feedback panel returns beside it (atif, null when
+// none was stored).
 function conversationOf(r) {
   if (r.atif == null) return undefined
-  return { request_id: r.request_id, atif: r.atif, business_case: r.business_case, language: r.language, task_type: r.task_type }
+  return { request_id: r.request_id, atif: r.atif }
 }
 
 // Width of the element, kept current as the card resizes (a hidden view measures 0 and

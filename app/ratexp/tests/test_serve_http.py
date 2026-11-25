@@ -25,6 +25,16 @@ def test_meta_gives_the_download_popup_the_configured_row_limits(app_with_fake_p
     assert (meta["list_view_limit"], meta["list_max_limit"]) == (LIST_VIEW_LIMIT, LIST_MAX_LIMIT)
 
 
+def test_meta_gives_the_label_groups_and_the_side_of_each_value_that_has_one(app_with_fake_pool):
+    # The UI draws one Labels column per group and colors a good side green, a bad one red.
+    client, _ = app_with_fake_pool
+    meta = client.get("/meta").json()
+    assert meta["label_groups"] == ["business_case", "language", "task_type", "feedback_theme"]
+    assert list(meta["label_sides"]) == ["feedback_theme"]
+    assert meta["label_sides"]["feedback_theme"]["Process is easy"] == "good"
+    assert meta["label_sides"]["feedback_theme"]["Process is complex"] == "bad"
+
+
 # --- GET /feedback ------------------------------------------------------------
 
 
@@ -41,6 +51,7 @@ def test_get_feedback_returns_rows(app_with_fake_pool):
                 "ok",
                 "req-1",
                 "human-satisfaction",
+                {"feedback_theme": "Completion is slow"},
             )
         ]
     )
@@ -53,6 +64,7 @@ def test_get_feedback_returns_rows(app_with_fake_pool):
     assert rows[0]["eval_name"] == "human-satisfaction"  # the dashboard's Eval column
     assert rows[0]["score"] == 2
     assert rows[0]["request_id"] == "req-1"
+    assert rows[0]["labels"] == {"feedback_theme": "Completion is slow"}
 
 
 def test_get_feedback_names_a_session_rating_by_its_session(app_with_fake_pool):
@@ -68,6 +80,7 @@ def test_get_feedback_names_a_session_rating_by_its_session(app_with_fake_pool):
                 None,
                 None,
                 None,
+                {},
             )
         ]
     )
@@ -124,9 +137,7 @@ def test_get_transcript_returns_rows(app_with_fake_pool):
                 "ATIF-v1.7",
                 {"schema_version": "ATIF-v1.7", "steps": []},
                 "req-1",
-                "backend",
-                "python",
-                "feat",
+                {"business_case": "Backend", "language": "python", "task_type": "feat"},
             )
         ]
     )
@@ -136,8 +147,11 @@ def test_get_transcript_returns_rows(app_with_fake_pool):
     assert len(rows) == 1
     assert rows[0]["skill_name"] == "goodbye"
     assert rows[0]["atif"] == {"schema_version": "ATIF-v1.7", "steps": []}
-    labels = (rows[0]["business_case"], rows[0]["language"], rows[0]["task_type"])
-    assert labels == ("backend", "python", "feat")
+    assert rows[0]["labels"] == {
+        "business_case": "Backend",
+        "language": "python",
+        "task_type": "feat",
+    }
 
 
 def test_get_transcript_full_returns_max(app_with_fake_pool):

@@ -4,8 +4,13 @@
 import { Fragment } from 'react'
 
 // One row per rating. `transcriptFor` finds a row's stored conversation (or nothing);
-// `onOpen(transcript, row)` opens it in the trajectory drawer.
-export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
+// `onOpen(transcript, row)` opens it in the trajectory drawer. `labelGroups` gives the
+// Labels columns, one per group in core/config.yaml's order, and `labelSides` the side of
+// each value of a group that splits its values (both from GET /meta).
+export function FeedbackTable({ rows, transcriptFor, onOpen, labelGroups = [], labelSides = {}, style }) {
+  // With label groups the header takes two rows: Labels over one column per group.
+  const nested = labelGroups.length > 0
+  const span = nested ? 2 : undefined
   return (
     // Narrow windows show the rows as cards (index.css); a row still too wide for the
     // card scrolls sideways inside it instead of overflowing.
@@ -13,23 +18,28 @@ export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
       <table className="data-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
         <thead>
           <tr>
-            <Th>When</Th>
-            <Th>Type</Th>
-            <Th>Name</Th>
-            <Th>Agent</Th>
-            <Th>Model</Th>
-            <Th>Labels</Th>
-            <Th>Eval</Th>
-            <Th>Score</Th>
-            <Th>Comment</Th>
-            <Th>Trajectory</Th>
+            <Th rowSpan={span}>When</Th>
+            <Th rowSpan={span}>Type</Th>
+            <Th rowSpan={span}>Name</Th>
+            <Th rowSpan={span}>Agent</Th>
+            <Th rowSpan={span}>Model</Th>
+            {nested && <Th colSpan={labelGroups.length} className="th-group">Labels</Th>}
+            <Th rowSpan={span}>Eval</Th>
+            <Th rowSpan={span}>Score</Th>
+            <Th rowSpan={span}>Comment</Th>
+            <Th rowSpan={span}>Trajectory</Th>
           </tr>
+          {nested && (
+            <tr>
+              {labelGroups.map((group) => <Th key={group} className="th-sub">{groupTitle(group)}</Th>)}
+            </tr>
+          )}
         </thead>
         <tbody>
           {rows.map((r, i) => {
             const transcript = transcriptFor(r)
             const model = modelOf(r, transcript)
-            const labels = labelsOf(transcript)
+            const labels = labelsOf(r, transcript)
             return (
               <tr key={i}>
                 <Td label="When" className="td-nowrap"><When at={r.created_at} /></Td>
@@ -37,12 +47,16 @@ export function FeedbackTable({ rows, transcriptFor, onOpen, style }) {
                 <Td label="Name" className="td-id"><Name row={r} /></Td>
                 <Td label="Agent"><code><Words text={r.agent} /></code></Td>
                 <Td label="Model">{model ? <code><Words text={model} /></code> : <Dash />}</Td>
-                <Td label="Labels">{labels ? <code>{labels}</code> : <Dash />}</Td>
+                {labelGroups.map((group) => (
+                  <Td key={group} label={groupTitle(group)}>
+                    <LabelValue value={labels[group]} side={labelSides[group]?.[labels[group]]} />
+                  </Td>
+                ))}
                 {/* No Words here: unlike the other names, an eval name may break after a
                     hyphen ("human-" / "satisfaction"), which keeps the Eval column narrow. */}
                 <Td label="Eval">{r.eval_name ? <code>{r.eval_name}</code> : <Dash />}</Td>
                 <Td label="Score">{scoreLabel(r.score)}</Td>
-                <Td label="Comment">{r.comment ?? <Dash />}</Td>
+                <Td label="Comment">{r.comment ? <span className="neutral">{r.comment}</span> : <Dash />}</Td>
                 <Td label="Trajectory"><Trajectory transcript={transcript} onOpen={(t) => onOpen(t, r)} /></Td>
               </tr>
             )
@@ -153,7 +167,7 @@ function Trajectory({ transcript, onOpen }) {
 // Cell styling lives in index.css (.th/.td) so the narrow-window breakpoint can restyle
 // the table into cards. `label` becomes data-label, the card row's heading there;
 // `className` adds how the cell wraps (.td-nowrap, .td-id).
-function Th({ children }) { return <th className="th">{children}</th> }
+function Th({ children, className, ...span }) { return <th className={className ? `th ${className}` : 'th'} {...span}>{children}</th> }
 function Td({ children, label, className }) { return <td className={className ? `td ${className}` : 'td'} data-label={label}>{children}</td> }
 
 // A name that wraps only between its words, never after a hyphen: "claude-code" stays
@@ -166,21 +180,33 @@ function Words({ text }) {
 }
 function Dash() { return <span style={{ color: 'var(--faint)' }}>—</span> }
 
-// A conversation's three labels as one line ("backend · python · feat"), or null when it
-// was not labeled - or there is no stored conversation at all.
-export function labelsOf(transcript) {
-  const labels = [transcript?.business_case, transcript?.language, transcript?.task_type]
-  return labels.some(Boolean) ? labels.map((label) => label ?? '—').join(' · ') : null
+// A rating's labels as {group: value}: its own, and over them, group by group, its stored
+// conversation's, as core's feedback_with_labels view joins them.
+export function labelsOf(row, transcript) {
+  return { ...row?.labels, ...transcript?.labels }
+}
+
+// A label group's name as a heading: "business_case" -> "Business case".
+export function groupTitle(group) {
+  const words = group.replaceAll('_', ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+// One label value: green for a good side (praise), red for a bad side (complaint), and blue
+// for a value of a group that does not split its values. A dash when the group has none.
+export function LabelValue({ value, side }) {
+  if (!value) return <Dash />
+  return <code className={side ? `label-${side}` : undefined}>{value}</code>
 }
 
 // What the rating is about. A skill rating is named after the skill; a whole-session
 // rating is about no one skill and arrives without a name, which is what tells the
-// two apart. Same plain-text look as ScoreBadge.
+// two apart. Same plain-text look as ScoreBadge, in the blue of every neutral value.
 export function TypeBadge({ skillName }) {
   const session = !skillName
   return (
     <span style={{
-      color: session ? 'var(--accent)' : 'var(--accent-2)',
+      color: 'var(--accent-2)',
       fontWeight: 700,
       fontSize: 12,
     }}>{session ? 'session' : 'skill'}</span>

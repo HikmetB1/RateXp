@@ -97,7 +97,7 @@ def test_the_real_app_dashboard_gives_every_panel_its_sql():
         "{filters}" in dashboard["download"]["sql"] and "%(limit)s" in dashboard["download"]["sql"]
     )
     for panel in dashboard["panels"]:
-        assert panel["kind"] in ("number", "line", "bar", "table"), panel["id"]
+        assert panel["kind"] in ("number", "line", "bar", "count", "table"), panel["id"]
         assert "{filters}" in panel["sql"], panel["id"]
 
 

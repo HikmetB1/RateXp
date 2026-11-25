@@ -20,20 +20,29 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlencode
 
+from modules.read.clone_dashboard_from_base import read_label_groups
+
 _EXECUTE_PATH = "/platform/storage/query/v1/query:execute"
 _POLL_PATH = "/platform/storage/query/v1/query:poll"
 _LOOKBACK = "-30d"  # DQL fetch timeframe the dashboard reads over
 _POLL_ATTEMPTS = 20
 _POLL_INTERVAL = 0.5
+# Each label group of core/config.yaml is a ratexp.<group> attribute on both record types.
+_LABEL_FIELDS = [f"ratexp.{group}" for group in read_label_groups()]
 # Fields we pull for each row shape (dotted OTLP attribute names).
-_FEEDBACK_FIELDS = (
-    "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent, "
-    "ratexp.score, ratexp.comment, ratexp.request_id, ratexp.eval_name"
+_FEEDBACK_FIELDS = ", ".join(
+    [
+        "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent",
+        "ratexp.score, ratexp.comment, ratexp.request_id, ratexp.eval_name",
+        *_LABEL_FIELDS,
+    ]
 )
-_TRANSCRIPT_FIELDS = (
-    "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent, "
-    "ratexp.schema_version, content, ratexp.request_id, "
-    "ratexp.business_case, ratexp.language, ratexp.task_type"
+_TRANSCRIPT_FIELDS = ", ".join(
+    [
+        "timestamp, ratexp.session_id, ratexp.skill_name, ratexp.agent",
+        "ratexp.schema_version, content, ratexp.request_id",
+        *_LABEL_FIELDS,
+    ]
 )
 
 
@@ -42,6 +51,11 @@ def _iso_seconds(ts):
     if not isinstance(ts, str):
         return ts
     return ts.split(".", 1)[0].rstrip("Z") + "Z"
+
+
+def _labels(record: dict) -> dict[str, str]:
+    """The record's label attributes as {group: value}, the groups it has a label for."""
+    return {f.removeprefix("ratexp."): record[f] for f in _LABEL_FIELDS if record.get(f)}
 
 
 def _int_or_none(v):
@@ -124,6 +138,7 @@ class DynatraceReadAdapter:
                 r.get("ratexp.comment"),
                 r.get("ratexp.request_id"),
                 r.get("ratexp.eval_name"),
+                _labels(r),
             )
             for r in recs
         ]
@@ -162,9 +177,7 @@ class DynatraceReadAdapter:
             r.get("ratexp.schema_version"),
             atif,
             r.get("ratexp.request_id"),
-            r.get("ratexp.business_case"),
-            r.get("ratexp.language"),
-            r.get("ratexp.task_type"),
+            _labels(r),
         )
 
     def run_query(

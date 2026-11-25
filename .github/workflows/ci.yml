@@ -101,4 +101,4 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t ratexp-core --build-context repo=. ./core
       - run: docker build -t ratexp-retention -f core/Dockerfile.retention ./core
-      - run: docker build -t ratexp-app -f app/ratexp/Dockerfile --build-context dashboard=./core/modules/dashboard ./app/ratexp
+      - run: docker build -t ratexp-app -f app/ratexp/Dockerfile --build-context core=./core ./app/ratexp

@@ -52,7 +52,7 @@ not keep a database password anywhere.
    ```bash
    az acr login --name "$(terraform output -raw acr_name)"
    docker build -t "$(terraform output -raw core_image)" --build-context repo=.. ../core && docker push "$(terraform output -raw core_image)"
-   docker build -t "$(terraform output -raw app_image)" -f ../app/ratexp/Dockerfile --build-context dashboard=../core/modules/dashboard ../app/ratexp && docker push "$(terraform output -raw app_image)"
+   docker build -t "$(terraform output -raw app_image)" -f ../app/ratexp/Dockerfile --build-context core=../core ../app/ratexp && docker push "$(terraform output -raw app_image)"
    docker build -t "$(terraform output -raw retention_image)" -f ../core/Dockerfile.retention ../core && docker push "$(terraform output -raw retention_image)"
    ```
 

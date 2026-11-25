@@ -55,7 +55,7 @@ class PostgresReadAdapter:
             cur.execute(
                 """
                 SELECT created_at, session_id, skill_name, agent, score, comment, request_id,
-                       eval_name
+                       eval_name, labels
                 FROM feedback
                 ORDER BY created_at DESC
                 LIMIT %s
@@ -69,7 +69,7 @@ class PostgresReadAdapter:
             cur.execute(
                 """
                 SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id,
-                       business_case, language, task_type
+                       labels
                 FROM transcript
                 ORDER BY created_at DESC
                 LIMIT %s
@@ -85,7 +85,7 @@ class PostgresReadAdapter:
             cur.execute(
                 """
                 SELECT created_at, session_id, skill_name, agent, schema_version, atif, request_id,
-                       business_case, language, task_type
+                       labels
                 FROM transcript
                 WHERE request_id = ANY(%s)
                 ORDER BY created_at DESC

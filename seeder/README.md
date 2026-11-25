@@ -7,6 +7,7 @@ each tick, the seeder makes two separate runs:
   and rates the skill.
 - **Session run:** An agent does a plain coding task and rates the whole session.
 - **Posts:** Each run sends its rating and its trajectory to core, as a real hook script does.
+  When the run has a rating, the trajectory post also carries the score and the comment.
 - **Optional:** The seeder is optional. Each run costs model credits. Thus, the seeder never
   starts by accident.
 
@@ -76,8 +77,12 @@ at startup with an error.
 - `system_prompt` / `task_prompt`: The instructions of the agent for a skill run.
 - `session_system_prompt` / `session_task_prompt` / `session_tasks`: The instructions of the
   agent for a session run, and the coding tasks that a session run selects from at random.
-  The tasks aim at every label in `labeling.labels` of [core's config.yaml](../core/config.yaml),
-  "other" too.
+  The tasks aim at every value of `business_case`, `language` and `task_type` in
+  `labeling.groups` of [core's config.yaml](../core/config.yaml), "other" too.
+- `comment_focuses`: The aspects that the comment of a run aims at. Each skill run and each
+  session run selects one aspect at random. The aspects aim at every value of `feedback_theme`
+  in `labeling.groups` of [core's config.yaml](../core/config.yaml). The honest score selects
+  the side: praise for a good score, a complaint for a bad score.
 - `critical_prompt`: The instructions for a harsh reviewer. The seeder adds
   `critical_prompt` to the `critical_ratio` share of the skill runs and of the session runs.
 

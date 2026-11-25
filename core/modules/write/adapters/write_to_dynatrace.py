@@ -5,8 +5,8 @@ it via the OpenTelemetry SDK to ``<tenant_url>/api/v2/otlp/v1/logs`` (Dynatrace
 accepts protobuf there, not JSON). A rating's log line is readable text; a
 transcript's log content is the whole ATIF JSON, with the record's ids and the
 trajectory's summary (steps, tool calls, tokens, model - see
-../summarize_trajectory.py) and labels (see ../../labeling/) on ``ratexp.*``
-attributes beside it. The concrete adapters that use it live in their own files
+../summarize_trajectory.py) on ``ratexp.*`` attributes beside it. Both records carry
+their labels (see ../../labeling/) as ``ratexp.<group>`` attributes. The concrete adapters that use it live in their own files
 and differ only in which tenant + token they carry:
 
 - ``write_to_app_be_dynatrace.py`` -> ``AppBeDynatraceWriteAdapter`` (RateXp's own tenant).
@@ -42,6 +42,12 @@ def _to_epoch_nanos(value: Any) -> int | None:
 
 def _compact(record: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in record.items() if v is not None}
+
+
+def _label_attributes(record: Any) -> dict[str, str]:
+    """The record's labels as ratexp.<group> attributes; config.yaml keeps the group names
+    off every other ratexp.* attribute."""
+    return {f"ratexp.{group}": value for group, value in record.labels.items()}
 
 
 def _subject(record: Any) -> str:
@@ -122,6 +128,7 @@ class DynatraceWriteAdapter:
                     "ratexp.rating": label,
                     "ratexp.comment": record.comment,
                     "ratexp.request_id": record.request_id,
+                    **_label_attributes(record),
                 }
             )
         )
@@ -151,9 +158,7 @@ class DynatraceWriteAdapter:
                     "ratexp.cached_tokens": summary["cached_tokens"],
                     "ratexp.completion_tokens": summary["completion_tokens"],
                     "ratexp.model": summary["model"],
-                    "ratexp.business_case": record.business_case,
-                    "ratexp.language": record.language,
-                    "ratexp.task_type": record.task_type,
+                    **_label_attributes(record),
                 }
             )
         )

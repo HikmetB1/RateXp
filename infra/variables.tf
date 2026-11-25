@@ -148,7 +148,7 @@ variable "openai_api_version" {
 }
 
 variable "enable_labeling" {
-  description = "Have core label each consented trajectory (business case, language, task type) with a cheap model on the Azure OpenAI (AI Foundry) account, which this also provisions. Costs model credits per trajectory. Off by default."
+  description = "Have core label each rating and each consented trajectory, one value per label group of core/config.yaml labeling.groups, with a cheap model on the Azure OpenAI (AI Foundry) account, which this also provisions. Costs model credits per rating with a comment and per trajectory. Off by default."
   type        = bool
   default     = false
 }

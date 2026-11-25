@@ -1,32 +1,39 @@
 # The app's Dashboard view: SQL over the feedback and transcript tables core writes
-# (modules/write/schema/). The app image copies this file and dashboard_base.yaml out of
-# core (see CONTRIBUTING.md).
+# (modules/write/schema/). The app image copies this file, dashboard_base.yaml and
+# core/config.yaml out of core (see CONTRIBUTING.md).
 #
-# The app runs each sql with eight named parameters - type, skill, agent, eval, the three
-# labels business_case, language and task_type, and since (an ISO timestamp) - and NULL
-# means all. type is skill or session: a session rating is one that has no skill. {filters}
-# in a panel's sql is where filters.sql goes, so the FROM of every panel exposes
-# created_at, skill_name, agent, eval_name and the three labels: every panel reads
-# feedback_with_labels, which adds each rating's conversation's labels. filters.values
-# fill the dropdowns, each run with type alone so that picking a type narrows the others
-# to the values that exist for it. A ninth parameter, limit, caps the rows: the app's
+# The app runs each sql with named parameters - type, skill, agent, eval, one per label
+# group (named as the group), and since (an ISO timestamp) - and NULL means all. type is
+# skill or session: a session rating is one that has no skill. {filters} in a panel's sql
+# is where filters.sql goes, so the FROM of every panel exposes created_at, skill_name,
+# agent, eval_name and labels: every panel reads feedback_with_labels, which gives each
+# rating its labels, its conversation's winning over its own. filters.values fill the
+# dropdowns, each run with type alone so that picking a type narrows the others to the
+# values that exist for it. One more parameter, limit, caps the rows: the app's
 # list_view_limit for a panel, so the feedback panel shows as many ratings as the Query &
 # table view, and its list_max_limit for download.sql, the "Download trajectories" button.
 # A null skill, eval or label is shown and matched as "(none)", as on Dynatrace, so
-# whole-session ratings, ratings without an eval and ratings without a labeled
-# conversation can be picked.
+# whole-session ratings, ratings without an eval and unlabeled ratings can be picked.
+#
+# labels holds the templates each label group of core/config.yaml labeling.groups fills
+# (see clone_dashboard_from_base.py): {group} is the group's name, safe in a quoted
+# string and a parameter name, but not as a bare SQL name, which could be a keyword.
 name: RateXp
+labels:
+  values: >-
+    SELECT DISTINCT COALESCE(labels->>'{group}', '(none)') AS value FROM feedback_with_labels
+    WHERE %(type)s::text IS NULL
+    OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
+    ORDER BY value
+  filter: " AND (%({group})s::text IS NULL
+    OR COALESCE(labels->>'{group}', '(none)') = %({group})s)"
 filters:
   sql: >-
     (%(type)s::text IS NULL
     OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s)
     AND (%(skill)s::text IS NULL OR COALESCE(skill_name, '(none)') = %(skill)s)
     AND (%(agent)s::text IS NULL OR split_part(agent, ' ', 1) = %(agent)s)
-    AND (%(eval)s::text IS NULL OR COALESCE(eval_name, '(none)') = %(eval)s)
-    AND (%(business_case)s::text IS NULL
-    OR COALESCE(business_case, '(none)') = %(business_case)s)
-    AND (%(language)s::text IS NULL OR COALESCE(language, '(none)') = %(language)s)
-    AND (%(task_type)s::text IS NULL OR COALESCE(task_type, '(none)') = %(task_type)s)
+    AND (%(eval)s::text IS NULL OR COALESCE(eval_name, '(none)') = %(eval)s){labels.filter}
     AND (%(since)s::timestamptz IS NULL OR created_at >= %(since)s)
   values:
     type: SELECT type FROM (VALUES ('skill'), ('session')) AS types (type)
@@ -45,25 +52,10 @@ filters:
       WHERE %(type)s::text IS NULL
       OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
       ORDER BY eval
-    business_case: >-
-      SELECT DISTINCT COALESCE(business_case, '(none)') AS business_case FROM transcript
-      WHERE %(type)s::text IS NULL
-      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
-      ORDER BY business_case
-    language: >-
-      SELECT DISTINCT COALESCE(language, '(none)') AS language FROM transcript
-      WHERE %(type)s::text IS NULL
-      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
-      ORDER BY language
-    task_type: >-
-      SELECT DISTINCT COALESCE(task_type, '(none)') AS task_type FROM transcript
-      WHERE %(type)s::text IS NULL
-      OR CASE WHEN skill_name IS NULL THEN 'session' ELSE 'skill' END = %(type)s
-      ORDER BY task_type
 download:
   sql: >-
     SELECT created_at, session_id, skill_name, agent, eval_name, score, comment, request_id,
-    business_case, language, task_type
+    labels
     FROM feedback_with_labels WHERE {filters}
     ORDER BY created_at DESC LIMIT %(limit)s
 panels:
@@ -125,15 +117,31 @@ panels:
       round(100.0 * count(*) FILTER (WHERE score = 1) / count(*), 1) AS percent_good
       FROM feedback_with_labels WHERE {filters} AND score IS NOT NULL
       GROUP BY name ORDER BY percent_good ASC, total DESC
+  # Two count panels per label group that splits its values into when_good and when_bad:
+  # how many bad ratings got each complaint, and good ratings each praise, most first.
+  top_complaints_by_{group}:
+    title: Top complaints by {group_words}
+    kind: count
+    sql: >-
+      SELECT labels->>'{group}' AS name, count(*) AS total
+      FROM feedback_with_labels WHERE {filters} AND score = 2 AND labels ? '{group}'
+      GROUP BY name ORDER BY total DESC, name
+  top_praise_by_{group}:
+    title: Top praise by {group_words}
+    kind: count
+    sql: >-
+      SELECT labels->>'{group}' AS name, count(*) AS total
+      FROM feedback_with_labels WHERE {filters} AND score = 1 AND labels ? '{group}'
+      GROUP BY name ORDER BY total DESC, name
   # The newest list_view_limit ratings in the shape of the Query & table view's rows
-  # (GET /feedback), each with its conversation's labels and the conversation itself (atif,
-  # NULL when none was stored): the app draws them in that view's Feedback table.
+  # (GET /feedback), each with its labels and its conversation (atif, NULL when none was
+  # stored): the app draws them in that view's Feedback table.
   feedback:
     sql: >-
       SELECT created_at, session_id, skill_name, COALESCE(skill_name, session_id) AS name,
-      agent, eval_name, score, comment, request_id, business_case, language, task_type, atif
+      agent, eval_name, score, comment, request_id, labels, atif
       FROM (SELECT f.created_at, f.session_id, f.skill_name, f.agent, f.eval_name, f.score,
-      f.comment, f.request_id, f.business_case, f.language, f.task_type, t.atif
+      f.comment, f.request_id, f.labels, t.atif
       FROM feedback_with_labels f LEFT JOIN transcript t ON t.request_id = f.request_id) s
       WHERE {filters}
       ORDER BY created_at DESC LIMIT %(limit)s

@@ -85,6 +85,7 @@ def test_a_rating_becomes_one_insert_with_its_columns_in_order():
             session_id="s",
             request_id="r",
             created_at="2026-01-01T00:00:00Z",
+            labels={"feedback_theme": "Completion is quick"},
         )
     )
     assert "INSERT INTO feedback" in adapter._pool.calls["sql"]
@@ -97,6 +98,7 @@ def test_a_rating_becomes_one_insert_with_its_columns_in_order():
         1,
         "great",
         "r",
+        '{"feedback_theme": "Completion is quick"}',
     )
 
 
@@ -118,16 +120,28 @@ def test_a_trajectory_is_stored_as_json():
     assert json.loads(adapter._pool.calls["params"][5]) == {"steps": [{"step_id": 1}]}
 
 
-def test_a_trajectorys_labels_fill_their_own_columns():
+def test_a_trajectorys_labels_fill_its_labels_column_as_one_object():
     adapter = _postgres()
     adapter.write_transcript(
         Transcript(
-            agent="claude-code", atif={}, business_case="devops", language="go", task_type="fix"
+            agent="claude-code", atif={}, labels={"business_case": "DevOps", "language": "Go"}
         )
     )
-    sql = adapter._pool.calls["sql"]
-    assert "business_case, language, task_type)" in sql
-    assert adapter._pool.calls["params"][-3:] == ("devops", "go", "fix")
+    assert "request_id,\n                   labels)" in adapter._pool.calls["sql"]
+    assert json.loads(adapter._pool.calls["params"][-1]) == {
+        "business_case": "DevOps",
+        "language": "Go",
+    }
+
+
+def test_a_ratings_labels_fill_its_labels_column_and_its_comment_stays_off_the_transcript():
+    adapter = _postgres()
+    adapter.write_feedback(
+        Feedback(agent="claude-code", labels={"feedback_theme": "Completion is slow"})
+    )
+    assert json.loads(adapter._pool.calls["params"][-1]) == {"feedback_theme": "Completion is slow"}
+    adapter.write_transcript(Transcript(agent="claude-code", atif={}, comment="secret"))
+    assert "secret" not in str(adapter._pool.calls["params"])
 
 
 def test_with_retention_storing_a_rating_still_deletes_nothing():
@@ -213,6 +227,7 @@ def test_a_rating_becomes_one_otlp_log_record():
             session_id="s",
             request_id="r",
             created_at="2026-01-01T00:00:00Z",
+            labels={"feedback_theme": "Result is wrong"},
         )
     )
     (record,) = emitted
@@ -223,6 +238,7 @@ def test_a_rating_becomes_one_otlp_log_record():
     assert attributes["ratexp.score"] == 2
     assert attributes["ratexp.rating"] == "bad"  # the number is unreadable in a log viewer
     assert attributes["ratexp.comment"] == "bad"
+    assert attributes["ratexp.feedback_theme"] == "Result is wrong"
 
 
 def test_an_unrated_run_still_becomes_a_log_record():
@@ -260,9 +276,7 @@ def test_a_trajectory_log_carries_its_summary_eval_and_labels_as_attributes():
             skill_name="demo",
             agent="claude-code",
             eval_name="human-satisfaction",
-            business_case="devops",
-            language="go",
-            task_type="fix",
+            labels={"business_case": "DevOps", "language": "Go", "task_type": "Bug fix"},
             atif={
                 "agent": {"name": "claude-code", "model_name": "claude-opus-4-8"},
                 "steps": [
@@ -286,9 +300,9 @@ def test_a_trajectory_log_carries_its_summary_eval_and_labels_as_attributes():
     assert attributes["ratexp.cached_tokens"] == 9
     assert attributes["ratexp.completion_tokens"] == 5
     assert attributes["ratexp.model"] == "claude-opus-4-8"
-    assert attributes["ratexp.business_case"] == "devops"
-    assert attributes["ratexp.language"] == "go"
-    assert attributes["ratexp.task_type"] == "fix"
+    assert attributes["ratexp.business_case"] == "DevOps"
+    assert attributes["ratexp.language"] == "Go"
+    assert attributes["ratexp.task_type"] == "Bug fix"
 
 
 def test_a_summary_fact_that_is_unknown_is_left_off_the_log():
@@ -444,10 +458,18 @@ def test_a_trajectory_goes_into_a_phoenix_span_whole():
 
 def test_a_phoenix_trajectory_span_carries_its_labels_and_leaves_missing_ones_off():
     adapter, posted = _phoenix()
-    adapter.write_transcript(Transcript(agent="claude-code", atif={}, language="go"))
+    adapter.write_transcript(Transcript(agent="claude-code", atif={}, labels={"language": "Go"}))
     (span,) = posted
-    assert span["attributes"]["ratexp.language"] == "go"
+    assert span["attributes"]["ratexp.language"] == "Go"
     assert "ratexp.business_case" not in span["attributes"]
+
+
+def test_a_phoenix_rating_span_carries_its_labels():
+    adapter, posted = _phoenix()
+    adapter.write_feedback(
+        Feedback(agent="claude-code", labels={"feedback_theme": "Completion is slow"})
+    )
+    assert posted[0]["attributes"]["ratexp.feedback_theme"] == "Completion is slow"
 
 
 def test_the_same_request_id_always_builds_the_same_span_id():

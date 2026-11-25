@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import dashboardJson from "../ui/app/dashboard/dashboard.json";
-import { type Dashboard, dashboard, environment, fillEnvironment } from "../ui/app/dashboard/loadDashboard";
+import {
+  type Dashboard,
+  dashboard,
+  environment,
+  fillEnvironment,
+  groupTitle,
+  labelSide,
+} from "../ui/app/dashboard/loadDashboard";
 
 const bundled = dashboardJson as Dashboard;
 const match = (env: string) => `coalesce(deployment.environment.name, "prod") == "${env}"`;
@@ -33,5 +40,19 @@ describe("fillEnvironment", () => {
     vi.doUnmock("@dynatrace-sdk/app-environment");
     expect(devCopy.environment).toBe("dev");
     expect(devCopy.dashboard.filters.dql).toContain(match("dev"));
+  });
+});
+
+describe("labels", () => {
+  it("heads each label group's column with its name in words", () => {
+    expect(groupTitle("business_case")).toBe("Business case");
+    expect(groupTitle("feedback_theme")).toBe("Feedback theme");
+  });
+
+  it("gives praise the good side and a complaint the bad side, and a plain group's value none", () => {
+    expect(labelSide("feedback_theme", "Completion is quick")).toBe("good");
+    expect(labelSide("feedback_theme", "Completion is slow")).toBe("bad");
+    expect(labelSide("language", "Go")).toBeUndefined();
+    expect(labelSide("feedback_theme", null)).toBeUndefined();
   });
 });

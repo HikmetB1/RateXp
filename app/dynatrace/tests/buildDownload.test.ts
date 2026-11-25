@@ -15,9 +15,10 @@ const rating = {
   score: "1",
   comment: "fine",
   request_id: "r1",
-  business_case: "backend",
-  language: "go",
+  business_case: "Backend",
+  language: "Go",
   task_type: null,
+  feedback_theme: "Completion is quick",
 };
 
 describe("downloadRows", () => {
@@ -25,12 +26,14 @@ describe("downloadRows", () => {
     const [row] = downloadRows([rating], []);
     expect(Object.keys(row)).toEqual([
       "created_at", "session_id", "skill_name", "name", "agent", "eval_name",
-      "score", "comment", "request_id", "business_case", "language", "task_type", "conversation",
+      "score", "comment", "request_id", "labels", "conversation",
     ]);
     expect(row).toMatchObject({
       created_at: "2026-10-25T15:21:06Z", name: "s1", score: 1, conversation: null,
-      business_case: "backend", language: "go", task_type: null,
     });
+    // One object, as the web app's: the label group columns that hold a value, in config order.
+    expect(row.labels).toEqual({ business_case: "Backend", language: "Go", feedback_theme: "Completion is quick" });
+    expect(Object.keys(row.labels as object)).toEqual(["business_case", "language", "feedback_theme"]);
   });
 
   it("attaches the newest transcript with the same request_id, and a stub for non-JSON content", () => {

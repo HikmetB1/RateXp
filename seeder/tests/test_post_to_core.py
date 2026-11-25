@@ -33,7 +33,7 @@ def test_transcript_carries_the_atif_under_the_same_ids(run, posted, monkeypatch
     monkeypatch.setattr(post_to_core, "CORE_URL", "http://core")
     monkeypatch.setattr(build_trajectory, "OVERSIZED_RATIO", 0)
 
-    assert post_transcript(run, []) is True
+    assert post_transcript(run, [], None) is True
     sent = posted.sent[0]
     assert sent["url"] == "http://core/transcript"
     assert sent["body"]["request_id"] == "r"
@@ -44,8 +44,23 @@ def test_transcript_carries_the_configured_eval(run, posted, monkeypatch):
     monkeypatch.setattr(post_to_core, "EVAL_NAME", "some-other-eval")
     monkeypatch.setattr(build_trajectory, "OVERSIZED_RATIO", 0)
 
-    assert post_transcript(run, []) is True
+    assert post_transcript(run, [], None) is True
     assert posted.sent[0]["body"]["eval_name"] == "some-other-eval"
+
+
+def test_transcript_carries_the_score_and_comment_of_a_rated_run(run, posted, monkeypatch):
+    monkeypatch.setattr(build_trajectory, "OVERSIZED_RATIO", 0)
+
+    assert post_transcript(run, [], Rating(score=2, comment="too slow")) is True
+    body = posted.sent[0]["body"]
+    assert (body["score"], body["comment"]) == (2, "too slow")
+
+
+def test_transcript_of_an_unrated_run_has_no_score_or_comment(run, posted, monkeypatch):
+    monkeypatch.setattr(build_trajectory, "OVERSIZED_RATIO", 0)
+
+    assert post_transcript(run, [], None) is True
+    assert {"score", "comment"}.isdisjoint(posted.sent[0]["body"])
 
 
 def test_a_non_2xx_answer_is_not_accepted(run, posted):

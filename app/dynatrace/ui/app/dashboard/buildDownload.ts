@@ -1,4 +1,5 @@
 import { dqlString } from "./fillFilters";
+import { labelsOf } from "./loadDashboard";
 
 // What "Download trajectories" saves: the same rows, keys and order as the web app's
 // /dashboard/export (app/ratexp/api/run_dashboard_panels.py export_feedback).
@@ -65,9 +66,7 @@ export function downloadRows(ratings: Row[], transcripts: Row[]): Row[] {
       score: r.score == null || Number.isNaN(score) ? null : score,
       comment: text(r.comment),
       request_id: requestId,
-      business_case: text(r.business_case),
-      language: text(r.language),
-      task_type: text(r.task_type),
+      labels: labelsOf(r),
       conversation: (requestId !== null && conversations.get(requestId)) || null,
     };
   });

@@ -13,6 +13,7 @@ import pytest
 import yaml
 from load_config import LIST_MAX_LIMIT, LIST_VIEW_LIMIT
 from modules.read import clone_dashboard_from_base
+from modules.read.clone_dashboard_from_base import read_label_groups
 
 FILTERS_SQL = (
     "(%(type)s::text IS NULL OR "
@@ -47,7 +48,7 @@ APP = {
     "download": {
         "sql": (
             "SELECT created_at, session_id, skill_name, agent, eval_name, score, comment, request_id, "
-            "business_case, language, task_type "
+            "labels "
             "FROM feedback_with_labels WHERE {filters} ORDER BY created_at DESC LIMIT %(limit)s"
         )
     },
@@ -74,14 +75,13 @@ APP = {
         },
     },
 }
+# Each label group of core/config.yaml is a filter of its own.
 ALL = {
     "type": None,
     "skill": None,
     "agent": None,
     "eval": None,
-    "business_case": None,
-    "language": None,
-    "task_type": None,
+    **dict.fromkeys(read_label_groups()),
     "since": None,
 }
 # What a panel runs with: the filters, and the row cap the feedback panel uses.
@@ -198,8 +198,8 @@ def test_panel_binds_every_name_and_passes_since_through(app_with_fake_pool, das
 
 def test_none_is_bound_as_a_value_to_match_not_as_all(app_with_fake_pool, dashboard_files):
     # The dropdowns list "(none)" for whole-session ratings, ratings without an eval and
-    # ratings without a labeled conversation; the fragment matches it against the null, so
-    # it must reach the SQL as itself.
+    # unlabeled ratings; the fragment matches it against the null, so it must reach the SQL
+    # as itself.
     client, pool = app_with_fake_pool
     pool.set_select_rows([])
     none = {"skill": "(none)", "eval": "(none)", "language": "(none)"}
@@ -254,13 +254,11 @@ _DOWNLOAD_COLUMNS = [
     "score",
     "comment",
     "request_id",
-    "business_case",
-    "language",
-    "task_type",
+    "labels",
 ]
 
 
-def _rating(session_id, skill_name, request_id, day=3, labels=(None, None, None)) -> tuple:
+def _rating(session_id, skill_name, request_id, day=3, labels=None) -> tuple:
     return (
         datetime(2026, 9, day, 10, tzinfo=UTC),
         session_id,
@@ -270,12 +268,11 @@ def _rating(session_id, skill_name, request_id, day=3, labels=(None, None, None)
         1,
         None,
         request_id,
-        *labels,
+        labels or {},
     )
 
 
 def _transcript(session_id, skill_name, request_id, atif, created_at="2026-09-03T10:00:00Z"):
-    labels = (None, None, None)
     return (
         created_at,
         session_id,
@@ -284,7 +281,7 @@ def _transcript(session_id, skill_name, request_id, atif, created_at="2026-09-03
         "ATIF-v1.7",
         atif,
         request_id,
-        *labels,
+        {},
     )
 
 
@@ -313,7 +310,13 @@ def test_export_pairs_each_rating_with_its_conversation(
     pool.set_columns(_DOWNLOAD_COLUMNS)
     pool.set_select_rows(
         [
-            _rating("s1", "demo", "r1", day=3, labels=("backend", "go", "fix")),
+            _rating(
+                "s1",
+                "demo",
+                "r1",
+                day=3,
+                labels={"language": "Go", "feedback_theme": "Completion is quick"},
+            ),
             _rating("s2", None, "r2", day=2),  # its own transcript was never stored
             _rating("s3", "demo", None, day=1),
         ]
@@ -349,13 +352,11 @@ def test_export_pairs_each_rating_with_its_conversation(
         "score": 1,
         "comment": None,
         "request_id": "r1",
-        "business_case": "backend",
-        "language": "go",
-        "task_type": "fix",
+        "labels": {"language": "Go", "feedback_theme": "Completion is quick"},
         "conversation": {"steps": ["one"]},
     }
     assert rows[1]["conversation"] is None
-    assert rows[1]["language"] is None
+    assert rows[1]["labels"] == {}
     assert rows[2]["conversation"] is None
 
 

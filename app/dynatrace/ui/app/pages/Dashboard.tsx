@@ -23,8 +23,9 @@ import { runDql, type QueryTimeframe } from "../dashboard/runDql";
 // 30 days, as the web app and the published Dynatrace dashboard open on.
 const DEFAULT_TIMEFRAME = { from: "now()-30d", to: "now()" };
 const DAY_MS = 24 * 3600e3;
-// Out of 12 columns: four number tiles to a row, three bars to a row, the rest full width.
-const SPAN: Record<PanelKind, number> = { number: 3, bar: 4, line: 12, table: 12 };
+// Out of 12 columns: four number tiles to a row, three bars or two counts to a row, the
+// rest full width.
+const SPAN: Record<PanelKind, number> = { number: 3, bar: 4, count: 6, line: 12, table: 12 };
 const ALL = "*"; // the first row of every dropdown query, meaning all
 
 const defaultQueryTimeframe = (): QueryTimeframe => ({
@@ -85,7 +86,10 @@ export const Dashboard = () => {
 
   return (
     <Flex flexDirection="column" gap={16} padding={16}>
-      <Flex alignItems="flex-end" gap={12} flexWrap="wrap">
+      {/* The dropdowns share one line, as in the web app: all eight shipped filters fit a
+          wide window, and with less room they wrap. The timeframe and the download follow
+          on the line below. */}
+      <Grid gridTemplateColumns="repeat(auto-fit, minmax(120px, 1fr))" gap={12}>
         {/* Session hides the Skill dropdown: the type has no skills to pick. */}
         {FILTER_KEYS.filter((key) => !(key === "skill" && filters.type === "session")).map((key) => (
           <FilterSelect
@@ -97,6 +101,8 @@ export const Dashboard = () => {
             onListed={keepListed}
           />
         ))}
+      </Grid>
+      <Flex alignItems="flex-end" gap={12} flexWrap="wrap">
         <TimeframeSelector defaultValue={DEFAULT_TIMEFRAME} onChange={onTimeframe} />
         <Button
           variant="emphasized"
@@ -154,12 +160,14 @@ const FilterSelect = ({ filterKey, filters, timeframe, onPick, onListed }: Filte
   const onChange = (picked: string | null) => onPick(filterKey, picked);
   return (
     <FormField>
-      <Label>{filterKey.replace("_", " ")}</Label>
+      <Label>{filterKey.replaceAll("_", " ")}</Label>
       <Select
         name={`filter-${filterKey}`}
         value={value ?? ALL}
         onChange={(picked) => onChange(picked === ALL || picked == null ? null : picked)}
       >
+        {/* Full width of its grid cell, so the eight dropdowns line up evenly. */}
+        <Select.Trigger width="full" />
         <Select.Content>
           <Select.Option value={ALL}>All</Select.Option>
           {options.map((option) => (

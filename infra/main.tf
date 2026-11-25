@@ -231,8 +231,8 @@ resource "azurerm_linux_web_app" "core" {
     # Same for the bluebox destination adapter; supply the token via TF_VAR_bluebox_otlp_token.
     BLUEBOX_OTLP_ENDPOINT = var.bluebox_otlp_endpoint
     BLUEBOX_OTLP_TOKEN    = var.bluebox_otlp_token
-    # The account core labels trajectories with; empty leaves labeling off (see
-    # core/modules/labeling/label_trajectory.py). No key: core auths with its identity.
+    # The account core labels ratings and trajectories with; empty leaves labeling off (see
+    # core/modules/labeling/label_ratings.py). No key: core auths with its identity.
     AZURE_OPENAI_ENDPOINT = var.enable_labeling ? local.aoai_endpoint : ""
     # Marks each record core writes to Dynatrace and Bluebox with this deployment, so one
     # tenant holds prod and dev apart (core/modules/write/adapters/write_to_dynatrace.py).
@@ -288,8 +288,8 @@ resource "azurerm_cognitive_account" "aoai" {
   local_auth_enabled    = false # Entra ID only - no access keys
 }
 
-# core labels each consented trajectory with this model (see
-# core/modules/labeling/label_trajectory.py), which names it in config.yaml labeling.deployment.
+# core labels each rating and each consented trajectory with this model (see
+# core/modules/labeling/label_ratings.py), which names it in config.yaml labeling.deployment.
 resource "azurerm_cognitive_deployment" "labeling_model" {
   count                = var.enable_labeling ? 1 : 0
   name                 = var.labeling_model

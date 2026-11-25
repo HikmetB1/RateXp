@@ -12,7 +12,7 @@ import { DataTable, type DataTableColumnDef } from "@dynatrace/strato-components
 import { Heading, Paragraph } from "@dynatrace/strato-components/typography";
 import Colors from "@dynatrace/strato-design-tokens/colors";
 import { isoSeconds } from "../dashboard/buildDownload";
-import { dashboard, type Panel as PanelSpec } from "../dashboard/loadDashboard";
+import { dashboard, groupTitle, labelSide, type Panel as PanelSpec, type Side } from "../dashboard/loadDashboard";
 import { fillFilters, type Filters } from "../dashboard/fillFilters";
 import { ratingsPerDay } from "../dashboard/ratingsPerDay";
 import type { QueryTimeframe } from "../dashboard/runDql";
@@ -22,7 +22,8 @@ export type Row = Record<string, unknown>;
 // The panels about skills, which a session rating has none of.
 const SKILL_PANELS = new Set(["skills_rated", "percent_good_by_skill"]);
 // The web app's Feedback table columns; the feedback panel's DQL returns every one except
-// Trajectory, which opens the conversation its request_id names.
+// Trajectory, which opens the conversation its request_id names, and Labels, which joins
+// the column of each label group.
 const FEEDBACK_COLUMNS = [
   "When", "Type", "Name", "Agent", "Model", "Labels", "Eval", "Score", "Comment", "Trajectory", "Session",
 ];
@@ -89,6 +90,8 @@ const PanelBody = ({ panel, rows, loading, onOpenTrajectory }: PanelBodyProps) =
       return <GoodBadPerDay rows={rows} loading={loading} />;
     case "bar":
       return <PercentGood rows={rows} loading={loading} />;
+    case "count":
+      return <CountPerValue group={countedGroup(panel.id)} rows={rows} loading={loading} />;
     default:
       return <FeedbackTable rows={rows} loading={loading} onOpenTrajectory={onOpenTrajectory} />;
   }
@@ -128,42 +131,153 @@ const PercentGood = ({ rows, loading }: { rows: Row[]; loading: boolean }) => {
   );
 };
 
+// Praise green and a complaint red, as the good and bad bars per day.
+const SIDE_CHART_COLOR: Record<Side, string> = {
+  good: Colors.Charts.Status.Ideal.Default,
+  bad: Colors.Charts.Status.Critical.Default,
+};
+// A good score or praise in green text, a bad score or complaint in red.
+const SIDE_TEXT_COLOR: Record<Side, string> = {
+  good: Colors.Text.Success.Default,
+  bad: Colors.Text.Critical.Default,
+};
+
+/** The label group a count panel counts the values of: the one its id ends in. */
+const countedGroup = (panelId: string): string =>
+  dashboard.label_groups.find((group) => panelId.endsWith(`_by_${group}`)) ?? "";
+
+// How many ratings got each value, most first, as the DQL sorts it: the complaints of bad
+// ratings, in red, or the praise of good ones, in green. Past about 5 rows the chart
+// scrolls inside its box.
+const CountPerValue = ({ group, rows, loading }: { group: string; rows: Row[]; loading: boolean }) => {
+  const data = useMemo(
+    () =>
+      rows.map((r) => {
+        const side = labelSide(group, r.name);
+        return { category: text(r.name), value: Number(r.total) || 0, ...(side && { color: SIDE_CHART_COLOR[side] }) };
+      }),
+    [group, rows],
+  );
+  if (!loading && data.length === 0) return <Muted>No labeled ratings in this range</Muted>;
+  return (
+    <div style={{ maxHeight: BAR_BOX_PX, overflowY: "auto" }}>
+      <CategoricalBarChart data={data} layout="horizontal" loading={loading} height={Math.max(120, data.length * BAR_ROW_PX)}>
+        <CategoricalBarChart.ValueAxis min={0} label="ratings" />
+      </CategoricalBarChart>
+    </div>
+  );
+};
+
 interface FeedbackTableProps {
   rows: Row[];
   loading: boolean;
   onOpenTrajectory: (row: Row) => void;
 }
 
-// The newest ratings that match the filters, in the web app's Feedback table columns. A
-// row with a stored conversation gets a "view" button that opens it in the side panel.
+// Neutral values in Dynatrace's blue, as the web app draws them in its own blue: these
+// columns, and the label groups that do not split their values.
+const NEUTRAL_COLUMNS = new Set(["Type", "Name", "Agent", "Model", "Eval", "Comment", "Session"]);
+const NEUTRAL_TEXT_COLOR = Colors.Text.Primary.Default;
+
+/** A column's header, centered over its left-aligned cells, as in the web app. */
+const centeredHeader = (title: string) => ({
+  header: () => <div style={{ width: "100%", textAlign: "center" }}>{title}</div>,
+  label: title,
+});
+
+/** The text color of a label value: its side's green or red, else the neutral blue. */
+const labelColor = (group: string, value: unknown): string | undefined => {
+  if (value == null) return undefined;
+  const side = labelSide(group, value);
+  return side ? SIDE_TEXT_COLOR[side] : NEUTRAL_TEXT_COLOR;
+};
+
+// The newest ratings that match the filters, in the web app's Feedback table columns, with
+// a Labels column group of one column per label group. A row with a stored conversation
+// gets a "view" button that opens it in the side panel.
 const FeedbackTable = ({ rows, loading, onOpenTrajectory }: FeedbackTableProps) => {
   const columns = useMemo<DataTableColumnDef<Row>[]>(
     () =>
-      FEEDBACK_COLUMNS.map((key) =>
-        key === "Trajectory"
-          ? {
-              id: key,
-              header: key,
-              accessor: "request_id",
-              cell: ({ rowData }) => (
-                <DataTable.DefaultCell>
-                  {rowData.request_id == null ? (
-                    "—"
-                  ) : (
-                    <Button size="condensed" onClick={() => onOpenTrajectory(rowData)}>
-                      view
-                    </Button>
-                  )}
-                </DataTable.DefaultCell>
+      FEEDBACK_COLUMNS.map((key): DataTableColumnDef<Row> => {
+        if (key === "Trajectory") {
+          return {
+            id: key,
+            ...centeredHeader(key),
+            accessor: "request_id",
+            cell: ({ rowData }) => (
+              <DataTable.DefaultCell>
+                {rowData.request_id == null ? (
+                  "—"
+                ) : (
+                  <Button size="condensed" onClick={() => onOpenTrajectory(rowData)}>
+                    view
+                  </Button>
+                )}
+              </DataTable.DefaultCell>
+            ),
+          };
+        }
+        if (key === "Labels") {
+          return {
+            id: key,
+            ...centeredHeader(key),
+            columns: dashboard.label_groups.map((group) => ({
+              id: group,
+              ...centeredHeader(groupTitle(group)),
+              accessor: (row: Row) => cellText(group, row[group]),
+              cell: ({ value, rowData }) => (
+                <ColoredCell color={labelColor(group, rowData[group])} strong={labelSide(group, rowData[group]) != null}>
+                  {value}
+                </ColoredCell>
               ),
-            }
-          : { id: key, header: key, accessor: (row: Row) => cellText(key, row[key]) },
-      ),
+            })),
+          };
+        }
+        const column = { id: key, ...centeredHeader(key), accessor: (row: Row) => cellText(key, row[key]) };
+        if (key === "Score") {
+          return {
+            ...column,
+            cell: ({ value, rowData }) => {
+              const side = rowData.Score === "good" || rowData.Score === "bad" ? rowData.Score : undefined;
+              return (
+                <ColoredCell color={side && SIDE_TEXT_COLOR[side]} strong>
+                  {value}
+                </ColoredCell>
+              );
+            },
+          };
+        }
+        if (NEUTRAL_COLUMNS.has(key)) {
+          return {
+            ...column,
+            cell: ({ value, rowData }) => (
+              <ColoredCell color={rowData[key] == null ? undefined : NEUTRAL_TEXT_COLOR}>{value}</ColoredCell>
+            ),
+          };
+        }
+        return column;
+      }),
     [onOpenTrajectory],
   );
   if (!loading && rows.length === 0) return <Muted>No ratings in this range</Muted>;
   return <DataTable data={rows} columns={columns} loading={loading} resizable />;
 };
+
+/** A table cell in `color`, or the default color without one; `strong` for a good or bad
+ * side, so the score and the feedback theme stand out. */
+const ColoredCell = ({
+  color,
+  strong = false,
+  children,
+}: {
+  color: string | undefined;
+  strong?: boolean;
+  children: React.ReactNode;
+}) => (
+  <DataTable.DefaultCell>
+    <span style={color ? { color, fontWeight: strong ? 600 : undefined } : undefined}>{children}</span>
+  </DataTable.DefaultCell>
+);
 
 function cellText(column: string, value: unknown): string {
   if (value == null) return "—";

@@ -2,19 +2,23 @@
 # (modules/write/adapters/write_to_dynatrace.py). publish_to_dynatrace.py turns it into a
 # dashboard document.
 #
-# {filters} in a panel's dql is where filters.dql goes: the seven dashboard variables
-# $type, $skill, $agent, $eval, $business_case, $language and $task_type, each filled by
-# its filters.values query, whose first row "*" means all - first, so the 1000-record cap
-# on a long list cannot cut it off. $type is skill or session: a session rating is one
-# that has no skill. It comes first, and every other values query takes it, so picking a
-# type narrows the other dropdowns to the values that exist for it. The labels and the
-# model sit on the transcript record only, so the fragment first looks up each record's
-# transcript by request_id and reads them as transcript.*; a rating whose conversation
-# was not stored finds none. The dashboard's time picker scopes every tile (no from:),
-# except ratings_24h, which pins its own 24 hours. A null skill, eval or label is shown
-# and matched as "(none)", because matchesValue() drops nulls - "*" would lose
-# whole-session ratings, ratings stored before evals had names and ratings without a
-# labeled conversation.
+# {filters} in a panel's dql is where filters.dql goes: the dashboard variables $type,
+# $skill, $agent, $eval and one per label group ($<group>), each filled by its
+# filters.values query, whose first row "*" means all - first, so the 1000-record cap on
+# a long list cannot cut it off. $type is skill or session: a session rating is one that
+# has no skill. It comes first, and every other values query takes it, so picking a type
+# narrows the other dropdowns to the values that exist for it. The model sits on the
+# transcript record only, and a rating's conversation labels win over the rating's own,
+# so the fragment first looks up each record's transcript by request_id and reads it as
+# transcript.*; a rating whose conversation was not stored finds none. The dashboard's
+# time picker scopes every tile (no from:), except ratings_24h, which pins its own 24
+# hours. A null skill, eval or label is shown and matched as "(none)", because
+# matchesValue() drops nulls - "*" would lose whole-session ratings, ratings stored
+# before evals had names and unlabeled ratings.
+#
+# labels holds the templates each label group of core/config.yaml labeling.groups fills
+# (see clone_dashboard_from_base.py): {group} is the group's name, its label the
+# ratexp.{group} attribute on both record types.
 #
 # download.dql is the "Download trajectories" button of the Dynatrace app (app/dynatrace/),
 # which draws these same panels; the published dashboard has no button and skips it.
@@ -29,21 +33,28 @@
 # publish_to_dynatrace.py fills it with the environment it publishes for, and the Dynatrace
 # app fills it from its own app id (app/dynatrace/ui/app/dashboard/loadDashboard.ts).
 name: RateXp
+labels:
+  values: >-
+    data record({group}="*") | append [fetch logs
+    | filter ratexp.record_type == "feedback" or ratexp.record_type == "transcript"
+    | filter coalesce(deployment.environment.name, "prod") == "{environment}"
+    | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
+    | summarize count(), by:{{group}=coalesce(ratexp.{group}, "(none)")}
+    | fields {group} | sort {group} asc]
+  lookup_field: ", {group}=ratexp.{group}"
+  filter: ' and matchesValue(coalesce(transcript.{group}, ratexp.{group}, "(none)"), ${group})'
+  field: ", {group}=coalesce(transcript.{group}, ratexp.{group})"
 filters:
   dql: >-
     | lookup [fetch logs | filter ratexp.record_type == "transcript"
     and coalesce(deployment.environment.name, "prod") == "{environment}"
-    | fields request_id=ratexp.request_id, business_case=ratexp.business_case,
-    language=ratexp.language, task_type=ratexp.task_type, model=ratexp.model],
+    | fields request_id=ratexp.request_id, model=ratexp.model{labels.lookup_field}],
     sourceField:ratexp.request_id, lookupField:request_id, prefix:"transcript."
     | filter coalesce(deployment.environment.name, "prod") == "{environment}"
     and matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
     and matchesValue(coalesce(ratexp.skill_name, "(none)"), $skill)
     and matchesValue(splitString(ratexp.agent, " ")[0], $agent)
-    and matchesValue(coalesce(ratexp.eval_name, "(none)"), $eval)
-    and matchesValue(coalesce(transcript.business_case, "(none)"), $business_case)
-    and matchesValue(coalesce(transcript.language, "(none)"), $language)
-    and matchesValue(coalesce(transcript.task_type, "(none)"), $task_type)
+    and matchesValue(coalesce(ratexp.eval_name, "(none)"), $eval){labels.filter}
   values:
     type: data record(type="*"), record(type="skill"), record(type="session")
     skill: >-
@@ -64,25 +75,6 @@ filters:
       | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
       | summarize count(), by:{eval=coalesce(ratexp.eval_name, "(none)")}
       | fields eval | sort eval asc]
-    business_case: >-
-      data record(business_case="*") | append [fetch logs
-      | filter ratexp.record_type == "transcript"
-      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
-      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
-      | summarize count(), by:{business_case=coalesce(ratexp.business_case, "(none)")}
-      | fields business_case | sort business_case asc]
-    language: >-
-      data record(language="*") | append [fetch logs | filter ratexp.record_type == "transcript"
-      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
-      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
-      | summarize count(), by:{language=coalesce(ratexp.language, "(none)")}
-      | fields language | sort language asc]
-    task_type: >-
-      data record(task_type="*") | append [fetch logs | filter ratexp.record_type == "transcript"
-      | filter coalesce(deployment.environment.name, "prod") == "{environment}"
-      | filter matchesValue(if(isNull(ratexp.skill_name), "session", else:"skill"), $type)
-      | summarize count(), by:{task_type=coalesce(ratexp.task_type, "(none)")}
-      | fields task_type | sort task_type asc]
 # The newest list_max_limit ratings; the app adds each one's conversation, the
 # transcript with the same request_id.
 download:
@@ -91,9 +83,7 @@ download:
     | sort timestamp desc | limit {list_max_limit}
     | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name,
     agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score,
-    comment=ratexp.comment, request_id=ratexp.request_id,
-    business_case=transcript.business_case, language=transcript.language,
-    task_type=transcript.task_type
+    comment=ratexp.comment, request_id=ratexp.request_id{labels.field}
 panels:
   total_ratings:
     title: Total ratings
@@ -159,10 +149,26 @@ panels:
       by:{name=coalesce(ratexp.eval_name, "(none)")}
       | fieldsAdd percent_good=round(100.0 * good / total, decimals:1)
       | sort percent_good asc, total desc
+  # Two count panels per label group that splits its values into when_good and when_bad:
+  # how many bad ratings got each complaint, and good ratings each praise, most first.
+  top_complaints_by_{group}:
+    title: Top complaints by {group_words}
+    kind: count
+    dql: >-
+      fetch logs | filter ratexp.record_type == "feedback" and ratexp.score == 2 {filters}
+      | fieldsAdd name=coalesce(transcript.{group}, ratexp.{group}) | filter isNotNull(name)
+      | summarize total=count(), by:{name} | sort total desc, name asc
+  top_praise_by_{group}:
+    title: Top praise by {group_words}
+    kind: count
+    dql: >-
+      fetch logs | filter ratexp.record_type == "feedback" and ratexp.score == 1 {filters}
+      | fieldsAdd name=coalesce(transcript.{group}, ratexp.{group}) | filter isNotNull(name)
+      | summarize total=count(), by:{name} | sort total desc, name asc
   # The newest list_view_limit ratings with every column of the web app's Feedback table
-  # except Trajectory: request_id names the rating's stored conversation (null when none
-  # was stored), which the Dynatrace app opens from a "view" button. The published
-  # dashboard hides it.
+  # except Trajectory, and a column per label group in place of its Labels column:
+  # request_id names the rating's stored conversation (null when none was stored), which
+  # the Dynatrace app opens from a "view" button. The published dashboard hides it.
   feedback:
     hidden_columns: [request_id]
     dql: >-
@@ -170,10 +176,7 @@ panels:
       | sort timestamp desc | limit {list_view_limit}
       | fields When=timestamp, Type=if(isNull(ratexp.skill_name), "session", else:"skill"),
       Name=coalesce(ratexp.skill_name, ratexp.session_id), Agent=ratexp.agent,
-      Model=coalesce(transcript.model, splitString(ratexp.agent, " ")[1]),
-      Labels=if(isNotNull(transcript.business_case) or isNotNull(transcript.language)
-      or isNotNull(transcript.task_type), concat(coalesce(transcript.business_case, "—"),
-      " · ", coalesce(transcript.language, "—"), " · ", coalesce(transcript.task_type, "—"))),
+      Model=coalesce(transcript.model, splitString(ratexp.agent, " ")[1]){labels.field},
       Eval=ratexp.eval_name,
       Score=if(ratexp.score == 1, "good", else:if(ratexp.score == 2, "bad")),
       Comment=ratexp.comment, Session=ratexp.session_id, request_id=transcript.request_id

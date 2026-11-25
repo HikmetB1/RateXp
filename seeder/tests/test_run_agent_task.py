@@ -100,15 +100,25 @@ def _stub_agent(monkeypatch, state) -> _Agent:
 def test_a_run_returns_the_rating_and_the_conversation(monkeypatch):
     rating = Rating(score=1, comment="clear")
     _stub_agent(monkeypatch, {"messages": ["m"], "structured_response": rating})
-    assert run_skill_task(_SKILL) == (rating, ["m"])
+    assert run_skill_task(_SKILL, "the speed") == (rating, ["m"])
 
 
 def test_a_session_run_hands_the_task_over_without_load_skill(monkeypatch):
     rating = Rating(score=2, comment="slow")
     agent = _stub_agent(monkeypatch, {"messages": ["m"], "structured_response": rating})
-    assert run_session_task("write a debounce helper") == (rating, ["m"])
+    assert run_session_task("write a debounce helper", "the speed") == (rating, ["m"])
     assert "write a debounce helper" in agent.tasks[0]
     assert "load_skill" not in {t.name for t in agent.kwargs["tools"]}
+
+
+def test_both_kinds_of_run_hand_the_comment_focus_over(monkeypatch):
+    rating = Rating(score=1, comment="fast")
+    agent = _stub_agent(monkeypatch, {"messages": [], "structured_response": rating})
+
+    run_skill_task(_SKILL, "the tools")
+    run_session_task("write a debounce helper", "the scope")
+    assert "the tools" in agent.tasks[0]
+    assert "the scope" in agent.tasks[1]
 
 
 def test_a_run_that_ends_unrated_is_asked_once_more(monkeypatch):
@@ -116,7 +126,7 @@ def test_a_run_that_ends_unrated_is_asked_once_more(monkeypatch):
     model = _NeverStops()
     monkeypatch.setattr(task_module, "open_chat_model", lambda: model)
 
-    rating, messages = run_skill_task(_SKILL)
+    rating, messages = run_skill_task(_SKILL, "the speed")
     assert rating == Rating(score=2, comment="ran out of turns")
     # The ask and the answer are kept, so the transcript shows how the run ended.
     assert [m.type for m in messages] == ["ai", "human", "ai"]
@@ -127,7 +137,7 @@ def test_a_failed_forced_rating_still_returns_the_conversation(monkeypatch):
     model = _NeverStops(rating_error=RuntimeError("429"))
     monkeypatch.setattr(task_module, "open_chat_model", lambda: model)
 
-    rating, messages = run_skill_task(_SKILL)
+    rating, messages = run_skill_task(_SKILL, "the speed")
     assert rating is None
     assert [m.content for m in messages] == ["done"]
 
@@ -166,7 +176,7 @@ def test_a_run_out_of_turns_ends_cleanly_and_is_still_rated(monkeypatch):
     monkeypatch.setattr(task_module, "MAX_ROUNDS", 3)
     monkeypatch.setattr(task_module, "CRITICAL_RATIO", 0)
 
-    rating, messages = run_skill_task(_SKILL)
+    rating, messages = run_skill_task(_SKILL, "the speed")
     assert rating == Rating(score=2, comment="ran out of turns")
     assert sum(1 for m in messages if m.type == "tool") == 3  # one tool result per turn
     assert messages[-2].content == task_module._RATE_NOW
@@ -194,11 +204,11 @@ def test_the_tough_reviewer_stance_is_appended_only_when_it_applies(monkeypatch)
     agent = _stub_agent(monkeypatch, {"messages": [], "structured_response": None})
     monkeypatch.setattr(task_module, "CRITICAL_PROMPT", "BE TOUGH")
 
-    run_skill_task(_SKILL)
+    run_skill_task(_SKILL, "the speed")
     assert "BE TOUGH" not in agent.tasks[0]
 
     monkeypatch.setattr(task_module, "CRITICAL_RATIO", 1)  # always tough
-    run_skill_task(_SKILL)
+    run_skill_task(_SKILL, "the speed")
     assert agent.tasks[1].endswith("BE TOUGH")
 
 
@@ -209,5 +219,5 @@ def test_the_workspace_is_deleted_even_when_the_run_blows_up(monkeypatch, tmp_pa
     _stub_agent(monkeypatch, RuntimeError("model is down"))
 
     with pytest.raises(RuntimeError, match="model is down"):
-        run_skill_task(_SKILL)
+        run_skill_task(_SKILL, "the speed")
     assert not workspace.exists()

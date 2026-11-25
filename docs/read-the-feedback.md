@@ -23,6 +23,7 @@ view option. To switch a destination on, see [Config and env](./config-and-env.m
 | See the total ratings and the percent good |  | ✓ | ✓ | ✓ |  |  |  |
 | See the good and bad ratings over time |  | ✓ | ✓ | ✓ |  |  |  |
 | Find the weakest skill, agent or eval |  | ✓ | ✓ | ✓ |  |  |  |
+| See the top complaints and the top praise, by feedback theme |  | ✓ | ✓ | ✓ |  |  |  |
 | Filter by type, skill, agent, eval, label or time range. See [Filters](#filters-narrow-the-panels). |  | ✓ | ✓ | ✓ |  |  |  |
 | Read the newest ratings and their comments | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
 | View the conversation of one rating | ✓ | ✓ |  | ✓ |  |  |  |
@@ -44,6 +45,18 @@ The dashboards show the same panels and filters. For how the dashboards stay the
     [Deploy](../app/dynatrace/README.md#deploy-how-the-ratexp-dynatrace-app-gets-to-dynatrace).
   - **Mark:** core marks each record with its environment. See `OTEL_RESOURCE_ATTRIBUTES` in
     [core](../core/README.md#env-the-secrets-core-reads).
+- **Colors:** Green is good, red is bad and blue is neutral, in each dashboard.
+  - **Green and red:** The score, and each label value of a group with `when_good` and
+    `when_bad`, for example the feedback theme. **Top praise** is green and **Top complaints**
+    is red.
+  - **Blue:** The neutral values: the type, the name, the agent, the model, the eval, the
+    comment and the values of the other label groups. The RateXp Dynatrace app and the
+    Dynatrace dashboard use the blue and the green and red of Dynatrace.
+- **Labels columns:** The feedback table shows one column for each label group.
+  - **RateXp app and RateXp Dynatrace app:** The label columns stand under one **Labels**
+    heading. The side panel of a conversation shows each label on its own line.
+  - **Dynatrace dashboard:** A dashboard table has no shared heading, so the name of each label
+    column starts with `Labels:`, for example **Labels: Business case**.
 
 ## Filters: narrow the panels
 
@@ -52,9 +65,10 @@ The dashboards show the same panels and filters. For how the dashboards stay the
   **Percent good by skill** "Does not apply".
 - **Other filters:** When you select a type, the other filters show only the values of that
   type.
-- **Labels:** Business case, language and task type. A rating has the labels of its stored
-  conversation. Thus, a label filter applies to each panel. See
-  [Labels](../README.md#feature-labels).
+- **Labels:** One filter for each label group in `core/config.yaml` (business case, language,
+  task type and feedback theme as shipped). A rating has its own labels. The labels of the
+  stored conversation of the rating win over the labels of the rating. Thus, a label filter
+  applies to each panel. See [Labels](../README.md#feature-labels).
 - **Time range:** **24h**, **7d**, **30d** or **All**, with **30d** as the default. The time
   range applies to each panel and to **Download trajectories**.
 
@@ -64,6 +78,8 @@ The dashboards show the same panels and filters. For how the dashboards stay the
   JSON.
 - **Conversation:** Each rating has a `conversation` field: the stored conversation of the
   rating, or `null`.
+- **Labels:** Each rating has a `labels` field: the value of each label group, with the labels
+  of the stored conversation over the labels of the rating.
 - **Order:** The newest rating comes first, by the time that core stored the rating.
 - **Limit:** **Download trajectories** saves at most `list_max_limit` ratings. If more ratings
   match, the download contains the newest ratings.
@@ -77,7 +93,7 @@ source:
 |-------------|---------------------|
 | PostgreSQL  | SQL                 |
 | Dynatrace   | DQL                 |
-| Phoenix     | `key:value` filters |
+| Phoenix     | `key:value` filters. Put a value with spaces in quotes: `feedback_theme:"Completion is slow"` |
 | Bluebox     | not supported       |
 
 ## Download trajectories after a query: what the file contains

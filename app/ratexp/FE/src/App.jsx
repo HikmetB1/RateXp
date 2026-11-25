@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Dashboard from './Dashboard.jsx'
-import { FeedbackTable, labelsOf, scoreLabel, TypeBadge } from './FeedbackTable.jsx'
+import { FeedbackTable, groupTitle, LabelValue, labelsOf, scoreLabel, TypeBadge } from './FeedbackTable.jsx'
 import { cardHeading, glassCard, groupBox } from './styles.js'
 
 // Same origin as the API in the built image (VITE_API_BASE ""); defaults to the API on :8001 in dev.
@@ -140,20 +140,20 @@ ${subjectExample(example, 'eval_name')}
 \`\`\`${labelsInfoMd(lang)}`
 }
 
-// Where the three labels core gives a stored conversation sit in each read source's query
-// language, with a query that picks one; a rating takes the labels of its conversation.
+// Where the labels core gives each rating and each stored conversation sit in each read
+// source's query language, with a query that picks one.
 const LABEL_EXAMPLES = {
   SQL: {
-    where: 'columns on `transcript`, and on every rating in the `feedback_with_labels` view',
-    query: "SELECT * FROM feedback_with_labels WHERE language = 'go'",
+    where: 'the `labels` JSON column of `feedback` and `transcript`, and of every rating in the `feedback_with_labels` view, where its conversation\'s labels win',
+    query: "SELECT * FROM feedback_with_labels WHERE labels->>'feedback_theme' = 'Completion is slow'",
   },
   DQL: {
-    where: '`ratexp.business_case`, `ratexp.language` and `ratexp.task_type` on transcript logs',
-    query: 'fetch logs | filter ratexp.record_type == "transcript" and ratexp.language == "go"',
+    where: 'one `ratexp.<group>` attribute per label group on feedback and transcript logs',
+    query: 'fetch logs | filter ratexp.record_type == "feedback" and ratexp.feedback_theme == "Completion is slow"',
   },
   'Phoenix filters': {
-    where: '`business_case`, `language` and `task_type` on transcript spans',
-    query: 'record_type:transcript language:go',
+    where: 'one `<group>` key per label group on feedback and transcript spans',
+    query: 'record_type:feedback feedback_theme:"Completion is slow"',
   },
 }
 
@@ -162,8 +162,9 @@ function labelsInfoMd(lang) {
   if (!labels) return ''
   return `
 
-**Labels** - each stored conversation gets a business case, main language and task type,
-shown in the table's **Labels** column. In ${lang} they are ${labels.where}:
+**Labels** - each rating, and again its stored conversation, gets one value per label group
+that \`labeling.groups\` in core's config.yaml names (such as feedback_theme), shown in the
+table's **Labels** columns, one per group. In ${lang} they are ${labels.where}:
 
 \`\`\`${lang.split(' ')[0].toLowerCase()}
 ${labels.query}
@@ -371,7 +372,7 @@ export default function App() {
           the chosen filters and the drawn panels. Hidden, the Dashboard asks the API
           nothing; shown again, it refreshes once. */}
       <ViewPanel viewKey="dashboard" view={view}>
-        <Dashboard apiBase={API_BASE} liveTick={liveTick} active={view === 'dashboard'} onOpenTrajectory={openTrajectory} />
+        <Dashboard apiBase={API_BASE} liveTick={liveTick} active={view === 'dashboard'} onOpenTrajectory={openTrajectory} labelGroups={meta.label_groups} labelSides={meta.label_sides} />
       </ViewPanel>
       <ViewPanel viewKey="table" view={view}>
         {(loading || error || filter) && (
@@ -386,7 +387,7 @@ export default function App() {
             <section className="glow-edge" style={glassCard}>
               <h2 style={cardHeading}>Feedback</h2>
               <PreviewNote onInfo={() => setInfoOpen(true)} />
-              <FeedbackTable rows={rows} transcriptFor={transcriptFor} onOpen={openTrajectory} style={{ marginTop: 12 }} />
+              <FeedbackTable rows={rows} transcriptFor={transcriptFor} onOpen={openTrajectory} labelGroups={meta.label_groups} labelSides={meta.label_sides} style={{ marginTop: 12 }} />
             </section>
           )}
         </div>
@@ -398,7 +399,7 @@ export default function App() {
           Hikmet B.
         </a>
       </footer>
-      <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} />
+      <TrajectoryDrawer data={openTx} onClose={() => setOpenTx(null)} labelGroups={meta.label_groups} labelSides={meta.label_sides} />
       <InstallGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
       <DownloadInfoModal open={infoOpen} onClose={() => setInfoOpen(false)} queryLanguage={meta.query_language} queryExample={meta.query_example} viewLimit={meta.list_view_limit} maxLimit={meta.list_max_limit} />
     </div>
@@ -674,7 +675,7 @@ function useBodyScrollLock(active) {
   }, [active])
 }
 
-function TrajectoryDrawer({ data, onClose }) {
+function TrajectoryDrawer({ data, onClose, labelGroups = [], labelSides = {} }) {
   useBodyScrollLock(!!data)
   useEffect(() => {
     if (!data) return
@@ -692,6 +693,12 @@ function TrajectoryDrawer({ data, onClose }) {
   // Some coding agents (Cursor) write no token counts into their transcripts, so
   // their totals arrive as zero. Say so, rather than show a run that cost nothing.
   const tokensRecorded = Boolean(fm.total_prompt_tokens || fm.total_completion_tokens)
+  // Each label on its own line: the configured groups in order, then any group a rating
+  // still carries from an older config.
+  const labels = labelsOf(row, transcript)
+  const labelItems = [...labelGroups, ...Object.keys(labels).filter((g) => !labelGroups.includes(g))]
+    .filter((group) => labels[group])
+    .map((group) => ({ k: groupTitle(group), v: <LabelValue value={labels[group]} side={labelSides[group]?.[labels[group]]} /> }))
 
   // Portal to <body> so the fixed drawer anchors to the viewport, not #root
   // (whose load animation's transform would otherwise offset it by the page
@@ -703,15 +710,15 @@ function TrajectoryDrawer({ data, onClose }) {
         <header className="drawer-head">
           <div className="drawer-head-main">
             <div className="drawer-title">Trajectory</div>
-            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, Labels, Eval,
-                Score, Steps, Tokens) - the same first two columns the table shows. */}
+            {/* Each fact gets a small KEY label (Type, Name, Agent, Model, one per label
+                group, Eval, Score, Steps, Tokens) - the columns the table shows. */}
             <div className="drawer-meta">
               {[
                 { k: 'Type', v: <TypeBadge skillName={row?.skill_name} /> },
                 row?.skill_name && { k: 'Name', v: <code>{row.skill_name}</code> },
                 row?.agent && { k: 'Agent', v: <code>{row.agent}</code> },
-                model && { k: 'Model', v: model },
-                labelsOf(transcript) && { k: 'Labels', v: <code>{labelsOf(transcript)}</code> },
+                model && { k: 'Model', v: <code>{model}</code> },
+                ...labelItems,
                 row?.eval_name && { k: 'Eval', v: <code>{row.eval_name}</code> },
                 row?.score && { k: 'Score', v: scoreLabel(row.score) },
                 { k: 'Steps', v: fm.total_steps ?? steps.length },

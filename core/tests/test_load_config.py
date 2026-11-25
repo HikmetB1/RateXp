@@ -16,7 +16,15 @@ from pathlib import Path
 
 import pytest
 import yaml
-from load_config import DEFAULT_SURVEY_EVAL, EVALS, LABELS, Eval, load_evals, load_labels
+from load_config import (
+    DEFAULT_SURVEY_EVAL,
+    EVALS,
+    LABEL_GROUPS,
+    Eval,
+    LabelGroup,
+    load_evals,
+    load_label_groups,
+)
 
 # The repo root, which holds README.md beside core/.
 ROOT = Path(__file__).resolve().parents[2]
@@ -175,42 +183,90 @@ def test_a_copy_of_the_shipped_base_with_its_fields_filled_in_is_an_eval(tmp_pat
     assert survey.question.startswith("Did {subject}")
 
 
-GOOD_LABELS = {
-    "business_case": ["devops", "other"],
-    "language": ["go", "none", "other"],
-    "task_type": ["feat", "fix", "other"],
+GOOD_GROUPS = {
+    "department": {"means": "The team the work is for.", "values": ["finance", "hr", "other"]},
+    "tone": {
+        "means": "How the user felt.",
+        "when_good": {"happy": "Pleased with the result.", "relieved": None},
+        "when_bad": ["annoyed", "lost"],
+    },
 }
 
 
-def test_the_label_lists_core_ships_hold_every_group():
-    assert set(LABELS) == {"business_case", "language", "task_type"}
-    assert all(LABELS.values())
+def test_the_groups_core_ships_load_with_the_feedback_theme_split_into_pairs():
+    assert list(LABEL_GROUPS) == ["business_case", "language", "task_type", "feedback_theme"]
+    theme = LABEL_GROUPS["feedback_theme"]
+    assert len(theme.when_good) == len(theme.when_bad) == 11
+    assert theme.values["Completion is slow"] == "It took too long or kept me waiting."
+    assert LABEL_GROUPS["language"].when_good == ()
 
 
-def test_good_label_lists_load_in_group_order():
-    assert list(load_labels(GOOD_LABELS)) == ["business_case", "language", "task_type"]
+def test_good_groups_load_in_their_order_with_descriptions_where_given():
+    groups = load_label_groups(GOOD_GROUPS)
+    assert list(groups) == ["department", "tone"]
+    assert groups["department"] == LabelGroup(
+        "The team the work is for.", {"finance": "", "hr": "", "other": ""}, (), ()
+    )
+    tone = groups["tone"]
+    assert tone.values == {
+        "happy": "Pleased with the result.",
+        "relieved": "",
+        "annoyed": "",
+        "lost": "",
+    }
+    assert (tone.when_good, tone.when_bad) == (("happy", "relieved"), ("annoyed", "lost"))
+
+
+def test_a_split_group_offers_one_side_per_score_and_every_value_without_one():
+    tone = load_label_groups(GOOD_GROUPS)["tone"]
+    assert tone.values_for(1) == ["happy", "relieved"]
+    assert tone.values_for(2) == ["annoyed", "lost"]
+    assert tone.values_for(None) == ["happy", "relieved", "annoyed", "lost"]
+    assert load_label_groups(GOOD_GROUPS)["department"].values_for(2) == ["finance", "hr", "other"]
+
+
+def _department(**changes) -> dict:
+    return {"department": {**GOOD_GROUPS["department"], **changes}}
 
 
 @pytest.mark.parametrize(
-    ("labels", "complaint"),
+    ("groups", "complaint"),
     [
-        ({**GOOD_LABELS, "framework": ["react"]}, "must hold exactly"),
-        ({"business_case": ["devops"], "language": ["go"]}, "must hold exactly"),
-        ({**GOOD_LABELS, "language": []}, "labels.language must be a list of distinct words"),
-        ({**GOOD_LABELS, "task_type": ["fix", "fix"]}, "labels.task_type must be a list"),
-        ({**GOOD_LABELS, "language": "go"}, "labels.language must be a list"),
-        ({**GOOD_LABELS, "business_case": ["devops", 3]}, "labels.business_case must be a list"),
+        ({}, "must hold 1-8 groups"),
+        ({f"group_{n}": GOOD_GROUPS["department"] for n in range(9)}, "must hold 1-8 groups"),
+        ({"Department": GOOD_GROUPS["department"]}, "a group name is 1-40 lowercase"),
+        ({"skill": GOOD_GROUPS["department"]}, "a group name is 1-40 lowercase"),
+        ({"model": GOOD_GROUPS["department"]}, "a group name is 1-40 lowercase"),
+        (_department(means=""), "department.means must say"),
+        (_department(values=[]), "department.values must be a list"),
+        (_department(values=["hr", "hr"]), "'hr' is reserved or listed twice"),
+        (_department(values=["(none)"]), r"'\(none\)' is reserved or listed twice"),
+        (_department(values=["x" * 41]), "is not a value of 1-40 characters"),
+        (_department(values={"hr": 3}), "department.values.hr must be a one-line description"),
+        (_department(when_good=["hr"]), "needs means and values, or means, when_good and when_bad"),
+        (
+            {"tone": {**GOOD_GROUPS["tone"], "when_bad": ["happy"]}},
+            r"\['happy'\] on both sides",
+        ),
+        (_department(values=[f"v{n}" for n in range(31)]), "more than 30 values"),
     ],
 )
-def test_broken_label_lists_stop_core_at_startup(labels, complaint):
-    # Each group is a column and an attribute, so a group may not be added or dropped here.
+def test_broken_groups_stop_core_at_startup(groups, complaint):
     with pytest.raises(RuntimeError, match=complaint):
-        load_labels(labels)
+        load_label_groups(groups)
 
 
 @pytest.mark.parametrize(
     "key",
-    ["enabled", "endpoint_env", "deployment", "api_version", "timeout_seconds", "max_input_chars"],
+    [
+        "enabled",
+        "endpoint_env",
+        "deployment",
+        "api_version",
+        "timeout_seconds",
+        "max_input_chars",
+        "groups",
+    ],
 )
 def test_every_labeling_key_is_required(tmp_path, key):
     # The config is read once at import, so a copy of core with the key deleted is imported

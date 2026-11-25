@@ -147,15 +147,35 @@ def test_a_trajectory_for_a_whole_session_carries_no_skill(client, captured_writ
 def test_a_labeling_failure_still_stores_the_trajectory_with_201(
     client, captured_writes, monkeypatch
 ):
-    """Fail-open, unlike redaction: a label only groups trajectories, so a model that is
+    """Fail-open, unlike redaction: a label only groups ratings, so a model that is
     down costs the labels, never the conversation."""
-    from modules.labeling import label_trajectory
+    from modules.labeling import label_ratings
 
-    def boom(_digest):
+    def boom(_score, _prompt):
         raise TimeoutError("model too slow")
 
-    monkeypatch.setattr(label_trajectory, "LABELING_ENDPOINT", "https://aoai.example/")
-    monkeypatch.setattr(label_trajectory, "_ask_model", boom)
+    monkeypatch.setattr(label_ratings, "LABELING_ENDPOINT", "https://aoai.example/")
+    monkeypatch.setattr(label_ratings, "_ask_model", boom)
     assert client.post("/transcript", files=_multipart()).status_code == 201
     stored = captured_writes[-1]
-    assert (stored.business_case, stored.language, stored.task_type) == (None, None, None)
+    assert stored.labels == {}
+
+
+def test_the_ratings_score_and_comment_label_the_trajectory_but_are_not_stored(
+    client, captured_writes, monkeypatch
+):
+    """The hook sends the rating's fields along with the transcript; core hands them to
+    labeling, and the transcript keeps only the labels."""
+    from api import ingest_records
+
+    seen = {}
+
+    def label(**rating):
+        seen.update(rating)
+        return {"feedback_theme": "Completion is slow"}
+
+    monkeypatch.setattr(ingest_records, "label_rating", label)
+    files = {**_multipart(), "score": (None, "2"), "comment": (None, "far too slow")}
+    assert client.post("/transcript", files=files).status_code == 201
+    assert (seen["score"], seen["comment"]) == (2, "far too slow")
+    assert captured_writes[-1].labels == {"feedback_theme": "Completion is slow"}

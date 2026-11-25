@@ -55,8 +55,9 @@ class PostgresWriteAdapter:
             cur.execute(
                 """
                 INSERT INTO feedback
-                  (created_at, session_id, skill_name, agent, eval_name, score, comment, request_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                  (created_at, session_id, skill_name, agent, eval_name, score, comment, request_id,
+                   labels)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
                 """,
                 (
@@ -68,6 +69,7 @@ class PostgresWriteAdapter:
                     record.score,
                     record.comment,
                     record.request_id,
+                    json.dumps(record.labels),
                 ),
             )
 
@@ -77,8 +79,8 @@ class PostgresWriteAdapter:
                 """
                 INSERT INTO transcript
                   (created_at, session_id, skill_name, agent, schema_version, atif, request_id,
-                   business_case, language, task_type)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   labels)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (request_id) WHERE request_id IS NOT NULL DO NOTHING
                 """,
                 (
@@ -89,9 +91,7 @@ class PostgresWriteAdapter:
                     record.schema_version,
                     json.dumps(record.atif),
                     record.request_id,
-                    record.business_case,
-                    record.language,
-                    record.task_type,
+                    json.dumps(record.labels),
                 ),
             )
 

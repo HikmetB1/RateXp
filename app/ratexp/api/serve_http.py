@@ -38,6 +38,7 @@ from load_config import (
     QUERY_TIMEOUT_MS,
     WS_ENABLED,
 )
+from modules.read.clone_dashboard_from_base import read_label_groups
 from modules.read.open_read_source import open_read_source
 
 ENV = os.environ.get("RATEXP_ENV", "local").lower()
@@ -102,9 +103,13 @@ def healthz() -> dict[str, str]:
 def meta() -> dict:
     """What the UI needs to render the filter box for the active read source -
     whether the /query box is on, and the source's query language + an example -
-    the core its install popup tells users to install from, and the two row limits its
-    download popup quotes, so the popup says what config.yaml really sets."""
+    the core its install popup tells users to install from, the two row limits its
+    download popup quotes, so the popup says what config.yaml really sets, the label
+    groups of core/config.yaml, in the order of the Labels columns, and label_sides: for
+    each group that splits its values, each value's side, good or bad, which the UI
+    colors green or red."""
     read = app.state.read
+    label_groups = read_label_groups()
     return {
         "core_url": CORE_URL,
         "query_enabled": QUERY_ENABLED,
@@ -113,6 +118,8 @@ def meta() -> dict:
         "query_example": read.query_example,
         "list_view_limit": LIST_VIEW_LIMIT,
         "list_max_limit": LIST_MAX_LIMIT,
+        "label_groups": list(label_groups),
+        "label_sides": {group: sides for group, sides in label_groups.items() if sides},
     }
 
 

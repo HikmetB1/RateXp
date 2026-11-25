@@ -1,19 +1,20 @@
 {
   "name": "RateXp",
   "filters": {
-    "dql": "| lookup [fetch logs | filter ratexp.record_type == \"transcript\" and coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | fields request_id=ratexp.request_id, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type, model=ratexp.model], sourceField:ratexp.request_id, lookupField:request_id, prefix:\"transcript.\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" and matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) and matchesValue(coalesce(ratexp.skill_name, \"(none)\"), $skill) and matchesValue(splitString(ratexp.agent, \" \")[0], $agent) and matchesValue(coalesce(ratexp.eval_name, \"(none)\"), $eval) and matchesValue(coalesce(transcript.business_case, \"(none)\"), $business_case) and matchesValue(coalesce(transcript.language, \"(none)\"), $language) and matchesValue(coalesce(transcript.task_type, \"(none)\"), $task_type)",
+    "dql": "| lookup [fetch logs | filter ratexp.record_type == \"transcript\" and coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | fields request_id=ratexp.request_id, model=ratexp.model, business_case=ratexp.business_case, language=ratexp.language, task_type=ratexp.task_type, feedback_theme=ratexp.feedback_theme], sourceField:ratexp.request_id, lookupField:request_id, prefix:\"transcript.\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" and matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) and matchesValue(coalesce(ratexp.skill_name, \"(none)\"), $skill) and matchesValue(splitString(ratexp.agent, \" \")[0], $agent) and matchesValue(coalesce(ratexp.eval_name, \"(none)\"), $eval) and matchesValue(coalesce(transcript.business_case, ratexp.business_case, \"(none)\"), $business_case) and matchesValue(coalesce(transcript.language, ratexp.language, \"(none)\"), $language) and matchesValue(coalesce(transcript.task_type, ratexp.task_type, \"(none)\"), $task_type) and matchesValue(coalesce(transcript.feedback_theme, ratexp.feedback_theme, \"(none)\"), $feedback_theme)",
     "values": {
       "type": "data record(type=\"*\"), record(type=\"skill\"), record(type=\"session\")",
       "skill": "data record(skill=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{skill=coalesce(ratexp.skill_name, \"(none)\")} | fields skill | sort skill asc]",
       "agent": "data record(agent=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{agent=splitString(ratexp.agent, \" \")[0]} | fields agent | sort agent asc]",
       "eval": "data record(eval=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{eval=coalesce(ratexp.eval_name, \"(none)\")} | fields eval | sort eval asc]",
-      "business_case": "data record(business_case=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{business_case=coalesce(ratexp.business_case, \"(none)\")} | fields business_case | sort business_case asc]",
-      "language": "data record(language=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{language=coalesce(ratexp.language, \"(none)\")} | fields language | sort language asc]",
-      "task_type": "data record(task_type=\"*\") | append [fetch logs | filter ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{task_type=coalesce(ratexp.task_type, \"(none)\")} | fields task_type | sort task_type asc]"
+      "business_case": "data record(business_case=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" or ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{business_case=coalesce(ratexp.business_case, \"(none)\")} | fields business_case | sort business_case asc]",
+      "language": "data record(language=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" or ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{language=coalesce(ratexp.language, \"(none)\")} | fields language | sort language asc]",
+      "task_type": "data record(task_type=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" or ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{task_type=coalesce(ratexp.task_type, \"(none)\")} | fields task_type | sort task_type asc]",
+      "feedback_theme": "data record(feedback_theme=\"*\") | append [fetch logs | filter ratexp.record_type == \"feedback\" or ratexp.record_type == \"transcript\" | filter coalesce(deployment.environment.name, \"prod\") == \"{environment}\" | filter matchesValue(if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), $type) | summarize count(), by:{feedback_theme=coalesce(ratexp.feedback_theme, \"(none)\")} | fields feedback_theme | sort feedback_theme asc]"
     }
   },
   "download": {
-    "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 1000 | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name, agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score, comment=ratexp.comment, request_id=ratexp.request_id, business_case=transcript.business_case, language=transcript.language, task_type=transcript.task_type"
+    "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 1000 | fields created_at=timestamp, session_id=ratexp.session_id, skill_name=ratexp.skill_name, agent=ratexp.agent, eval_name=ratexp.eval_name, score=ratexp.score, comment=ratexp.comment, request_id=ratexp.request_id, business_case=coalesce(transcript.business_case, ratexp.business_case), language=coalesce(transcript.language, ratexp.language), task_type=coalesce(transcript.task_type, ratexp.task_type), feedback_theme=coalesce(transcript.feedback_theme, ratexp.feedback_theme)"
   },
   "panels": [
     {
@@ -65,13 +66,57 @@
       "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and isNotNull(ratexp.score) {filters} | summarize total=count(), good=countIf(ratexp.score == 1), bad=countIf(ratexp.score == 2), by:{name=coalesce(ratexp.eval_name, \"(none)\")} | fieldsAdd percent_good=round(100.0 * good / total, decimals:1) | sort percent_good asc, total desc"
     },
     {
+      "id": "top_complaints_by_feedback_theme",
+      "title": "Top complaints by feedback theme",
+      "kind": "count",
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and ratexp.score == 2 {filters} | fieldsAdd name=coalesce(transcript.feedback_theme, ratexp.feedback_theme) | filter isNotNull(name) | summarize total=count(), by:{name} | sort total desc, name asc"
+    },
+    {
+      "id": "top_praise_by_feedback_theme",
+      "title": "Top praise by feedback theme",
+      "kind": "count",
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" and ratexp.score == 1 {filters} | fieldsAdd name=coalesce(transcript.feedback_theme, ratexp.feedback_theme) | filter isNotNull(name) | summarize total=count(), by:{name} | sort total desc, name asc"
+    },
+    {
       "id": "feedback",
       "title": "Feedback",
       "kind": "table",
       "hidden_columns": [
         "request_id"
       ],
-      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 10 | fields When=timestamp, Type=if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), Name=coalesce(ratexp.skill_name, ratexp.session_id), Agent=ratexp.agent, Model=coalesce(transcript.model, splitString(ratexp.agent, \" \")[1]), Labels=if(isNotNull(transcript.business_case) or isNotNull(transcript.language) or isNotNull(transcript.task_type), concat(coalesce(transcript.business_case, \"—\"), \" · \", coalesce(transcript.language, \"—\"), \" · \", coalesce(transcript.task_type, \"—\"))), Eval=ratexp.eval_name, Score=if(ratexp.score == 1, \"good\", else:if(ratexp.score == 2, \"bad\")), Comment=ratexp.comment, Session=ratexp.session_id, request_id=transcript.request_id"
+      "dql": "fetch logs | filter ratexp.record_type == \"feedback\" {filters} | sort timestamp desc | limit 10 | fields When=timestamp, Type=if(isNull(ratexp.skill_name), \"session\", else:\"skill\"), Name=coalesce(ratexp.skill_name, ratexp.session_id), Agent=ratexp.agent, Model=coalesce(transcript.model, splitString(ratexp.agent, \" \")[1]), business_case=coalesce(transcript.business_case, ratexp.business_case), language=coalesce(transcript.language, ratexp.language), task_type=coalesce(transcript.task_type, ratexp.task_type), feedback_theme=coalesce(transcript.feedback_theme, ratexp.feedback_theme), Eval=ratexp.eval_name, Score=if(ratexp.score == 1, \"good\", else:if(ratexp.score == 2, \"bad\")), Comment=ratexp.comment, Session=ratexp.session_id, request_id=transcript.request_id"
     }
-  ]
+  ],
+  "label_groups": [
+    "business_case",
+    "language",
+    "task_type",
+    "feedback_theme"
+  ],
+  "label_sides": {
+    "feedback_theme": {
+      "Process is easy": "good",
+      "Completion is quick": "good",
+      "Result is correct": "good",
+      "Result is complete": "good",
+      "Instructions are followed": "good",
+      "Changes are in scope": "good",
+      "Answers are clear": "good",
+      "Agent is independent": "good",
+      "Actions are safe": "good",
+      "Tools are working": "good",
+      "Other praise": "good",
+      "Process is complex": "bad",
+      "Completion is slow": "bad",
+      "Result is wrong": "bad",
+      "Result is incomplete": "bad",
+      "Instructions are ignored": "bad",
+      "Changes are out of scope": "bad",
+      "Answers are unclear": "bad",
+      "Agent needs hand-holding": "bad",
+      "Actions are risky": "bad",
+      "Tools are broken": "bad",
+      "Other complaint": "bad"
+    }
+  }
 }

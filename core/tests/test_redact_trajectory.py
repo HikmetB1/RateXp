@@ -84,3 +84,34 @@ def test_a_provider_failure_propagates_so_the_upload_is_dropped(monkeypatch):
 def test_an_unknown_provider_name_is_refused():
     with pytest.raises(RuntimeError):
         redact_trajectory.get_redactor("nosuchprovider", endpoint="", languages=["en"])
+
+
+def test_a_comment_is_masked_as_one_text(monkeypatch):
+    fake = _FakeRedactor()
+    _enable(monkeypatch, fake)
+    assert redact_trajectory.redact_text("Ann at a@b.com was slow") == "[REDACTED]"
+    assert fake.calls == [["Ann at a@b.com was slow"]]
+
+
+def test_a_comment_stays_as_typed_with_redaction_off(monkeypatch):
+    monkeypatch.setattr(redact_trajectory, "REDACTION_ENABLED", False)
+    assert redact_trajectory.redact_text("Ann at a@b.com") == "Ann at a@b.com"
+
+
+def test_the_warm_up_builds_the_adapter_and_masks_once(monkeypatch):
+    fake = _FakeRedactor()
+    monkeypatch.setattr(redact_trajectory, "REDACTION_ENABLED", True)
+    monkeypatch.setattr(redact_trajectory, "_redactor", None)
+    monkeypatch.setattr(redact_trajectory, "get_redactor", lambda *_args, **_kwargs: fake)
+    redact_trajectory.warm_up_redaction()
+    assert redact_trajectory._redactor is fake
+    assert len(fake.calls) == 1
+
+
+def test_the_warm_up_does_nothing_with_redaction_off(monkeypatch):
+    def never_built(*_args, **_kwargs):
+        raise AssertionError("built an adapter while redaction is off")
+
+    monkeypatch.setattr(redact_trajectory, "REDACTION_ENABLED", False)
+    monkeypatch.setattr(redact_trajectory, "get_redactor", never_built)
+    redact_trajectory.warm_up_redaction()

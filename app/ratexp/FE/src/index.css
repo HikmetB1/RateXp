@@ -214,10 +214,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .table-scroll { overflow-x: auto; }
 
 .th {
-  text-align: left;
+  text-align: center;
   padding: 12px 8px;
   font-family: 'Press Start 2P', monospace;
   font-size: 9px;
+  /* Room between the lines of a two-word heading ("Business case"). */
+  line-height: 1.6;
+  /* A heading that spans both header rows (When, Type, ...) stays level with Labels. */
+  vertical-align: top;
   color: #fff;
   background: var(--ink);
   border: 2px solid var(--ink);
@@ -238,6 +242,14 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .name-session { display: block; margin-top: 4px; font-size: 11px; }
 /* Plain monospace for code in table cells (no chip box). */
 .data-table .td code { border: none; background: none; padding: 0; }
+/* Neutral values (type, name, agent, model, eval, comment, a label of a group that does not
+   split its values) are blue; a good side is green and a bad side red, as the score. */
+.data-table .td code, .neutral { color: var(--accent-2); }
+.data-table .td code.label-good, code.label-good { color: var(--good); }
+.data-table .td code.label-bad, code.label-bad { color: var(--bad); }
+/* The Labels header spans one column per label group; thin lines part the groups. */
+.th-group { border-bottom-color: var(--faint); }
+.th-sub { border-left-color: var(--faint); border-right-color: var(--faint); }
 
 tbody tr { transition: background 0.12s ease; }
 tbody tr:nth-child(even) { background: var(--panel2); }
@@ -518,6 +530,10 @@ summary:hover { opacity: 0.8; }
   margin-right: 4px;
 }
 .dm-val { display: inline-flex; align-items: center; gap: 4px; }
+/* The side panel's neutral values are blue, as in the table; a label's side keeps its color. */
+.dm-val code { color: var(--accent-2); }
+.dm-val code.label-good { color: var(--good); }
+.dm-val code.label-bad { color: var(--bad); }
 .drawer-close {
   background: var(--btn);
   border: 3px solid var(--ink);
@@ -619,7 +635,8 @@ summary:hover { opacity: 0.8; }
 }
 /* The filter dropdowns share the card's full width in equal columns, as many per row as
    fit at 140px or wider; the time range and Download sit on the row below. */
-.dashboard-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 16px; }
+/* All eight shipped filters fit on one line of a 1440px window; with less room they wrap. */
+.dashboard-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 16px; }
 .dashboard-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dashboard-select {
   font-family: 'Nunito', system-ui, sans-serif;
@@ -635,6 +652,7 @@ summary:hover { opacity: 0.8; }
 .dashboard-grid > * { min-width: 0; }
 .panel-number { grid-column: span 3; }
 .panel-bar { grid-column: span 4; }
+.panel-count { grid-column: span 6; }
 .panel-line, .panel-table { grid-column: span 12; }
 /* A bar panel lists every row, worst first, and scrolls inside its card past about 5 rows
    (a row is ~44px - the name line and its track - plus the 12px gap between rows). */
@@ -693,6 +711,6 @@ summary:hover { opacity: 0.8; }
 
   /* Dashboard panels: number tiles two across, everything else one per row. */
   .panel-number { grid-column: span 6; }
-  .panel-bar { grid-column: span 12; }
+  .panel-bar, .panel-count { grid-column: span 12; }
   .dashboard-filters { grid-template-columns: 1fr; }
 }

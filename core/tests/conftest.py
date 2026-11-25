@@ -9,7 +9,7 @@ asks for them or not, and all go wrong quietly if you forget they exist:
   redaction has to switch it back on itself (see test_redact_trajectory.py);
 * labeling is switched off by blanking its endpoint, so a developer's own
   AZURE_OPENAI_ENDPOINT cannot reach a model. A test that wants labeling sets one
-  itself (see test_label_trajectory.py).
+  itself (see test_label_ratings.py).
 """
 
 from __future__ import annotations
@@ -41,9 +41,9 @@ def _disable_redaction(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _disable_labeling(monkeypatch):
-    from modules.labeling import label_trajectory
+    from modules.labeling import label_ratings
 
-    monkeypatch.setattr(label_trajectory, "LABELING_ENDPOINT", "")
+    monkeypatch.setattr(label_ratings, "LABELING_ENDPOINT", "")
 
 
 @pytest.fixture

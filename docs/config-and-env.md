@@ -7,7 +7,7 @@
 
 | File | What you change in the file |
 |---|---|
-| [`core/config.yaml`](../core/config.yaml) | The destinations, redaction, labeling and its label lists, the default eval, how often RateXp asks, and the size and rate limits. See [core](../core/README.md#config-every-key-in-configyaml). |
+| [`core/config.yaml`](../core/config.yaml) | The destinations, redaction, labeling and its label groups, the default eval, how often RateXp asks, and the size and rate limits. See [core](../core/README.md#config-every-key-in-configyaml). |
 | `core/.env` ([example](../core/.env.example)) | The database, the public URL of core, the Azure OpenAI endpoint, and the URL and token of each destination. See [core](../core/README.md#env-the-secrets-core-reads). |
 | [`core/evals/`](../core/evals/) | The question and the two answers of each eval. One file is one eval. See [Human evals](./human-evals.md). |
 | [`core/modules/dashboard/`](../core/modules/dashboard/) | `dashboard_base.yaml`: the panels that every dashboard has.<br>`dashboard_for_app.yaml`: the SQL of each panel in the Dashboard view of the RateXp app.<br>`dashboard_for_dynatrace.yaml`: the DQL of each panel in the Dynatrace dashboard and the RateXp Dynatrace app.<br>See [ADR 0001](./adr/0001-one-panel-list-for-every-dashboard.md). |

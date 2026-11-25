@@ -175,31 +175,115 @@ LABELING_DEPLOYMENT: str = str(_require_in(_LABELING, "labeling", "deployment"))
 LABELING_API_VERSION: str = str(_require_in(_LABELING, "labeling", "api_version"))
 LABELING_TIMEOUT_SECONDS: float = float(_require_in(_LABELING, "labeling", "timeout_seconds"))
 LABELING_MAX_INPUT_CHARS: int = int(_require_in(_LABELING, "labeling", "max_input_chars"))
-# Each group is a transcript column and a ratexp.* attribute, so the names are fixed here;
-# only the words in each list come from the file.
-LABEL_GROUPS = ("business_case", "language", "task_type")
+
+# More groups or values make the small model less accurate, each call dearer and the
+# dashboards' filter row longer.
+MAX_LABEL_GROUPS = 8
+MAX_LABEL_VALUES = 30
+# What the model answers, and the dashboards show, for a group it cannot tell.
+NO_LABEL = "(none)"
+_LABEL_GROUP_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+# A group is a key in the labels column, a ratexp.<group> attribute and a dashboard filter
+# beside the fields and filters every record already has, so it may not take their names.
+_RESERVED_LABEL_GROUP_NAMES = frozenset(
+    {
+        "type", "skill", "agent", "eval", "since", "limit",
+        "id", "name", "created_at", "session_id", "skill_name", "eval_name", "score",
+        "rating", "comment", "request_id", "record_type", "schema_version", "atif", "labels",
+        "conversation", "steps", "tool_calls", "prompt_tokens", "cached_tokens",
+        "completion_tokens", "model",
+    }
+)  # fmt: skip
 
 
-def load_labels(labels) -> dict[str, list[str]]:
-    """The words the model may pick, per group: every group in LABEL_GROUPS, and no
-    other, each a non-empty list of distinct words."""
-    if not isinstance(labels, dict) or sorted(labels) != sorted(LABEL_GROUPS):
-        raise RuntimeError(f"config.yaml labeling.labels must hold exactly {list(LABEL_GROUPS)}")
-    for group in LABEL_GROUPS:
-        words = labels[group]
+class LabelGroup(NamedTuple):
+    """One group of config.yaml labeling.groups."""
+
+    means: str  # what the group tells about a rating, as the model reads it
+    values: dict[str, str]  # every value -> its description ("" when it has none)
+    when_good: tuple[str, ...]  # a split group's values for a good rating; () when not split
+    when_bad: tuple[str, ...]  # a split group's values for a bad rating; () when not split
+
+    def values_for(self, score: int | None) -> list[str]:
+        """The values a rating with `score` may get: one side of a split group when the
+        rating is good (1) or bad (2), else every value."""
+        if score == 1 and self.when_good:
+            return list(self.when_good)
+        if score == 2 and self.when_bad:
+            return list(self.when_bad)
+        return list(self.values)
+
+
+def _load_label_values(raw, where: str) -> dict[str, str]:
+    """A list of values, or a mapping of value: description, as value -> description."""
+    if isinstance(raw, dict):
+        pairs = list(raw.items())
+    elif isinstance(raw, list):
+        pairs = [(value, None) for value in raw]
+    else:
+        pairs = []
+    if not pairs:
+        raise RuntimeError(
+            f"config.yaml {where} must be a list of values or a mapping of value: description"
+        )
+    values: dict[str, str] = {}
+    for value, description in pairs:
+        if not isinstance(value, str) or not value.strip() or len(value) > 40:
+            raise RuntimeError(f"config.yaml {where}: {value!r} is not a value of 1-40 characters")
+        if value == NO_LABEL or value in values:
+            raise RuntimeError(f"config.yaml {where}: {value!r} is reserved or listed twice")
+        if description is not None and not isinstance(description, str):
+            raise RuntimeError(f"config.yaml {where}.{value} must be a one-line description")
+        values[value] = (description or "").strip()
+    return values
+
+
+def load_label_groups(groups) -> dict[str, LabelGroup]:
+    """config.yaml labeling.groups, checked: 1 to MAX_LABEL_GROUPS groups, each with a free
+    name, a `means` line, and either `values` or `when_good` and `when_bad`, of at most
+    MAX_LABEL_VALUES values in all."""
+    if not isinstance(groups, dict) or not 1 <= len(groups) <= MAX_LABEL_GROUPS:
+        raise RuntimeError(f"config.yaml labeling.groups must hold 1-{MAX_LABEL_GROUPS} groups")
+    loaded: dict[str, LabelGroup] = {}
+    for name, group in groups.items():
+        where = f"labeling.groups.{name}"
         if (
-            not isinstance(words, list)
-            or not words
-            or not all(isinstance(word, str) and word for word in words)
-            or len(set(words)) != len(words)
+            not isinstance(name, str)
+            or not _LABEL_GROUP_NAME.match(name)
+            or name in _RESERVED_LABEL_GROUP_NAMES
         ):
             raise RuntimeError(
-                f"config.yaml labeling.labels.{group} must be a list of distinct words"
+                f"config.yaml {where}: a group name is 1-40 lowercase letters, digits and _, "
+                f"starts with a letter, and is none of {sorted(_RESERVED_LABEL_GROUP_NAMES)}"
             )
-    return {group: labels[group] for group in LABEL_GROUPS}
+        means = group.get("means") if isinstance(group, dict) else None
+        if not isinstance(means, str) or not means.strip():
+            raise RuntimeError(f"config.yaml {where}.means must say what the group tells")
+        if set(group) == {"means", "values"}:
+            values = _load_label_values(group["values"], f"{where}.values")
+            when_good = when_bad = ()
+        elif set(group) == {"means", "when_good", "when_bad"}:
+            good = _load_label_values(group["when_good"], f"{where}.when_good")
+            bad = _load_label_values(group["when_bad"], f"{where}.when_bad")
+            if set(good) & set(bad):
+                raise RuntimeError(
+                    f"config.yaml {where}: {sorted(set(good) & set(bad))} on both sides"
+                )
+            values = {**good, **bad}
+            when_good, when_bad = tuple(good), tuple(bad)
+        else:
+            raise RuntimeError(
+                f"config.yaml {where} needs means and values, or means, when_good and when_bad"
+            )
+        if len(values) > MAX_LABEL_VALUES:
+            raise RuntimeError(f"config.yaml {where} has more than {MAX_LABEL_VALUES} values")
+        loaded[name] = LabelGroup(means.strip(), values, when_good, when_bad)
+    return loaded
 
 
-LABELS: dict[str, list[str]] = load_labels(_require_in(_LABELING, "labeling", "labels"))
+LABEL_GROUPS: dict[str, LabelGroup] = load_label_groups(
+    _require_in(_LABELING, "labeling", "groups")
+)
 
 # How many of the newest ratings a write destination with `retention: true` keeps.
 KEEP_NEWEST_RATINGS: int = _require_in(_require("retention"), "retention", "keep_newest")

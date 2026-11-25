@@ -19,9 +19,9 @@
   of `clone_dashboard_from_base.py` and `connect_to_postgres.py`.
 - **Data files from outside:** An image gets files from outside its folder only through an
   extra build context, and only data files:
-  - **App image, context `dashboard`:** The app image copies `dashboard_base.yaml` and
-    `dashboard_for_app.yaml` from `core/modules/dashboard/`. See
-    [ADR 0001](./0001-one-panel-list-for-every-dashboard.md).
+  - **App image, context `core`:** The app image copies `dashboard_base.yaml` and
+    `dashboard_for_app.yaml` from `core/modules/dashboard/`, and `core/config.yaml` for its
+    `labeling.groups`. See [ADR 0001](./0001-one-panel-list-for-every-dashboard.md).
   - **Core image, context `repo`:** The core image copies the repo to build the docs site. The
     `.dockerignore` in the repo root keeps local files, caches and secrets out of the core
     image.
@@ -37,6 +37,7 @@
 - **Plain `docker build`:** A plain `docker build` in the folder of core or app/ratexp fails,
   because the extra build context is missing. Use `docker-compose.yml` or the commands in
   Deploy to Azure.
-- **After a change to the dashboard files:** Build the app image again.
+- **After a change to the dashboard files or to `labeling.groups` in `core/config.yaml`:**
+  Build the app image again.
 - **After a change to a doc page:** Build the core image again, because the core image holds
   the docs site.

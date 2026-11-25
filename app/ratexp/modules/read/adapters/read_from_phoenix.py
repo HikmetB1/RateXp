@@ -19,20 +19,31 @@ filter can only ever read. Inherent limits, all from that same API:
 from __future__ import annotations
 
 import json
+import shlex
 import urllib.request
 from urllib.parse import quote, urlencode
 
 from load_config import LIST_MAX_LIMIT
+from modules.read.clone_dashboard_from_base import read_label_groups
 
 _SPANS_PATH = "/v1/projects/{project}/spans"
 _OTLP_TRACES_SUFFIX = "/v1/traces"
 # Every record field rides on an attribute under this prefix; the dashboard's
 # columns are the same names without it.
 _PREFIX = "ratexp."
+# Each label group of core/config.yaml is a ratexp.<group> attribute on both record types.
+_LABEL_GROUPS = list(read_label_groups())
 # Phoenix's own ceiling on ?limit - asking for more is rejected outright.
 _MAX_SPANS_PER_REQUEST = 1000
 # Filter-box keys that name part of the span itself rather than a ratexp attribute.
 _SPAN_KEYS = ("name", "span_kind", "status_code", "trace_id", "span_id", "parent_id")
+
+
+def _labels(attributes: dict) -> dict[str, str]:
+    """The span's label attributes as {group: value}, the groups it has a label for."""
+    return {
+        g: attributes[f"{_PREFIX}{g}"] for g in _LABEL_GROUPS if attributes.get(f"{_PREFIX}{g}")
+    }
 
 
 def _iso_seconds(value):
@@ -54,12 +65,16 @@ def _atif(raw, schema_version):
 
 
 def _parse_filters(query: str, max_rows: int) -> dict:
-    """``record_type:feedback skill_name:demo limit:20`` -> Phoenix's query params.
+    """``record_type:feedback skill_name:demo limit:20`` -> Phoenix's query params. A value
+    with spaces goes in quotes: ``feedback_theme:"Completion is slow"``.
 
     Anything that is not ``key:value`` raises ValueError, which /query turns into
     a 400 with the message below, rather than silently reading everything.
     """
-    tokens = query.split()
+    try:
+        tokens = shlex.split(query)
+    except ValueError as error:  # an unclosed quote
+        raise ValueError(f"{error} - close each quote") from error
     if not tokens:
         raise ValueError("empty query")
     params: dict = {"limit": max_rows}
@@ -182,6 +197,7 @@ class PhoenixReadAdapter:
             attributes.get(f"{_PREFIX}comment"),
             attributes.get(f"{_PREFIX}request_id"),
             attributes.get(f"{_PREFIX}eval_name"),
+            _labels(attributes),
         )
 
     def _transcript_row(self, span: dict) -> tuple:
@@ -195,7 +211,5 @@ class PhoenixReadAdapter:
             schema_version,
             _atif(attributes.get(f"{_PREFIX}atif"), schema_version),
             attributes.get(f"{_PREFIX}request_id"),
-            attributes.get(f"{_PREFIX}business_case"),
-            attributes.get(f"{_PREFIX}language"),
-            attributes.get(f"{_PREFIX}task_type"),
+            _labels(attributes),
         )
